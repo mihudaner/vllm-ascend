@@ -28,6 +28,7 @@ import torch_npu
 from vllm.config import get_current_vllm_config
 from vllm.distributed.parallel_state import get_ep_group
 
+from vllm_ascend import envs
 from vllm_ascend.ascend_config import get_ascend_config
 from vllm_ascend.ascend_forward_context import get_dispatch_v2_tokens_capacity, get_mc2_tokens_capacity
 from vllm_ascend.device.device_op import DeviceOperator
@@ -120,7 +121,13 @@ class TokenDispatcherWithMC2(MoETokenDispatcher[MoEMC2CombineMetadata]):
         self.enable_dispatch_v2 = hasattr(torch_npu, "npu_moe_distribute_dispatch_v2")
         self.need_extra_args = get_ascend_device_type() in [AscendDeviceType.A3, AscendDeviceType.A5]
         self.a5_need_extra_args = get_ascend_device_type() == AscendDeviceType.A5
-        self.mc2_comm_alg = get_ascend_config().get_mc2_comm_alg()
+        forced_comm_alg = envs.VLLM_ASCEND_MC2_COMM_ALG
+        if forced_comm_alg not in ("", "fullmesh_v2", "hierarchy"):
+            raise ValueError(
+                "Unsupported VLLM_ASCEND_MC2_COMM_ALG="
+                f"{forced_comm_alg!r}; expected '', 'fullmesh_v2', or 'hierarchy'."
+            )
+        self.mc2_comm_alg = forced_comm_alg or get_ascend_config().get_mc2_comm_alg()
 
         # When enable hierarchical communication or A5 case, param `expert_scales` need to be passed in.
         self.need_expert_scale = self.a5_need_extra_args or self.mc2_comm_alg == "hierarchy"

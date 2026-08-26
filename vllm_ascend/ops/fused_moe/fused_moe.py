@@ -43,6 +43,10 @@ from vllm_ascend.eplb.core.eplb_utils import init_eplb_config
 from vllm_ascend.lora.fused_moe import sync_lora_context
 from vllm_ascend.ops.activation import AscendSituAndMul, SituActivationConfig
 from vllm_ascend.ops.fused_moe.experts_selector import select_experts, zero_experts_compute
+from vllm_ascend.ops.fused_moe.force_eplb import (
+    build_cann_round_robin_topk,
+    cann_round_robin_enabled,
+)
 from vllm_ascend.ops.fused_moe.moe_comm_method import AllGatherCommImpl, FusedExpertsResult, setup_moe_comm_method
 from vllm_ascend.ops.fused_moe.moe_runtime_args import build_fused_experts_input
 from vllm_ascend.quantization.methods.base import get_moe_num_logical_experts
@@ -237,7 +241,13 @@ class AscendUnquantizedFusedMoEMethod(UnquantizedFusedMoEMethod):
         # this is a naive implementation for experts load balance so as
         # to avoid accumulating too much tokens on a single rank.
         # currently it is only activated when doing profile runs.
-        if enable_force_load_balance:
+        forced_topk_ids = None
+        if cann_round_robin_enabled():
+            forced_topk_ids = layer.get_force_eplb_topk(topk_ids, num_logical_experts)
+
+        if forced_topk_ids is not None:
+            topk_ids = forced_topk_ids
+        elif enable_force_load_balance:
             random_matrix = torch.rand(topk_ids.size(0), num_logical_experts, device=topk_ids.device)
             topk_ids = torch.argsort(random_matrix, dim=1)[:, : topk_ids.size(1)].to(topk_ids.dtype)
 
@@ -387,6 +397,9 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
 
         self.quant_type = self._get_quant_type()
 
+        routed_experts.get_force_eplb_topk = self.get_force_eplb_topk
+        routed_experts.prebuild_force_eplb_topk = self.prebuild_force_eplb_topk
+
         self.moe_config.tp_group = get_tp_group()
         self.moe_config.dp_group = get_dp_group()
         if self.moe_config.ep_size > 1:
@@ -524,6 +537,78 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
         if self._ascend_runtime_activation is not None:
             return self._ascend_runtime_activation
         return super().activation
+
+    def prebuild_force_eplb_topk(self, capture_sizes: list[int], device: torch.device) -> None:
+        if not cann_round_robin_enabled():
+            return
+        if self.dynamic_eplb:
+            raise RuntimeError(
+                "VLLM_ASCEND_FORCE_EPLB_POLICY=cann_round_robin cannot be mixed with dynamic_eplb."
+            )
+
+        cache = getattr(self, "_force_eplb_topk_cache", None)
+        if cache is None:
+            cache = {}
+            self._force_eplb_topk_cache = cache
+
+        num_logical_experts = self.moe_config.num_experts - self.global_redundant_expert_num
+        for num_tokens in capture_sizes:
+            key = (
+                int(num_tokens),
+                int(self.top_k),
+                int(num_logical_experts),
+                int(self.moe_config.ep_size),
+                int(self.ep_rank),
+            )
+            if key in cache:
+                continue
+            cache[key] = build_cann_round_robin_topk(
+                num_tokens=int(num_tokens),
+                top_k=int(self.top_k),
+                num_logical_experts=int(num_logical_experts),
+                ep_size=int(self.moe_config.ep_size),
+                ep_rank=int(self.ep_rank),
+                device=device,
+                dtype=torch.int32,
+            )
+
+    def get_force_eplb_topk(
+        self,
+        topk_ids: torch.Tensor,
+        num_logical_experts: int,
+    ) -> torch.Tensor | None:
+        if not cann_round_robin_enabled():
+            return None
+        if self.dynamic_eplb:
+            raise RuntimeError(
+                "VLLM_ASCEND_FORCE_EPLB_POLICY=cann_round_robin cannot be mixed with dynamic_eplb."
+            )
+
+        cache = getattr(self, "_force_eplb_topk_cache", None)
+        if cache is None:
+            cache = {}
+            self._force_eplb_topk_cache = cache
+
+        key = (
+            int(topk_ids.shape[0]),
+            int(topk_ids.shape[1]),
+            int(num_logical_experts),
+            int(self.moe_config.ep_size),
+            int(self.ep_rank),
+        )
+        table = cache.get(key)
+        if table is None:
+            table = build_cann_round_robin_topk(
+                num_tokens=int(topk_ids.shape[0]),
+                top_k=int(topk_ids.shape[1]),
+                num_logical_experts=int(num_logical_experts),
+                ep_size=int(self.moe_config.ep_size),
+                ep_rank=int(self.ep_rank),
+                device=topk_ids.device,
+                dtype=topk_ids.dtype,
+            )
+            cache[key] = table
+        return table.to(device=topk_ids.device, dtype=topk_ids.dtype)
 
     def _validate_shared_expert_consistency(self):
         """Validate that split shared expert computation matches integrated computation."""

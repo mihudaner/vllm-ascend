@@ -5234,8 +5234,21 @@ class NPUModelRunner(GPUModelRunner):
             if self.speculative_config:
                 set_draft_graph_params(draft_capture_sizes)
 
+    def _prebuild_force_eplb_topk_tables(self) -> None:
+        capture_sizes = list(
+            self.compilation_config.cudagraph_capture_sizes or []
+        )
+        if not capture_sizes:
+            capture_sizes = [self.max_num_tokens]
+
+        for module in self.model.modules():
+            fn = getattr(module, "prebuild_force_eplb_topk", None)
+            if fn is not None:
+                fn(capture_sizes, self.device)
+
     def capture_model(self) -> int:
         """Capture NPU graphs and return actual graph pool memory bytes consumed."""
+        self._prebuild_force_eplb_topk_tables()
         parent_module_name = _get_gpu_model_runner_module_name(self)
         with _torch_cuda_wrapper(), _replace_gpu_model_runner_function_wrapper(parent_module_name):
             cuda_graph_size = GPUModelRunner.capture_model(self)
