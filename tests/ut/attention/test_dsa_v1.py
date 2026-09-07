@@ -383,7 +383,11 @@ def test_decode_metadata_defers_device_work(
 
         if enabled:
             expected = (
-                list(DeviceMetadataStage)
+                [
+                    DeviceMetadataStage.COMPRESSOR,
+                    DeviceMetadataStage.INDEXER,
+                    DeviceMetadataStage.ATTENTION,
+                ]
                 if compressor_ratio == 4
                 else [DeviceMetadataStage.COMPRESSOR, DeviceMetadataStage.ATTENTION]
                 if compressor_ratio > 1
@@ -496,7 +500,11 @@ def test_prefill_metadata_defers_device_work(
 
         if enabled:
             expected_stages = (
-                list(DeviceMetadataStage)
+                [
+                    DeviceMetadataStage.COMPRESSOR,
+                    DeviceMetadataStage.INDEXER,
+                    DeviceMetadataStage.ATTENTION,
+                ]
                 if compressor_ratio == 4
                 else [DeviceMetadataStage.COMPRESSOR, DeviceMetadataStage.ATTENTION]
                 if compressor_ratio > 1
@@ -687,7 +695,16 @@ def test_full_graph_compressor_uses_stable_padded_extent(phase: str):
     ("compressor_ratio", "enabled", "expected_stages"),
     [
         (1, True, [DeviceMetadataStage.COMPRESSOR, DeviceMetadataStage.ATTENTION]),
-        (4, True, [DeviceMetadataStage.COMPRESSOR, *list(DeviceMetadataStage)]),
+        (
+            4,
+            True,
+            [
+                DeviceMetadataStage.COMPRESSOR,
+                DeviceMetadataStage.COMPRESSOR,
+                DeviceMetadataStage.INDEXER,
+                DeviceMetadataStage.ATTENTION,
+            ],
+        ),
         (128, True, [DeviceMetadataStage.COMPRESSOR, DeviceMetadataStage.COMPRESSOR, DeviceMetadataStage.ATTENTION]),
         (4, False, []),
     ],
