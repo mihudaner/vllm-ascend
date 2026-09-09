@@ -8,6 +8,13 @@ log() {
     echo "[build_aclnn] $*"
 }
 
+STATIC_CAST_OPS_ARRAY=(
+    "bf16_to_fp32_static_cast"
+    "fp32_to_bf16_static_cast"
+    "fp32_to_fp16_static_cast"
+    "bf16_to_fp16_static_cast"
+)
+
 setup_catlass_dependency() {
     local catlass_path="${ROOT_DIR}/csrc/third_party/catlass/include"
     local catlass_commit
@@ -167,6 +174,7 @@ elif [[ "$SOC_VERSION" =~ ^ascend910_93 ]]; then
         "quant_lightning_indexer_v2_metadata"
         "hc_pre_sinkhorn"
         "hc_pre_inv_rms"
+        "static.cast"
         "hc_post"
         "inplace_partial_rotary_mul"
         "rms_norm_dynamic_quant"
@@ -185,7 +193,15 @@ elif [[ "$SOC_VERSION" =~ ^ascend910_93 ]]; then
         "store_kv_block_metadata"
         "sparse_attention_score"
     )
-    CUSTOM_OPS=$(IFS=';'; echo "${CUSTOM_OPS_ARRAY[*]}")
+    COMPILE_OPS_ARRAY=()
+    for op_name in "${CUSTOM_OPS_ARRAY[@]}"; do
+        if [[ "${op_name}" == "static_cast" ]]; then
+            COMPILE_OPS_ARRAY+=("${STATIC_CAST_OPS_ARRAY[@]}")
+        else
+            COMPILE_OPS_ARRAY+=("${op_name}")
+        fi
+    done
+    CUSTOM_OPS=$(IFS=';'; echo "${COMPILE_OPS_ARRAY[*]}")
     SOC_ARG="ascend910_93"
 elif [[ "$SOC_VERSION" =~ ^ascend950 ]]; then
     log "matched SOC branch: ascend950"
