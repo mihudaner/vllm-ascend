@@ -110,12 +110,79 @@ class TestAscendConfig(TestBase):
         self.assertFalse(ascend_config.multistream_overlap_shared_expert)
         self.assertFalse(ascend_config.enable_kv_nz)
         self.assertEqual(ascend_config.mega_moe_max_tokens, 65536)
+        self.assertEqual(ascend_config.fused_mc2_backend, "auto")
 
         ascend_compilation_config = ascend_config.ascend_compilation_config
         self.assertTrue(ascend_compilation_config.fuse_norm_quant)
 
         ascend_fusion_config = ascend_config.ascend_fusion_config
         self.assertTrue(ascend_fusion_config.fusion_ops_gmmswigluquant)
+
+    @_clean_up_ascend_config
+    @patch("vllm_ascend.ascend_config._CANN_OPS_TRANSFORMER_AVAILABLE", True)
+    @patch("vllm_ascend.ascend_config.is_megamoe_supported_by_config", return_value=False)
+    @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")
+    def test_fused_deep_moe_backend_config(
+        self,
+        mock_fix_incompatible_config,
+        mock_is_megamoe_supported,
+    ):
+        test_vllm_config = VllmConfig()
+        test_vllm_config.parallel_config.enable_expert_parallel = True
+        test_vllm_config.parallel_config.data_parallel_size = 2
+        test_vllm_config.additional_config = {
+            "enable_fused_mc2": 1,
+            "fused_mc2_backend": "FUSED_DEEP_MOE",
+        }
+
+        ascend_config = init_ascend_config(test_vllm_config)
+
+        self.assertEqual(ascend_config.fused_mc2_backend, "fused_deep_moe")
+        self.assertEqual(ascend_config.enable_fused_mc2, 1)
+
+    @_clean_up_ascend_config
+    @patch("vllm_ascend.ascend_config._CANN_OPS_TRANSFORMER_AVAILABLE", True)
+    @patch("vllm_ascend.ascend_config.is_megamoe_supported_by_config", return_value=False)
+    @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")
+    def test_auto_backend_preserves_megamoe_config_fallback(
+        self,
+        mock_fix_incompatible_config,
+        mock_is_megamoe_supported,
+    ):
+        test_vllm_config = VllmConfig()
+        test_vllm_config.additional_config = {
+            "enable_fused_mc2": 1,
+            "fused_mc2_backend": "auto",
+        }
+
+        ascend_config = init_ascend_config(test_vllm_config)
+
+        self.assertEqual(ascend_config.fused_mc2_backend, "auto")
+        self.assertEqual(ascend_config.enable_fused_mc2, 0)
+
+    @_clean_up_ascend_config
+    @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")
+    def test_explicit_fused_mc2_backend_requires_enable_fused_mc2(self, mock_fix_incompatible_config):
+        test_vllm_config = VllmConfig()
+        test_vllm_config.additional_config = {
+            "enable_fused_mc2": 0,
+            "fused_mc2_backend": "fused_deep_moe",
+        }
+
+        with self.assertRaisesRegex(ValueError, "requires enable_fused_mc2=1"):
+            init_ascend_config(test_vllm_config)
+
+    @_clean_up_ascend_config
+    @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")
+    def test_rejects_unknown_fused_mc2_backend(self, mock_fix_incompatible_config):
+        test_vllm_config = VllmConfig()
+        test_vllm_config.additional_config = {
+            "enable_fused_mc2": 1,
+            "fused_mc2_backend": "unknown",
+        }
+
+        with self.assertRaisesRegex(ValueError, "Unsupported fused_mc2_backend"):
+            init_ascend_config(test_vllm_config)
 
     @_clean_up_ascend_config
     @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")

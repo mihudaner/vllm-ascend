@@ -692,3 +692,77 @@ def test_forward_impl_preserves_original_input_for_shared_experts(monkeypatch):
         router_logits,
         shared_experts_input,
     )
+
+
+def test_fused_deep_moe_config_does_not_override_mtp_mc2_fallback(monkeypatch):
+    runner = AscendMoERunner.__new__(AscendMoERunner)
+    hidden_states = torch.randn(2, 4)
+    router_logits = torch.randn(2, 8)
+    routed_out = torch.randn(2, 4)
+    quant_method = MagicMock()
+    quant_method.apply.return_value = SimpleNamespace(
+        routed_out=routed_out,
+        shared_out=None,
+        expert_tokens=None,
+        group_list_type=1,
+    )
+    runner.enable_npugraph_ex_static_kernel = False
+    runner.routed_experts = SimpleNamespace(
+        _ascend_moe_lora_context=None,
+        activation="silu",
+        quant_method=quant_method,
+    )
+    runner._ascend_runtime_activation = None
+    runner._shared_experts = object()
+    runner.enable_shared_expert_dp = False
+    runner.quant_type = QuantType.NONE
+    runner.top_k = 1
+    runner.renormalize = True
+    runner.use_grouped_topk = False
+    runner.moe_config = SimpleNamespace(num_experts=8)
+    runner._expert_map = None
+    runner.topk_group = None
+    runner.num_expert_group = None
+    runner.custom_routing_function = None
+    runner.scoring_func = "softmax"
+    runner._original_routed_scaling_factor = 1.0
+    runner.e_score_correction_bias = None
+    runner.apply_router_weight_on_input = False
+    runner.log2phy = None
+    runner.global_redundant_expert_num = 0
+    runner.dynamic_eplb = False
+    comm_method = MagicMock()
+    comm_method.prepare.return_value = SimpleNamespace(
+        hidden_states=hidden_states,
+        router_logits=router_logits,
+        mc2_mask=None,
+        padded_hidden_states_shape=None,
+        pertoken_scale=None,
+    )
+    comm_method.finalize.return_value = routed_out
+    monkeypatch.setattr(
+        fused_moe_module,
+        "_EXTRA_CTX",
+        SimpleNamespace(
+            in_profile_run=False,
+            flash_comm_v1_enabled=False,
+            moe_comm_type=MoECommType.MC2,
+            moe_comm_method=comm_method,
+            eplb_heat_collection_status=False,
+        ),
+    )
+    monkeypatch.setattr(
+        fused_moe_module,
+        "get_forward_context",
+        lambda: SimpleNamespace(all_moe_layers=[], moe_layer_index=0),
+    )
+    monkeypatch.setattr(
+        fused_moe_module,
+        "get_ascend_config",
+        lambda: SimpleNamespace(fused_mc2_backend="fused_deep_moe"),
+    )
+
+    result = runner.no_shared_forward_impl(hidden_states, router_logits)
+
+    assert result is routed_out
+    assert "shared_experts" not in runner._quant_method.apply.call_args.kwargs

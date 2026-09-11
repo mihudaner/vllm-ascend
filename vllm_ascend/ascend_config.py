@@ -183,6 +183,27 @@ class AscendConfig:
             ascend_envs.VLLM_ASCEND_ENABLE_FUSED_MC2,
         )
         assert self.enable_fused_mc2 in (0, 1), f"enable_fused_mc2 must be 0 or 1, got {self.enable_fused_mc2}"
+        self.fused_mc2_backend = additional_config.get("fused_mc2_backend", "auto")
+        if not isinstance(self.fused_mc2_backend, str):
+            raise ValueError(
+                "fused_mc2_backend must be a string, "
+                f"got {type(self.fused_mc2_backend).__name__}: {self.fused_mc2_backend}"
+            )
+        self.fused_mc2_backend = self.fused_mc2_backend.lower()
+        supported_fused_mc2_backends = {
+            "auto",
+            "mega_moe",
+            "dispatch_ffn_combine",
+            "fused_deep_moe",
+        }
+        if self.fused_mc2_backend not in supported_fused_mc2_backends:
+            raise ValueError(
+                f"Unsupported fused_mc2_backend={self.fused_mc2_backend!r}; "
+                f"expected one of {sorted(supported_fused_mc2_backends)}."
+            )
+        if self.fused_mc2_backend != "auto" and self.enable_fused_mc2 != 1:
+            raise ValueError("An explicit fused_mc2_backend requires enable_fused_mc2=1.")
+
         model_architectures = getattr(vllm_config.model_config, "architectures", None) or []
         assert not (
             self.enable_fused_mc2 == 1
@@ -199,6 +220,7 @@ class AscendConfig:
             )
         if (
             self.enable_fused_mc2 == 1
+            and self.fused_mc2_backend == "auto"
             and _CANN_OPS_TRANSFORMER_AVAILABLE
             and not is_megamoe_supported_by_config(vllm_config)
         ):
@@ -347,6 +369,7 @@ class AscendConfig:
 
         self.mix_placement = additional_config.get("mix_placement", False)
         self._check_mix_placement()
+        self._check_fused_deep_moe()
 
         # Enable Block Verify and Entropy Verify in Rejection Sampler
         rejection_sampler_config = additional_config.get("rejection_sampler_config", {})
@@ -410,6 +433,26 @@ class AscendConfig:
         if self.mix_placement:
             if self.enable_shared_expert_dp or self.multistream_overlap_shared_expert:
                 raise ValueError("Mix placement is not supported with shared expert DP or multistream overlap.")
+
+    def _check_fused_deep_moe(self):
+        if self.fused_mc2_backend != "fused_deep_moe":
+            return
+        if self.mix_placement:
+            raise ValueError("fused_deep_moe requires mix_placement=false.")
+        if self.enable_shared_expert_dp:
+            raise ValueError("fused_deep_moe does not support shared expert DP.")
+        if self.vllm_config.parallel_config.tensor_parallel_size != 1:
+            raise ValueError("fused_deep_moe only supports tensor_parallel_size=1.")
+        if not self.vllm_config.parallel_config.enable_expert_parallel:
+            raise ValueError("fused_deep_moe requires expert parallelism.")
+        ep_world_size = (
+            self.vllm_config.parallel_config.world_size_across_dp
+            // self.vllm_config.parallel_config.pipeline_parallel_size
+        )
+        if ep_world_size <= 1:
+            raise ValueError("fused_deep_moe requires EP size > 1.")
+        if self.vllm_config.lora_config is not None:
+            raise ValueError("fused_deep_moe does not support MoE LoRA.")
 
     @staticmethod
     def _materialize_dump_config_to_file(dump_config: dict[str, Any]) -> str:

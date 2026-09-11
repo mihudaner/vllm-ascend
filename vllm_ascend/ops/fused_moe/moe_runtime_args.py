@@ -69,6 +69,7 @@ from vllm_ascend.ops.fused_moe.moe_stage_contracts import (
     MoEMC2CombineMetadata,
     MoEMlpComputeInput,
     MoEPrepareOutput,
+    MoESharedExpertWeights,
     MoETokenDispatchInput,
     MoETokenDispatchOutput,
     MoEWeights,
@@ -150,6 +151,8 @@ def build_fused_experts_input(
     swiglu_limit: float | None = 0.0,
     swiglu_alpha: float | None = 1.0,
     swiglu_beta: float | None = 0.0,
+    expert_smooth_scales: torch.Tensor | None = None,
+    shared_experts: MoESharedExpertWeights | None = None,
     lora_context=None,
     combine_topk_weights_dtype: torch.dtype | None = None,
 ) -> MoEFusedExpertsInput:
@@ -206,6 +209,8 @@ def build_fused_experts_input(
         swiglu_limit=swiglu_limit,
         swiglu_alpha=swiglu_alpha,
         swiglu_beta=swiglu_beta,
+        expert_smooth_scales=expert_smooth_scales,
+        shared_experts=shared_experts,
         lora_context=lora_context,
         combine_topk_weights_dtype=combine_topk_weights_dtype,
     )
@@ -276,6 +281,7 @@ __all__ = [
     "MoEPrepareOutput",
     "MoEQuantParams",
     "MoERoutingParams",
+    "MoESharedExpertWeights",
     "MoETokenDispatchInput",
     "MoETokenDispatchOutput",
     "MoEWeights",

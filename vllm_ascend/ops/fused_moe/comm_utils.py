@@ -120,6 +120,19 @@ def load_cann_mega_moe_ops():
     return get_symm_buffer_for_mega_moe, mega_moe
 
 
+def load_bytenn_fused_deep_moe_op():
+    try:
+        import_module("bytenn_ops")
+    except ImportError as exc:
+        raise RuntimeError(
+            "fused_mc2_backend='fused_deep_moe' requires the bytenn_ops Python package."
+        ) from exc
+    try:
+        return torch.ops.bytenn_ops.fused_deep_moe
+    except AttributeError as exc:
+        raise RuntimeError("bytenn_ops is installed, but fused_deep_moe is not registered.") from exc
+
+
 def _get_cann_mega_moe_quant_settings(quant_type: QuantType) -> tuple[int, int | None, int | None]:
     # Returns (dispatch_quant_mode, dispatch_quant_out_dtype, weight_type).
     # The current custom op package still requires explicit INT4 for W4A8

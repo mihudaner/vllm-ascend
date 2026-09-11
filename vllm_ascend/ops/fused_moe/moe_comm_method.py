@@ -76,6 +76,7 @@ def set_gmmswigluquant_method():
 @dataclass
 class FusedExpertsResult:
     routed_out: torch.Tensor
+    shared_out: torch.Tensor | None = None
     # This field is for shared experts and should be set by the MoE
     # communication method that supports shared experts in parallel with routed
     # experts.
@@ -283,14 +284,22 @@ class FusedMC2CommImpl(MoECommMethod):
 
     def __init__(self, moe_config):
         super().__init__(moe_config)
-        if _CANN_OPS_TRANSFORMER_AVAILABLE:
+        ascend_config = get_ascend_config()
+        backend = getattr(ascend_config, "fused_mc2_backend", "auto")
+        self.fused_mc2_backend = backend
+        if backend in {"auto", "mega_moe"} and _CANN_OPS_TRANSFORMER_AVAILABLE:
             self.mega_moe_symm_buffer = None
             self.get_symm_buffer_for_mega_moe, self.mega_moe = comm_utils.load_cann_mega_moe_ops()
+        elif backend == "mega_moe":
+            raise RuntimeError("fused_mc2_backend='mega_moe' requires cann_ops_transformer.")
+        elif backend == "fused_deep_moe":
+            self.fused_deep_moe = comm_utils.load_bytenn_fused_deep_moe_op()
 
-        if get_ascend_config().enable_fused_mc2 == 1:
+        if ascend_config.enable_fused_mc2 == 1 and backend in {"auto", "dispatch_ffn_combine"}:
             self.expert_token_nums = torch.zeros([self.moe_config.num_local_experts], dtype=torch.int32, device="npu")
         else:
             self.expert_token_nums = None
+        logger.info_once("FUSED_MC2 backend configured: %s.", backend)
 
     def pad_and_split_input_ids(self, input_ids):
         return self.prepare_finalize.pad_and_split_input_ids(input_ids)  # type: ignore[attr-defined]
@@ -467,6 +476,80 @@ class FusedMC2CommImpl(MoECommMethod):
         # return value, so there is nothing to keep on the instance.
         return out, expert_tokens
 
+    def _apply_fused_deep_moe(
+        self,
+        fused_experts_input: MoEFusedExpertsInput,
+        topk_ids: torch.Tensor,
+    ):
+        if fused_experts_input.quant.quant_type != QuantType.W8A8:
+            raise ValueError("fused_deep_moe only supports W8A8.")
+        if fused_experts_input.dynamic_eplb:
+            if fused_experts_input.routing.log2phy is None or fused_experts_input.routing.expert_map is None:
+                raise ValueError("fused_deep_moe dynamic EPLB requires expert_map and log2phy.")
+            if fused_experts_input.expert_smooth_scales is not None:
+                raise ValueError("fused_deep_moe dynamic EPLB does not support routed expert smooth scales.")
+            ep_world_size = self.token_dispatcher.ep_world_size
+            if self.moe_config.num_experts > 512 or self.moe_config.num_experts % ep_world_size != 0:
+                raise ValueError(
+                    "fused_deep_moe requires the physical expert count to be at most 512 "
+                    f"and divisible by the EP size, got experts={self.moe_config.num_experts}, "
+                    f"ep_size={ep_world_size}."
+                )
+            expected_local_experts = self.moe_config.num_experts // ep_world_size
+            dynamic_weights = {
+                "w1": fused_experts_input.weights.w1,
+                "w1_scale": fused_experts_input.weights.w1_scale,
+                "w2": fused_experts_input.weights.w2,
+                "w2_scale": fused_experts_input.weights.w2_scale,
+            }
+            for name, tensors in dynamic_weights.items():
+                if not isinstance(tensors, list) or len(tensors) != expected_local_experts:
+                    raise ValueError(
+                        f"fused_deep_moe dynamic EPLB requires {name} to contain "
+                        f"{expected_local_experts} local expert tensors."
+                    )
+        if fused_experts_input.hidden_states.shape[0] > 256:
+            raise ValueError(
+                "fused_deep_moe supports at most 256 input tokens per rank, "
+                f"got {fused_experts_input.hidden_states.shape[0]}."
+            )
+        if fused_experts_input.lora_context is not None:
+            raise ValueError("fused_deep_moe does not support MoE LoRA.")
+        if fused_experts_input.swiglu_alpha != 1 or fused_experts_input.swiglu_beta != 0:
+            logger.warning_once(
+                "fused_deep_moe does not expose SwiGLU alpha/beta; numerical parity must be verified "
+                "for swiglu_alpha=%s, swiglu_beta=%s.",
+                fused_experts_input.swiglu_alpha,
+                fused_experts_input.swiglu_beta,
+            )
+        shared_experts = fused_experts_input.shared_experts
+        if shared_experts is None:
+            raise ValueError("fused_deep_moe requires shared expert weights.")
+        assert isinstance(self.token_dispatcher, TokenDispatcherWithMC2)
+        return self.fused_deep_moe(
+            x=fused_experts_input.hidden_states,
+            expert_ids=topk_ids.to(torch.int32),
+            gmm1_weight=fused_experts_input.weights.w1,
+            gmm1_weight_scale=fused_experts_input.weights.w1_scale,
+            gmm2_weight=fused_experts_input.weights.w2,
+            gmm2_weight_scale=fused_experts_input.weights.w2_scale,
+            expert_scales=fused_experts_input.topk_weights.to(torch.float32),
+            share_gmm1_weight=shared_experts.w1,
+            share_gmm1_weight_scale=shared_experts.w1_scale,
+            share_gmm2_weight=shared_experts.w2,
+            share_gmm2_weight_scale=shared_experts.w2_scale,
+            expert_smooth_scales=fused_experts_input.expert_smooth_scales,
+            share_smooth_scales=shared_experts.smooth_scales,
+            x_active_mask=fused_experts_input.routing.mc2_mask,
+            group_ep=self.token_dispatcher.moe_all_to_all_group_name,
+            ep_rank_size=self.token_dispatcher.ep_world_size,
+            ep_rank_id=self.token_dispatcher.ep_rank_id,
+            moe_expert_num=self.moe_config.num_experts,
+            quant_mode=0,
+            global_bs=self.token_dispatcher.global_bs,
+            swiglu_clamp=fused_experts_input.swiglu_limit,
+        )
+
     def fused_experts(
         self,
         fused_experts_input: MoEFusedExpertsInput,
@@ -486,8 +569,13 @@ class FusedMC2CommImpl(MoECommMethod):
             topk_ids = fused_experts_input.routing.log2phy[topk_ids]
 
         expert_tokens = None
+        shared_out = None
         if get_ascend_config().enable_fused_mc2 == 1:
-            if _EXTRA_CTX.use_mega_moe:
+            if self.fused_mc2_backend == "fused_deep_moe":
+                out, shared_out, expert_tokens = self._apply_fused_deep_moe(fused_experts_input, topk_ids)
+            elif self.fused_mc2_backend == "mega_moe" or (
+                self.fused_mc2_backend == "auto" and _EXTRA_CTX.use_mega_moe
+            ):
                 out, expert_tokens = self._apply_cann_mega_moe(
                     fused_experts_input,
                     topk_ids,
@@ -498,6 +586,7 @@ class FusedMC2CommImpl(MoECommMethod):
                     fused_experts_input.weights.w1_scale_bias is None
                     or fused_experts_input.weights.w2_scale_bias is None
                 ), "w1_scale_bias and w2_scale_bias cannot be None when enable_fused_mc2=1."
+                assert self.expert_token_nums is not None
 
                 out = torch.empty_like(fused_experts_input.hidden_states)
                 torch.ops._C_ascend.dispatch_ffn_combine(  # type: ignore
@@ -522,6 +611,8 @@ class FusedMC2CommImpl(MoECommMethod):
             raise ValueError(f"Wrong value of {get_ascend_config().enable_fused_mc2=}")
         return FusedExpertsResult(
             routed_out=out,
+            shared_out=shared_out,
+            group_list_type=1,
             expert_tokens=expert_tokens,
             swiglu_limit=fused_experts_input.swiglu_limit,
             swiglu_alpha=fused_experts_input.swiglu_alpha,

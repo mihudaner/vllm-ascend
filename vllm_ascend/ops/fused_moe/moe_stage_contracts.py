@@ -58,6 +58,17 @@ class MoEWeights:
 
 
 @dataclass(frozen=True, slots=True)
+class MoESharedExpertWeights:
+    """Shared expert payload consumed by fused routed/shared kernels."""
+
+    w1: torch.Tensor
+    w2: torch.Tensor
+    w1_scale: torch.Tensor
+    w2_scale: torch.Tensor
+    smooth_scales: torch.Tensor | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class MoEFusedExpertsInput:
     """Top-level input for the routed experts pipeline."""
 
@@ -73,6 +84,8 @@ class MoEFusedExpertsInput:
     swiglu_limit: float = 0.0
     swiglu_alpha: float = 1.0
     swiglu_beta: float = 0.0
+    expert_smooth_scales: torch.Tensor | None = None
+    shared_experts: MoESharedExpertWeights | None = None
     # Optional per-layer MoE LoRA state (vllm_ascend.lora MoELoRAContext).
     # ``Any`` avoids coupling the core contracts to the LoRA module; only the
     # unquant MLP path reads it, and only when a LoRA adapter is active.
@@ -166,6 +179,7 @@ class MoEMlpComputeInput:
 __all__ = [
     "MoEPrepareOutput",
     "MoEWeights",
+    "MoESharedExpertWeights",
     "MoEFusedExpertsInput",
     "MoETokenDispatchInput",
     "MoEMC2CombineMetadata",

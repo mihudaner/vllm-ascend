@@ -87,6 +87,7 @@ def _patch_select_moe_comm_method_deps(
     ep_world_size: int = 8,
     enable_fused_mc2: int = 0,
     enable_prefill_mc2: int = 0,
+    fused_mc2_backend: str = "auto",
     is_moe: bool = True,
 ):
     monkeypatch.setattr(afc, "is_moe_model", lambda _: is_moe)
@@ -96,7 +97,11 @@ def _patch_select_moe_comm_method_deps(
     monkeypatch.setattr(
         afc,
         "get_ascend_config",
-        lambda: SimpleNamespace(enable_fused_mc2=enable_fused_mc2, enable_prefill_mc2=enable_prefill_mc2),
+        lambda: SimpleNamespace(
+            enable_fused_mc2=enable_fused_mc2,
+            enable_prefill_mc2=enable_prefill_mc2,
+            fused_mc2_backend=fused_mc2_backend,
+        ),
     )
 
 
@@ -165,6 +170,27 @@ def test_set_mc2_tokens_capacity_prefill_mc2_uses_max_num_batched_tokens(monkeyp
     afc.set_mc2_tokens_capacity(vllm_config, max_num_reqs=16, uniform_decode_query_len=1)
 
     assert afc.get_mc2_tokens_capacity() == 520
+
+
+def test_set_mc2_tokens_capacity_fused_deep_moe_keeps_dispatch_v2_capacity(monkeypatch):
+    monkeypatch.setattr(
+        afc,
+        "get_ascend_config",
+        lambda: SimpleNamespace(
+            enable_prefill_mc2=False,
+            enable_fused_mc2=1,
+            fused_mc2_backend="fused_deep_moe",
+        ),
+    )
+    vllm_config = _make_vllm_config(
+        cudagraph_capture_sizes=[1, 2],
+        max_cudagraph_capture_size=1024,
+    )
+
+    afc.set_mc2_tokens_capacity(vllm_config, max_num_reqs=16, uniform_decode_query_len=1)
+
+    assert afc.get_mc2_tokens_capacity() == 256
+    assert afc.get_dispatch_v2_tokens_capacity() == 512
 
 
 def test_set_mc2_tokens_capacity_decode_only_uses_cudagraph_capture_size(monkeypatch):
@@ -330,6 +356,46 @@ def test_select_moe_comm_method_a3_enable_fused_mc2_mode_1(
     vllm_config = _make_vllm_config(quant_type="w4a8")
 
     assert afc.select_moe_comm_method(num_tokens, vllm_config) == expected
+
+
+def test_select_moe_comm_method_a3_fused_deep_moe_token_limit(monkeypatch):
+    _patch_select_moe_comm_method_deps(
+        monkeypatch,
+        device_type=afc.AscendDeviceType.A3,
+        ep_world_size=64,
+        enable_fused_mc2=1,
+        fused_mc2_backend="fused_deep_moe",
+    )
+    vllm_config = _make_vllm_config(world_size=64)
+
+    assert afc.select_moe_comm_method(256, vllm_config) == MoECommType.FUSED_MC2
+    with pytest.raises(ValueError, match="at most 256"):
+        afc.select_moe_comm_method(257, vllm_config)
+
+
+def test_select_moe_comm_method_a3_dispatch_backend_rejects_large_ep(monkeypatch):
+    _patch_select_moe_comm_method_deps(
+        monkeypatch,
+        device_type=afc.AscendDeviceType.A3,
+        ep_world_size=33,
+        enable_fused_mc2=1,
+        fused_mc2_backend="dispatch_ffn_combine",
+    )
+
+    with pytest.raises(ValueError, match="EP size <= 32"):
+        afc.select_moe_comm_method(128, _make_vllm_config(world_size=33))
+
+
+def test_select_moe_comm_method_fused_deep_moe_rejects_non_a3(monkeypatch):
+    _patch_select_moe_comm_method_deps(
+        monkeypatch,
+        device_type=afc.AscendDeviceType.A2,
+        enable_fused_mc2=1,
+        fused_mc2_backend="fused_deep_moe",
+    )
+
+    with pytest.raises(ValueError, match="only supported on A3"):
+        afc.select_moe_comm_method(128, _make_vllm_config())
 
 
 @pytest.mark.parametrize(
@@ -516,3 +582,21 @@ def test_select_a3_draft_quant_mismatch(
     vllm_config = _make_vllm_config()
 
     assert afc.select_moe_comm_method(num_tokens, vllm_config, is_draft_model=is_draft_model) == expected
+
+
+def test_select_a3_fused_deep_moe_respects_draft_quant_mismatch(monkeypatch):
+    _patch_select_moe_comm_method_deps(
+        monkeypatch,
+        device_type=afc.AscendDeviceType.A3,
+        capacity=256,
+        ep_world_size=8,
+        enable_fused_mc2=1,
+        fused_mc2_backend="fused_deep_moe",
+    )
+    monkeypatch.setattr(afc, "get_dispatch_v2_tokens_capacity", lambda: 128)
+    monkeypatch.setattr(afc, "_moe_quant_mismatch", True)
+
+    assert (
+        afc.select_moe_comm_method(128, _make_vllm_config(), is_draft_model=True)
+        == MoECommType.MC2
+    )

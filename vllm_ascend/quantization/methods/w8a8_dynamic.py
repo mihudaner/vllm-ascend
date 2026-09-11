@@ -27,7 +27,7 @@ from vllm_ascend.ascend_config import get_ascend_config
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType, use_cann_megamoe
 from vllm_ascend.distributed.parallel_state import get_mc2_group
 from vllm_ascend.ops.fused_moe.experts_selector import select_experts, zero_experts_compute
-from vllm_ascend.ops.fused_moe.moe_runtime_args import build_fused_experts_input
+from vllm_ascend.ops.fused_moe.moe_runtime_args import MoESharedExpertWeights, build_fused_experts_input
 from vllm_ascend.utils import ACL_FORMAT_FRACTAL_NZ, enable_dsa_cp, maybe_trans_nz
 
 from .base import AscendLinearScheme, AscendMoEScheme, QuantType, get_moe_num_logical_experts
@@ -233,6 +233,7 @@ class AscendW8A8DynamicFusedMoEMethod(AscendMoEScheme):
         apply_router_weight_on_input: bool = False,
         mc2_mask: torch.Tensor | None = None,
         tid2eid: torch.Tensor | None = None,
+        shared_experts: torch.nn.Module | None = None,
     ) -> torch.Tensor:
         zero_expert_num = getattr(layer, "zero_expert_num", 0)
         zero_expert_type = getattr(layer, "zero_expert_type", None)
@@ -295,9 +296,32 @@ class AscendW8A8DynamicFusedMoEMethod(AscendMoEScheme):
 
         act_name = getattr(activation, "value", activation)
         moe_comm_method = _EXTRA_CTX.moe_comm_method
+        use_fused_deep_moe = (
+            _EXTRA_CTX.moe_comm_type == MoECommType.FUSED_MC2
+            and getattr(get_ascend_config(), "fused_mc2_backend", "auto") == "fused_deep_moe"
+        )
+        if use_fused_deep_moe:
+            if x.shape[0] > 256:
+                raise ValueError(f"fused_deep_moe supports at most 256 input tokens per rank, got {x.shape[0]}.")
+            if shared_experts is None:
+                raise ValueError("fused_deep_moe requires an independently represented shared expert.")
+            if getattr(shared_experts, "expert_gate", None) is not None:
+                raise ValueError("fused_deep_moe does not support an additional shared expert gate.")
+            swiglu_alpha = getattr(layer, "swiglu_alpha", 1.0)
+            swiglu_beta = getattr(layer, "swiglu_beta", 0.0)
+            if swiglu_alpha != 1.0 or swiglu_beta != 0.0:
+                logger.warning_once(
+                    "fused_deep_moe does not expose SwiGLU alpha/beta; numerical parity must be verified "
+                    "for swiglu_alpha=%s, swiglu_beta=%s.",
+                    swiglu_alpha,
+                    swiglu_beta,
+                )
+            if getattr(layer, "_ascend_moe_lora_context", None) is not None:
+                raise ValueError("fused_deep_moe does not support MoE LoRA.")
         fused_scale_flag = (
             _EXTRA_CTX.moe_comm_type == MoECommType.FUSED_MC2
             and get_ascend_config().enable_fused_mc2 == 1
+            and not use_fused_deep_moe
             and act_name != "swigluoai_uninterleave"
         )
         if self.dynamic_eplb:
@@ -324,6 +348,17 @@ class AscendW8A8DynamicFusedMoEMethod(AscendMoEScheme):
             w1_scale_bias = [torch.tensor([], dtype=torch.float32)] if fused_scale_flag else None
             w2_scale_bias = [torch.tensor([], dtype=torch.float32)] if fused_scale_flag else None
 
+        shared_expert_weights = None
+        if use_fused_deep_moe:
+            assert shared_experts is not None
+            shared_expert_weights = MoESharedExpertWeights(
+                w1=shared_experts.gate_up_proj.weight,
+                w2=shared_experts.down_proj.weight,
+                w1_scale=shared_experts.gate_up_proj.weight_scale_fp32,
+                w2_scale=shared_experts.down_proj.weight_scale,
+                smooth_scales=getattr(shared_experts, "smooth_scales", None),
+            )
+
         final_hidden_states = moe_comm_method.fused_experts(
             fused_experts_input=build_fused_experts_input(
                 hidden_states=x,
@@ -348,6 +383,8 @@ class AscendW8A8DynamicFusedMoEMethod(AscendMoEScheme):
                 swiglu_limit=layer.swiglu_limit,
                 swiglu_alpha=getattr(layer, "swiglu_alpha", 1.0),
                 swiglu_beta=getattr(layer, "swiglu_beta", 0.0),
+                expert_smooth_scales=getattr(layer, "expert_smooth_scales", None),
+                shared_experts=shared_expert_weights,
             )
         )
         if zero_expert_num > 0 and zero_expert_type is not None:

@@ -68,6 +68,7 @@ def get_compressed_expert_map(expert_map: torch.Tensor) -> str:
 @dataclass
 class FusedMoEResult:
     routed_out: torch.Tensor
+    shared_out: torch.Tensor | None = None
     before_dispatch_evt: torch.npu.Event | None = None
     before_gmm2_evt: torch.npu.Event | None = None
     before_combine_evt: torch.npu.Event | None = None
@@ -753,6 +754,13 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
         # apply() expects a RoutedExperts-like layer for weight access
         # (w13_weight, w2_weight, swiglu_limit, etc.). Pass routed_experts,
         # not self; the routing params come through the other kwargs.
+        fused_deep_moe_enabled = (
+            _EXTRA_CTX.moe_comm_type == MoECommType.FUSED_MC2
+            and getattr(get_ascend_config(), "fused_mc2_backend", "auto") == "fused_deep_moe"
+        )
+        if fused_deep_moe_enabled and self.quant_type != QuantType.W8A8:
+            raise ValueError("fused_deep_moe only supports W8A8.")
+        fused_backend_kwargs = {"shared_experts": self._shared_experts} if fused_deep_moe_enabled else {}
         fused_experts_results: FusedExpertsResult = self._quant_method.apply(
             layer=self.routed_experts,
             x=hidden_states,
@@ -775,6 +783,7 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             log2phy=self.log2phy,
             global_redundant_expert_num=self.global_redundant_expert_num,
             mc2_mask=mc2_mask,
+            **fused_backend_kwargs,
         )
 
         if self.dynamic_eplb and _EXTRA_CTX.eplb_heat_collection_status:
@@ -802,6 +811,13 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             reduce_results=isinstance(_EXTRA_CTX.moe_comm_method, AllGatherCommImpl),
             padded_hidden_states_shape=padded_hidden_states_shape,
         )
+        shared_out = None
+        if fused_experts_results.shared_out is not None:
+            shared_out = _EXTRA_CTX.moe_comm_method.finalize(
+                hidden_states=fused_experts_results.shared_out,
+                reduce_results=False,
+                padded_hidden_states_shape=padded_hidden_states_shape,
+            )
 
         # clear per-forward LoRA state from long-lived singletons.
         if lora_context is not None:
@@ -810,6 +826,7 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
         if return_with_event:
             return FusedMoEResult(
                 routed_out=routed_out,
+                shared_out=shared_out,
                 before_dispatch_evt=fused_experts_results.before_dispatch_evt,
                 before_gmm2_evt=fused_experts_results.before_gmm2_evt,
                 before_combine_evt=fused_experts_results.before_combine_evt,
@@ -1004,6 +1021,9 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
 
         if self._shared_experts is None:
             return routed_out
+        fused_shared_out = getattr(fused_moe_results, "shared_out", None)
+        if fused_shared_out is not None:
+            return fused_shared_out, routed_out
 
         shared_out = self._forward_shared_experts(
             shared_hidden_states,

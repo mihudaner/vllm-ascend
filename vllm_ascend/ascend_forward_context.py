@@ -32,6 +32,7 @@ class MoECommType(Enum):
 _MRV2_IN_PROFILE_RUN: ContextVar[bool] = ContextVar("_MRV2_IN_PROFILE_RUN", default=False)
 _MEGA_MOE_TOKENS_PER_RANK_LIMIT = 4096
 _DISPATCH_FFN_COMBINE_TOKENS_PER_RANK_LIMIT = 512
+_FUSED_DEEP_MOE_TOKENS_PER_RANK_LIMIT = 256
 _MC2_TOKENS_PER_RANK_LIMIT = 512
 
 
@@ -273,10 +274,15 @@ def set_mc2_tokens_capacity(vllm_config, max_num_reqs, uniform_decode_query_len)
     num_tokens_per_tp_rank = (max_num_tokens + tp_size - 1) // tp_size
     # keep the num_tokens_per_tp_rank less than fused_mc2 (mega_moe) tokens per rank limit
     if ascend_config.enable_fused_mc2:
-        if use_mega_moe:
-            num_tokens_per_tp_rank = min(num_tokens_per_tp_rank, _MEGA_MOE_TOKENS_PER_RANK_LIMIT)
+        backend = getattr(ascend_config, "fused_mc2_backend", "auto")
+        if backend == "fused_deep_moe":
+            fused_tokens_limit = _FUSED_DEEP_MOE_TOKENS_PER_RANK_LIMIT
+        elif backend == "mega_moe" or (backend == "auto" and use_mega_moe):
+            fused_tokens_limit = _MEGA_MOE_TOKENS_PER_RANK_LIMIT
         else:
-            num_tokens_per_tp_rank = min(num_tokens_per_tp_rank, _DISPATCH_FFN_COMBINE_TOKENS_PER_RANK_LIMIT)
+            fused_tokens_limit = _DISPATCH_FFN_COMBINE_TOKENS_PER_RANK_LIMIT
+        num_tokens_per_tp_rank = min(num_tokens_per_tp_rank, fused_tokens_limit)
+
         global _dispatch_v2_tokens_capacity
         # Compute dispatch_v2 (normal MC2) tokens capacity independently from the
         # fused_mc2 path above. When enable_prefill_mc2 or use_mega_moe is true,
@@ -418,10 +424,30 @@ def _select_a3_moe_comm_method(
     is_draft_model: bool = False,
 ) -> MoECommType:
     skip_fused_mc2 = is_draft_model and _moe_quant_mismatch
-    if not skip_fused_mc2 and use_cann_megamoe(vllm_config):
-        return MoECommType.FUSED_MC2
-    if not skip_fused_mc2 and get_ascend_config().enable_fused_mc2 == 1 and get_ep_group().world_size <= 32:
-        return MoECommType.FUSED_MC2
+    if not skip_fused_mc2 and get_ascend_config().enable_fused_mc2 == 1:
+        backend = getattr(get_ascend_config(), "fused_mc2_backend", "auto")
+        ep_world_size = get_ep_group().world_size
+        if backend == "fused_deep_moe":
+            if num_tokens is not None and num_tokens > _FUSED_DEEP_MOE_TOKENS_PER_RANK_LIMIT:
+                raise ValueError(
+                    "fused_deep_moe supports at most "
+                    f"{_FUSED_DEEP_MOE_TOKENS_PER_RANK_LIMIT} input tokens per rank, got {num_tokens}."
+                )
+            return MoECommType.FUSED_MC2
+        if backend == "mega_moe":
+            if not _CANN_OPS_TRANSFORMER_AVAILABLE:
+                raise RuntimeError("fused_mc2_backend='mega_moe' requires cann_ops_transformer.")
+            if ep_world_size > 64 or not is_megamoe_supported_by_config(vllm_config):
+                raise ValueError("The current model or EP size is not supported by mega_moe.")
+            return MoECommType.FUSED_MC2
+        if backend == "dispatch_ffn_combine":
+            if ep_world_size > 32:
+                raise ValueError("dispatch_ffn_combine only supports EP size <= 32.")
+            return MoECommType.FUSED_MC2
+
+        # Preserve the existing auto-selection behavior.
+        if use_cann_megamoe(vllm_config) or ep_world_size <= 32:
+            return MoECommType.FUSED_MC2
 
     mc2_tokens_capacity = get_dispatch_v2_tokens_capacity() or mc2_tokens_capacity
     if num_tokens is None or num_tokens <= mc2_tokens_capacity:
@@ -484,6 +510,9 @@ def select_moe_comm_method(
 
     mc2_tokens_capacity = get_mc2_tokens_capacity()
     soc_version = get_ascend_device_type()
+    fused_mc2_backend = getattr(get_ascend_config(), "fused_mc2_backend", "auto")
+    if fused_mc2_backend == "fused_deep_moe" and soc_version != AscendDeviceType.A3:
+        raise ValueError("fused_deep_moe is only supported on A3.")
     lora_config = getattr(vllm_config, "lora_config", None)
     if not vllm_config.parallel_config.enable_expert_parallel or get_ep_group().world_size == 1:
         moe_comm_type = MoECommType.ALLGATHER
