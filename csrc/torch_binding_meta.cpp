@@ -1215,6 +1215,38 @@ void npu_matmul_out_meta(
         "npu_matmul_out output shape mismatch.");
 }
 
+void npu_quant_matmul_out_meta(
+    at::Tensor& out,
+    const at::Tensor& x1,
+    const at::Tensor& x2,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& offset,
+    const c10::optional<at::Tensor>& pertoken_scale,
+    const c10::optional<at::Tensor>& bias)
+{
+    TORCH_CHECK(
+        x1.dtype() == at::kChar && x2.dtype() == at::kChar,
+        "npu_quant_matmul_out expects INT8 matrix inputs.");
+    TORCH_CHECK(
+        out.dtype() == at::kHalf || out.dtype() == at::kBFloat16,
+        "npu_quant_matmul_out expects an FP16 or BF16 output.");
+    TORCH_CHECK(
+        out.dim() == 2 && x1.dim() == 2 && x2.dim() == 2,
+        "npu_quant_matmul_out expects rank-2 matrix tensors.");
+    TORCH_CHECK(
+        x1.sym_size(1) == x2.sym_size(0),
+        "npu_quant_matmul_out expects matching reduction dimensions.");
+    TORCH_CHECK(
+        out.sym_size(0) == x1.sym_size(0) &&
+            out.sym_size(1) == x2.sym_size(1),
+        "npu_quant_matmul_out output shape mismatch.");
+
+    (void)scale;
+    (void)offset;
+    (void)pertoken_scale;
+    (void)bias;
+}
+
 at::Tensor npu_bf16_to_fp32_static_cast_meta(const at::Tensor& x)
 {
     TORCH_CHECK(x.dtype() == at::kBFloat16,
@@ -2189,6 +2221,7 @@ TORCH_LIBRARY_IMPL_EXPAND(CONCAT(_C, _ascend), Meta, ops) {
     ops.impl("npu_hc_pre_inv_rms", &vllm_ascend::meta::npu_hc_pre_inv_rms_meta);
     ops.impl("npu_static_cast", &vllm_ascend::meta::npu_static_cast_meta);
     ops.impl("npu_matmul_out", &vllm_ascend::meta::npu_matmul_out_meta);
+    ops.impl("npu_quant_matmul_out", &vllm_ascend::meta::npu_quant_matmul_out_meta);
     ops.impl("npu_hc_pre_sinkhorn", &vllm_ascend::meta::npu_hc_pre_sinkhorn_meta);
     ops.impl("inplace_partial_rotary_mul", &vllm_ascend::meta::inplace_partial_rotary_mul_meta);
     ops.impl("npu_rms_norm_dynamic_quant", &vllm_ascend::meta::npu_rms_norm_dynamic_quant_meta);

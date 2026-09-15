@@ -52,6 +52,68 @@ class TestAscendW8A8DynamicLinearMethod(TestBase):
         mock_matmul.assert_called_once()
         self.assertEqual(output.shape, (32, 1, 1, 256))
 
+    @patch.object(torch.ops._C_ascend, "npu_quant_matmul_out", create=True)
+    @patch("torch_npu.npu_dynamic_quant")
+    def test_apply_out_writes_to_provided_tensor(self, mock_dyn_quant, mock_matmul_out):
+        quantized_x = torch.randint(-128, 127, (32, 128), dtype=torch.int8)
+        pertoken_scale = torch.randn(32, dtype=torch.float32)
+        mock_dyn_quant.return_value = (quantized_x, pertoken_scale)
+
+        layer = MagicMock()
+        layer._chunk_size = 0
+        layer.weight = torch.randint(-128, 127, (128, 256), dtype=torch.int8)
+        layer.weight_scale = torch.randn(256, dtype=torch.float32)
+        x = torch.randn(32, 128, dtype=torch.bfloat16)
+        out = torch.empty(32, 256, dtype=torch.bfloat16)
+
+        result = self.method.apply_out(layer, x, out)
+
+        mock_dyn_quant.assert_called_once_with(x, dst_type=torch.int8)
+        mock_matmul_out.assert_called_once_with(
+            out,
+            quantized_x,
+            layer.weight,
+            layer.weight_scale,
+            None,
+            pertoken_scale,
+            None,
+        )
+        self.assertIs(result, out)
+
+    @patch.object(torch.ops._C_ascend, "npu_quant_matmul_out", create=True)
+    @patch("torch_npu.npu_dynamic_quant")
+    def test_apply_out_squeezes_3d_input_view(self, mock_dyn_quant, mock_matmul_out):
+        quantized_x = torch.randint(-128, 127, (32, 1, 128), dtype=torch.int8)
+        pertoken_scale = torch.randn(32, 1, dtype=torch.float32)
+        mock_dyn_quant.return_value = (quantized_x, pertoken_scale)
+
+        layer = MagicMock()
+        layer._chunk_size = 0
+        layer.weight = torch.randint(-128, 127, (128, 256), dtype=torch.int8)
+        layer.weight_scale = torch.randn(256, dtype=torch.float32)
+        x = torch.randn(32, 1, 128, dtype=torch.bfloat16)
+        out = torch.empty(32, 1, 256, dtype=torch.bfloat16)
+
+        result = self.method.apply_out(layer, x, out)
+
+        op_out, op_x, _, _, _, op_scale, _ = mock_matmul_out.call_args.args
+        self.assertEqual(op_out.shape, (32, 256))
+        self.assertEqual(op_x.shape, (32, 128))
+        self.assertEqual(op_scale.shape, (32,))
+        self.assertEqual(op_out.data_ptr(), out.data_ptr())
+        self.assertIs(result, out)
+
+    def test_apply_out_rejects_chunked_weights(self):
+        layer = MagicMock()
+        layer._chunk_size = 128
+
+        with self.assertRaisesRegex(NotImplementedError, "chunked weights"):
+            self.method.apply_out(
+                layer,
+                torch.empty(1, 128, dtype=torch.bfloat16),
+                torch.empty(1, 256, dtype=torch.bfloat16),
+            )
+
     def test_process_weights_after_loading(self):
         layer = MagicMock()
         layer.weight.data = torch.randint(-128, 127, (128, 256), dtype=torch.int8)

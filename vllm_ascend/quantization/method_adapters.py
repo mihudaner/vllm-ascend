@@ -152,6 +152,28 @@ class AscendLinearMethod(LinearMethodBase):
             tp_rank = 0
         return self.quant_method.apply(layer, x, bias, tp_rank)
 
+    def apply_out(
+        self,
+        layer: torch.nn.Module,
+        x: torch.Tensor,
+        out: torch.Tensor,
+        bias: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        if isinstance(layer, RowParallelLinear):
+            if layer.prefix.find("o_proj") != -1 and oproj_tp_enable():
+                tp_rank = get_otp_group().rank_in_group
+            elif layer.prefix.find("down_proj") != -1 and mlp_tp_enable():
+                tp_rank = get_mlp_tp_group().rank_in_group
+            else:
+                tp_rank = get_tensor_model_parallel_rank()
+        else:
+            tp_rank = 0
+
+        apply_out = getattr(self.quant_method, "apply_out", None)
+        if apply_out is None:
+            raise NotImplementedError(f"{type(self.quant_method).__name__} does not support apply_out.")
+        return apply_out(layer, x, out, bias, tp_rank)
+
 
 class AscendKVCacheMethod(BaseKVCacheMethod):
     """KVCache method for Ascend quantization.

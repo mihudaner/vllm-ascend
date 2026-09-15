@@ -1613,6 +1613,55 @@ void npu_matmul_out_npu(
     EXEC_NPU_CMD(aclnnMatmul, x1, weight_transposed, out, cube_math_type);
 }
 
+void npu_quant_matmul_out_npu(
+    at::Tensor& out,
+    const at::Tensor& x1,
+    const at::Tensor& x2,
+    const at::Tensor& scale,
+    const c10::optional<at::Tensor>& offset,
+    const c10::optional<at::Tensor>& pertoken_scale,
+    const c10::optional<at::Tensor>& bias)
+{
+    TORCH_CHECK(
+        out.device().type() == c10::DeviceType::PrivateUse1 &&
+            x1.device().type() == c10::DeviceType::PrivateUse1 &&
+            x2.device().type() == c10::DeviceType::PrivateUse1 &&
+            scale.device().type() == c10::DeviceType::PrivateUse1,
+        "npu_quant_matmul_out expects NPU tensors.");
+    TORCH_CHECK(
+        x1.dtype() == at::kChar && x2.dtype() == at::kChar,
+        "npu_quant_matmul_out expects INT8 matrix inputs.");
+    TORCH_CHECK(
+        out.dtype() == at::kHalf || out.dtype() == at::kBFloat16,
+        "npu_quant_matmul_out expects an FP16 or BF16 output.");
+    TORCH_CHECK(
+        out.dim() == 2 && x1.dim() == 2 && x2.dim() == 2,
+        "npu_quant_matmul_out expects rank-2 matrix tensors.");
+    TORCH_CHECK(
+        x1.size(1) == x2.size(0),
+        "npu_quant_matmul_out expects matching reduction dimensions.");
+    TORCH_CHECK(
+        out.size(0) == x1.size(0) && out.size(1) == x2.size(1),
+        "npu_quant_matmul_out output shape mismatch.");
+    TORCH_CHECK(
+        out.is_contiguous(),
+        "npu_quant_matmul_out expects a contiguous output tensor.");
+
+    bool transpose_x1 = false;
+    bool transpose_x2 = false;
+    EXEC_NPU_CMD(
+        aclnnQuantMatmulV4,
+        x1,
+        x2,
+        scale,
+        offset,
+        pertoken_scale,
+        bias,
+        transpose_x1,
+        transpose_x2,
+        out);
+}
+
 int64_t check_bf16_to_fp32_static_cast_input(const at::Tensor& x)
 {
     TORCH_CHECK(x.device().type() == c10::DeviceType::PrivateUse1,
@@ -3201,6 +3250,15 @@ TORCH_LIBRARY_EXPAND(CONCAT(_C, _ascend), ops)
     ops.def("npu_matmul_out(Tensor(a!) out, Tensor x1, Tensor weight) -> ()");
     ops.impl("npu_matmul_out", torch::kPrivateUse1,
              &vllm_ascend::npu_matmul_out_npu);
+
+    ops.def(
+        "npu_quant_matmul_out("
+            "Tensor(a!) out, Tensor x1, Tensor x2, Tensor scale, "
+            "Tensor? offset=None, Tensor? pertoken_scale=None, Tensor? bias=None"
+        ") -> ()"
+    );
+    ops.impl("npu_quant_matmul_out", torch::kPrivateUse1,
+             &vllm_ascend::npu_quant_matmul_out_npu);
 
     ops.def(
         "npu_hc_pre_sinkhorn("

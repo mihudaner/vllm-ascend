@@ -123,6 +123,37 @@ class AscendW8A8DynamicLinearMethod(AscendLinearScheme):
             output = output.unsqueeze(dim=1)
         return output
 
+    def apply_out(
+        self,
+        layer: torch.nn.Module,
+        x: torch.Tensor,
+        out: torch.Tensor,
+        bias: torch.Tensor | None = None,
+        tp_rank: int | None = 0,
+    ) -> torch.Tensor:
+        chunk_size = getattr(layer, "_chunk_size", 0)
+        if isinstance(chunk_size, int) and chunk_size > 0:
+            raise NotImplementedError("W8A8 dynamic apply_out does not support chunked weights.")
+
+        quantized_x, pertoken_scale = torch_npu.npu_dynamic_quant(x, dst_type=self.act_quant_type)
+        need_unsqz = pertoken_scale.dim() == 2
+        out_2d = out
+        if need_unsqz:
+            quantized_x = quantized_x.squeeze(dim=1)
+            pertoken_scale = pertoken_scale.squeeze(dim=1)
+            out_2d = out.squeeze(dim=1)
+
+        torch.ops._C_ascend.npu_quant_matmul_out(
+            out_2d,
+            quantized_x,
+            layer.weight,
+            layer.weight_scale,
+            None,
+            pertoken_scale,
+            bias if self.act_quant_type == torch.int8 else None,
+        )
+        return out
+
     def process_weights_after_loading(self, layer):
         layer.weight.data = layer.weight.data.transpose(0, 1).contiguous()
         if "wq_b" in getattr(layer, "prefix", "") and layer.weight.shape[1] >= 65536 and enable_dsa_cp():

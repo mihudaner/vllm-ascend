@@ -2074,6 +2074,13 @@ class AscendDSAImpl(DSAAttentionImpl):
                     o_proj_input,
                     self.wo_b.weight,
                 )
+            elif _is_w8a8_dynamic(self.wo_b):
+                apply_out = getattr(self.wo_b.quant_method, "apply_out")
+                apply_out(
+                    self.wo_b,
+                    o_proj_input,
+                    output,
+                )
             else:
                 output[...] = self.wo_b(o_proj_input)
         return output
