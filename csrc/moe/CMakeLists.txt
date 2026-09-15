@@ -8,9 +8,18 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+set(SKIP_BUILD_OPS
+    hc_pre
+)
+
 file(GLOB SUBDIRECTORIES LIST_DIRECTORIES true RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
 # 遍历子目录
 foreach(SUBDIR ${SUBDIRECTORIES})
+  if (${SUBDIR} IN_LIST SKIP_BUILD_OPS)
+    message(STATUS "Skip disabled moe op: ${SUBDIR}")
+    continue()
+  endif()
+
   # 检查子目录中是否存在 CMakeLists.txt
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${SUBDIR}/CMakeLists.txt)
     add_subdirectory(${SUBDIR})

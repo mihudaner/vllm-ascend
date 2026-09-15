@@ -31,6 +31,7 @@ from itertools import islice
 import torch
 import torch.nn.functional as F
 import torch_npu
+import bytenn_ops
 from torch import nn
 from transformers import DeepseekV2Config, DeepseekV3Config
 from vllm._aiter_ops import rocm_aiter_ops
@@ -1005,7 +1006,7 @@ class DeepseekV2DecoderLayer(nn.Module):
         return hidden_states, hidden_states.float()
 
     def hc_pre(self, x: torch.Tensor, hc_fn: torch.Tensor, hc_scale: torch.Tensor, hc_base: torch.Tensor):
-        y = torch.ops._C_ascend.npu_hc_pre_v2(
+        y = bytenn_ops.hc_pre(
             x, hc_fn, hc_scale, hc_base, self.hc_mult, self.hc_sinkhorn_iters, self.norm_eps, self.hc_eps
         )
         return y
