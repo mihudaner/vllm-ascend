@@ -59,7 +59,7 @@ def _scatter_nd_update_asc(var: torch.Tensor, indices: torch.Tensor, update: tor
     if update is None or var.numel() == 0 or indices.numel() == 0 or update.numel() == 0:
         return
 
-    bytenn_ops.scatter_nd_update_asc_v2(var, indices, update)
+    torch.ops._C_ascend.npu_scatter_nd_update_sk(var, indices, update)
 
 
 class BaseDeviceAdaptor:

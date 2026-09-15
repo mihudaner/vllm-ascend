@@ -69,7 +69,6 @@ from vllm_ascend.utils import (
     maybe_trans_nz,
 )
 from vllm_ascend.worker.npu_input_batch import NPUInputBatch
-import bytenn_ops
 
 if TYPE_CHECKING:
     from vllm.v1.core.sched.output import SchedulerOutput
@@ -1688,7 +1687,7 @@ class AscendSFAImpl(MLAAttentionImpl):
             packed_head_dim = self.sfa_qsfa_packed_kv_head_dim
             assert packed_kv.shape[-1] == packed_head_dim
             assert kv_cache is not None
-            bytenn_ops.scatter_nd_update_asc_v2(
+            torch.ops._C_ascend.npu_scatter_nd_update_sk(
                 kv_cache[0].view(-1, packed_head_dim),
                 slot_mapping_sfa.view(-1, 1),
                 packed_kv.view(-1, packed_head_dim),
@@ -1716,7 +1715,7 @@ class AscendSFAImpl(MLAAttentionImpl):
             if kv_cache is not None:
                 assert fused_kv_no_split is not None
                 if self.enable_sparse_sfa_c8:
-                    bytenn_ops.scatter_nd_update_asc_v2(
+                    torch.ops._C_ascend.npu_scatter_nd_update_sk(
                         kv_cache[0].view(-1, fused_kv_no_split.shape[-1]),
                         slot_mapping_sfa[: attn_metadata.num_actual_tokens].view(-1, 1),
                         fused_kv_no_split[: attn_metadata.num_actual_tokens],
@@ -1995,7 +1994,7 @@ class AscendSFAImpl(MLAAttentionImpl):
                     attn_metadata.block_size,
                 )
             else:
-                bytenn_ops.scatter_nd_update_asc_v2(
+                torch.ops._C_ascend.npu_scatter_nd_update_sk(
                     kv_cache[dsa_k_cache_idx].view(-1, k_li.shape[-1]),
                     slot_mapping.view(-1, 1),
                     k_li.view(-1, k_li.shape[-1]),
@@ -2013,7 +2012,7 @@ class AscendSFAImpl(MLAAttentionImpl):
                             attn_metadata.block_size,
                         )
                     else:
-                        bytenn_ops.scatter_nd_update_asc_v2(
+                        torch.ops._C_ascend.npu_scatter_nd_update_sk(
                             kv_cache[dsa_k_scale_cache_idx].view(-1, k_li_scale.shape[-1]),
                             slot_mapping.view(-1, 1),
                             k_li_scale.view(-1, k_li_scale.shape[-1]),

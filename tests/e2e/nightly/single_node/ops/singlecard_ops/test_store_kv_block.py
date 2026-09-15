@@ -7,7 +7,6 @@ import torch
 import torch_npu
 
 from vllm_ascend.utils import enable_custom_op
-import bytenn_ops
 
 torch.set_printoptions(threshold=np.inf)
 
@@ -61,7 +60,7 @@ def test_scatter(num_tokens, num_head, block_size, num_blocks, count):
     key_expect = cal_scatternd(key, key_cache, slot_mapping_npu, block_size)
     N = 101
     for i in range(N):
-        bytenn_ops.scatter_nd_update_asc_v2(key_cache, slot_mapping_npu, key)
+        torch.ops._C_ascend.npu_scatter_nd_update_sk(key_cache, slot_mapping_npu, key)
     torch.testing.assert_close(key_expect, key_cache, atol=0.001, rtol=0.1)
 
 
