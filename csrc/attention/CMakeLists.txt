@@ -10,6 +10,13 @@
 
 set(OPTEST_NAME optest_${PKG_NAME})
 
+set(SKIP_BUILD_OPS
+    vllm_quant_lightning_indexer
+    vllm_quant_lightning_indexer_metadata
+    sparse_attn_sharedkv
+    sparse_attn_sharedkv_metadata
+)
+
 file(GLOB CURRENT_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
 foreach(SUB_DIR ${CURRENT_DIRS})
     if (DEFINED ASCEND_OP_NAME AND NOT "${ASCEND_OP_NAME}" STREQUAL "")
@@ -18,6 +25,11 @@ foreach(SUB_DIR ${CURRENT_DIRS})
                 continue()
             endif ()
         endif ()
+    endif ()
+
+    if (${SUB_DIR} IN_LIST SKIP_BUILD_OPS)
+        message(STATUS "Skip disabled attention op: ${SUB_DIR}")
+        continue()
     endif ()
 
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${SUB_DIR}/CMakeLists.txt")

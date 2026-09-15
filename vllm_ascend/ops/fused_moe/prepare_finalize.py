@@ -274,6 +274,7 @@ class PrepareAndFinalizeWithMC2(PrepareAndFinalizeWithAll2All):
             MoEPrepareOutput, possibly sliced/padded.
         """
         self.replace_allreduce = replace_allreduce
+        self.enable_shared_expert_dp = enable_shared_expert_dp
         mc2_mask = _EXTRA_CTX.mc2_mask
         if self.tp_size > 1:
             # Also slice mc2_mask
@@ -286,9 +287,39 @@ class PrepareAndFinalizeWithMC2(PrepareAndFinalizeWithAll2All):
             target_pad_length = _EXTRA_CTX.padded_num_tokens
             pad_size = target_pad_length - self.num_tokens
 
-            if pad_size > 0:
-                hidden_states = nn.functional.pad(hidden_states, (0, 0, 0, pad_size))
-                router_logits = nn.functional.pad(router_logits, (0, 0, 0, pad_size))
+            if pad_size > 0 and not self.enable_shared_expert_dp:
+                hs_buf = getattr(self, "_hs_pad_buf", None)
+                if (
+                    hs_buf is None
+                    or hs_buf.shape[0] < target_pad_length
+                    or hs_buf.shape[1:] != hidden_states.shape[1:]
+                    or hs_buf.dtype != hidden_states.dtype
+                    or hs_buf.device != hidden_states.device
+                ):
+                    hs_buf = torch.zeros(
+                        (target_pad_length, *hidden_states.shape[1:]),
+                        dtype=hidden_states.dtype,
+                        device=hidden_states.device,
+                    )
+                    self._hs_pad_buf = hs_buf
+                rl_buf = getattr(self, "_rl_pad_buf", None)
+                if (
+                    rl_buf is None
+                    or rl_buf.shape[0] < target_pad_length
+                    or rl_buf.shape[1:] != router_logits.shape[1:]
+                    or rl_buf.dtype != router_logits.dtype
+                    or rl_buf.device != router_logits.device
+                ):
+                    rl_buf = torch.zeros(
+                        (target_pad_length, *router_logits.shape[1:]),
+                        dtype=router_logits.dtype,
+                        device=router_logits.device,
+                    )
+                    self._rl_pad_buf = rl_buf
+                hs_buf[: self.num_tokens] = hidden_states
+                rl_buf[: self.num_tokens] = router_logits
+                hidden_states = hs_buf[:target_pad_length]
+                router_logits = rl_buf[:target_pad_length]
                 padded_hidden_states_shape = hidden_states.shape
 
             # Slice across TP ranks
