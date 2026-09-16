@@ -176,7 +176,7 @@ elif [[ "$SOC_VERSION" =~ ^ascend910_93 ]]; then
         "quant_lightning_indexer_v2_metadata"
         "hc_pre_sinkhorn"
         "hc_pre_inv_rms"
-        "static.cast"
+        "static_cast"
         "hc_post"
         "inplace_partial_rotary_mul"
         "rms_norm_dynamic_quant"
