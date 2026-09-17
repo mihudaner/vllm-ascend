@@ -7,6 +7,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import torch_npu
+import bytenn_ops
 from vllm.config import CUDAGraphMode, VllmConfig, get_current_vllm_config
 from vllm.distributed import get_tp_group
 from vllm.triton_utils import HAS_TRITON, triton
@@ -108,9 +109,6 @@ class AscendDSAReqMetadata:
     num_reqs_actual: int | None = None
     sas_metadata: torch.Tensor = None
     qli_metadata: torch.Tensor = None
-    qli_cu_seqlens_q: torch.Tensor = None
-    qli_seqused_k: torch.Tensor = None
-    qli_cmp_residual_k: torch.Tensor = None
     device_local_metadata_group_id: int | None = None
     compressor_metadata: CompressorMetadataOutput | None = None
     compressor_metadata_group_id: int | None = None
@@ -237,8 +235,6 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         self.start_pos_prefill = torch.zeros(scheduler_config.max_num_seqs, dtype=torch.int32, device=self.device)
         self.req_sas_metadata = torch.zeros(1024, dtype=torch.int32, device=self.device)
         self.req_qli_metadata = torch.zeros(1024, dtype=torch.int32, device=self.device)
-        self.qli_seqused_k = torch.zeros(scheduler_config.max_num_seqs, dtype=torch.int32, device=self.device)
-        self.qli_cmp_residual_k = torch.zeros(scheduler_config.max_num_seqs, dtype=torch.int32, device=self.device)
         self.cu_seqlens_ori_kv = torch.tensor([], device=self.device)
         self.cu_seqlens_cmp_kv = torch.tensor([], device=self.device)
         self.seqused_q = torch.tensor([], device=self.device)
@@ -818,16 +814,7 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             )
 
         # --- QLI metadata (all requests combined) ---
-        qli_cu_seqlens_q = local_query_start_loc if self.compressor_ratio == 4 else None
-        qli_seqused_k = self.qli_seqused_k[:num_reqs] if self.compressor_ratio == 4 else None
-        qli_cmp_residual_k = self.qli_cmp_residual_k[:num_reqs] if self.compressor_ratio == 4 else None
-
-        def build_qli_metadata() -> tuple[
-            torch.Tensor | None,
-            torch.Tensor | None,
-            torch.Tensor | None,
-            torch.Tensor | None,
-        ]:
+        def build_qli_metadata() -> torch.Tensor | None:
             return self._build_qli_metadata(
                 query_start_loc=local_query_start_loc,
                 seq_lens=local_seq_lens,
@@ -865,7 +852,7 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             local_group_id = None
             self._device_metadata_tasks = ()
             sas_metadata = build_sas_metadata()
-            qli_cu_seqlens_q, qli_seqused_k, qli_cmp_residual_k, qli_metadata = build_qli_metadata()
+            qli_metadata = build_qli_metadata()
 
         cp_metadata = DSACPMetadata(
             local_query_start_loc=local_query_start_loc,
@@ -896,9 +883,6 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             num_reqs_actual=num_reqs_actual,
             sas_metadata=sas_metadata,
             qli_metadata=qli_metadata,
-            qli_cu_seqlens_q=qli_cu_seqlens_q,
-            qli_seqused_k=qli_seqused_k,
-            qli_cmp_residual_k=qli_cmp_residual_k,
             device_local_metadata_group_id=local_group_id,
             cu_cmp_seqlen_list=cu_cmp_seqlens,
         )
@@ -1141,21 +1125,8 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         max_seqlen_k,
     ):
         if self.compressor_ratio != 4:
-            return None, None, None, None
+            return None
 
-        # QLI v2 PA_BBND reads the compressed K length plus the residual from
-        # the original length. Write both into persistent builder buffers so
-        # their addresses remain stable during graph replay.
-        qli_cu_seqlens_q = query_start_loc
-        seq_lens_i32 = seq_lens if seq_lens.dtype == torch.int32 else seq_lens.to(torch.int32)
-        qli_seqused_k = self.qli_seqused_k[:num_reqs]
-        qli_cmp_residual_k = self.qli_cmp_residual_k[:num_reqs]
-        torch.div(seq_lens_i32, 4, rounding_mode="floor", out=qli_seqused_k)
-        torch.remainder(
-            seq_lens_i32,
-            4,
-            out=qli_cmp_residual_k,
-        )
         cache_key = "cp_qli"
         metadata = self.common_ratio_to_sas_metadata.get(cache_key)
 
@@ -1164,27 +1135,29 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             # under async scheduling, so derive this limit from the consumer.
             seq_lens_q = query_start_loc[1 : num_reqs + 1] - query_start_loc[:num_reqs]
             max_seqlen_q = max(1, int(seq_lens_q.max().item()))
-            metadata = torch.ops._C_ascend.npu_quant_lightning_indexer_v2_metadata(
+            metadata = bytenn_ops.npu_quant_lightning_indexer_metadata(
+                actual_seq_lengths_query=query_start_loc[1:].clone(),
+                actual_seq_lengths_key=seq_lens.clone(),
                 num_heads_q=self.model_config.hf_config.index_n_heads,
                 num_heads_k=1,
                 head_dim=self.model_config.hf_config.index_head_dim,
-                topk=self.model_config.hf_config.index_topk,
-                quant_mode=2,
-                cu_seqlens_q=qli_cu_seqlens_q,
-                seqused_k=qli_seqused_k,
-                cmp_residual_k=qli_cmp_residual_k,
+                query_quant_mode=0,
+                key_quant_mode=0,
                 batch_size=num_reqs,
                 max_seqlen_q=max_seqlen_q,
-                max_seqlen_k=max_seqlen_k // 4,
-                layout_q="TND",
-                layout_k="PA_BBND",
-                mask_mode=3,
+                max_seqlen_k=max_seqlen_k,
+                layout_query="TND",
+                layout_key="PA_BSND",
+                sparse_count=self.model_config.hf_config.index_topk,
+                sparse_mode=3,
+                pre_tokens=(1 << 63) - 1,
+                next_tokens=(1 << 63) - 1,
                 cmp_ratio=4,
                 device=str(self.seqused_q.device),
             )
         self.common_ratio_to_sas_metadata[cache_key] = metadata
         self.req_qli_metadata[:1024] = metadata
-        return qli_cu_seqlens_q, qli_seqused_k, qli_cmp_residual_k, self.req_qli_metadata[:1024]
+        return self.req_qli_metadata[:1024]
 
     def build_for_graph_capture(
         self,
@@ -1929,24 +1902,26 @@ class AscendDSACPImpl(DSAAttentionImpl):
         qli_metadata = dsa_meta.qli_metadata
         assert qli_metadata is not None
         wait_for_device_metadata(DeviceMetadataStage.INDEXER, id(qli_metadata))
-        topk_idxs, _ = torch.ops._C_ascend.npu_quant_lightning_indexer_v2(
+        topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer(
             query=q,
             key=indexer_k_cache,
             weights=DeviceOperator.prepare_dsa_indexer_weights(weights),
             query_dequant_scale=DeviceOperator.prepare_dsa_indexer_query_scale(q_scale),
             key_dequant_scale=DeviceOperator.prepare_dsa_indexer_key_scale(indexer_scale_cache),
-            topk=self.index_topk,
-            quant_mode=2,
-            cu_seqlens_q=dsa_meta.qli_cu_seqlens_q,
-            seqused_k=dsa_meta.qli_seqused_k,
-            cmp_residual_k=dsa_meta.qli_cmp_residual_k,
+            actual_seq_lengths_query=dsa_meta.cp_metadata.local_query_start_loc[1:],
+            actual_seq_lengths_key=dsa_meta.cp_metadata.local_seq_lens,
             block_table=dsa_meta.block_table,
             metadata=qli_metadata,
-            layout_q="TND",
-            layout_k="PA_BBND",
-            mask_mode=3,
+            query_quant_mode=0,
+            key_quant_mode=0,
+            layout_query="TND",
+            layout_key="PA_BSND",
+            sparse_count=self.index_topk,
+            sparse_mode=3,
+            pre_tokens=(1 << 63) - 1,
+            next_tokens=(1 << 63) - 1,
             cmp_ratio=4,
-            return_value=0,
+            return_value=False,
         )
         return topk_idxs
 

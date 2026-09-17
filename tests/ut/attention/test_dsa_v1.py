@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
+import bytenn_ops
 from vllm.config import CUDAGraphMode
 
 from vllm_ascend.attention.context_parallel.dsa_cp import (
@@ -238,10 +239,6 @@ def _make_decode_builder(compressor_ratio: int, enabled: bool):
     builder.seqused_q = torch.empty(0)
     builder.decode_sas_metadata = torch.zeros(1024, dtype=torch.int32)
     builder.decode_qli_metadata = torch.zeros(1024, dtype=torch.int32)
-    builder.prefill_qli_seqused_k = torch.zeros(2, dtype=torch.int32)
-    builder.prefill_qli_cmp_residual_k = torch.zeros(2, dtype=torch.int32)
-    builder.decode_qli_seqused_k = torch.zeros(2, dtype=torch.int32)
-    builder.decode_qli_cmp_residual_k = torch.zeros(2, dtype=torch.int32)
     builder._zero_i32 = torch.zeros(1, dtype=torch.int32)
     builder.cu_seqlens_ori_kv = torch.empty(0, dtype=torch.int32)
     builder.cu_seqlens_cmp_kv = torch.empty(0, dtype=torch.int32)
@@ -305,8 +302,8 @@ def test_decode_metadata_defers_device_work(
             return_value={},
         ),
         patch.object(
-            torch.ops._C_ascend,
-            "npu_quant_lightning_indexer_v2_metadata",
+            bytenn_ops,
+            "npu_quant_lightning_indexer_metadata",
             create=True,
             return_value=qli_output,
         ) as qli_op,
@@ -345,7 +342,9 @@ def test_decode_metadata_defers_device_work(
         if compressor_ratio == 4:
             qli_op.assert_called_once()
             assert qli_op.call_args.kwargs["max_seqlen_q"] == 1
-            assert qli_op.call_args.kwargs["max_seqlen_k"] == 2
+            assert qli_op.call_args.kwargs["max_seqlen_k"] == 9
+            assert qli_op.call_args.kwargs["sparse_count"] == 512
+            assert qli_op.call_args.kwargs["layout_key"] == "PA_BSND"
         else:
             qli_op.assert_not_called()
         assert metadata.sas_metadata is builder.decode_sas_metadata
@@ -353,8 +352,6 @@ def test_decode_metadata_defers_device_work(
         assert torch.equal(builder.decode_sas_metadata, sas_output)
         if compressor_ratio == 4:
             assert torch.equal(builder.decode_qli_metadata, qli_output)
-            assert torch.equal(metadata.qli_seqused_k, torch.tensor([2, 2], dtype=torch.int32))
-            assert torch.equal(metadata.qli_cmp_residual_k, torch.tensor([0, 1], dtype=torch.int32))
 
 
 def _make_prefill_builder(compressor_ratio: int, enabled: bool):
@@ -419,8 +416,8 @@ def test_prefill_metadata_defers_device_work(
             return_value={},
         ),
         patch.object(
-            torch.ops._C_ascend,
-            "npu_quant_lightning_indexer_v2_metadata",
+            bytenn_ops,
+            "npu_quant_lightning_indexer_metadata",
             create=True,
             return_value=qli_output,
         ) as qli_op,
@@ -460,7 +457,7 @@ def test_prefill_metadata_defers_device_work(
         if compressor_ratio == 4:
             qli_op.assert_called_once()
             assert qli_op.call_args.kwargs["max_seqlen_q"] == 2
-            assert qli_op.call_args.kwargs["max_seqlen_k"] == 0
+            assert qli_op.call_args.kwargs["max_seqlen_k"] == 3
         else:
             qli_op.assert_not_called()
         if enabled:
@@ -472,9 +469,6 @@ def test_prefill_metadata_defers_device_work(
         else:
             assert metadata.sas_metadata is sas_output
             assert (metadata.qli_metadata is qli_output) is (compressor_ratio == 4)
-        if compressor_ratio == 4:
-            assert torch.equal(metadata.qli_seqused_k, torch.tensor([0], dtype=torch.int32))
-            assert torch.equal(metadata.qli_cmp_residual_k, torch.tensor([3], dtype=torch.int32))
 
 
 def test_build_compressor_metadata_out_uses_fixed_outputs():
@@ -588,8 +582,8 @@ def test_full_graph_compressor_uses_stable_padded_extent(phase: str):
         ),
         patch.object(DeviceOperator, "get_dsa_decode_cu_seqlens_cmp_kv", return_value=None),
         patch.object(
-            torch.ops._C_ascend,
-            "npu_quant_lightning_indexer_v2_metadata",
+            bytenn_ops,
+            "npu_quant_lightning_indexer_metadata",
             create=True,
             return_value=torch.ones(1024, dtype=torch.int32),
         ),
@@ -650,8 +644,6 @@ def test_dsa_cp_defers_device_metadata(
     )
     builder.req_sas_metadata = torch.zeros(1024, dtype=torch.int32)
     builder.req_qli_metadata = torch.zeros(1024, dtype=torch.int32)
-    builder.qli_seqused_k = torch.zeros(2, dtype=torch.int32)
-    builder.qli_cmp_residual_k = torch.zeros(2, dtype=torch.int32)
     builder._device_metadata_enabled = enabled
     builder._device_metadata_tasks = ()
     builder.model_config = SimpleNamespace(
@@ -678,8 +670,8 @@ def test_dsa_cp_defers_device_metadata(
     def build_qli(**_: Any):
         events.append("qli")
         if compressor_ratio != 4:
-            return None, None, None, None
-        return query_start_loc, builder.qli_seqused_k, builder.qli_cmp_residual_k, builder.req_qli_metadata
+            return None
+        return builder.req_qli_metadata
 
     build_local_metadata = MagicMock(side_effect=build_local) if enabled else None
     builder._ensure_device_local_metadata = MagicMock(
@@ -770,8 +762,6 @@ def test_dsa_cp_full_graph_compressor_uses_stable_bucket_extent():
     base_pointers = tuple(buffer.data_ptr() for buffer in builder.compressor_metadata_buffers)
     builder.req_sas_metadata = torch.zeros(1024, dtype=torch.int32)
     builder.req_qli_metadata = torch.zeros(1024, dtype=torch.int32)
-    builder.qli_seqused_k = torch.zeros(2, dtype=torch.int32)
-    builder.qli_cmp_residual_k = torch.zeros(2, dtype=torch.int32)
     builder._device_metadata_enabled = True
     builder._device_metadata_tasks = ()
     builder.model_config = SimpleNamespace(
@@ -785,9 +775,7 @@ def test_dsa_cp_full_graph_compressor_uses_stable_bucket_extent():
     )
     builder._get_cmp_seqlens_for_metadata = MagicMock(return_value=None)
     builder._build_sas_metadata = MagicMock(return_value=builder.req_sas_metadata)
-    builder._build_qli_metadata = MagicMock(
-        return_value=(query_start_loc, builder.qli_seqused_k, builder.qli_cmp_residual_k, builder.req_qli_metadata)
-    )
+    builder._build_qli_metadata = MagicMock(return_value=builder.req_qli_metadata)
     common_metadata = SimpleNamespace(
         num_reqs=2,
         query_start_loc=query_start_loc,
@@ -868,8 +856,6 @@ def test_dsa_cp_qli_metadata_uses_device_query_lengths():
     builder.compressor_ratio = 4
     builder.common_ratio_to_sas_metadata = {}
     builder.req_qli_metadata = torch.zeros(1024, dtype=torch.int32)
-    builder.qli_seqused_k = torch.zeros(2, dtype=torch.int32)
-    builder.qli_cmp_residual_k = torch.zeros(2, dtype=torch.int32)
     builder.seqused_q = torch.empty(0)
     builder.model_config = SimpleNamespace(
         hf_config=SimpleNamespace(
@@ -882,8 +868,8 @@ def test_dsa_cp_qli_metadata_uses_device_query_lengths():
     generated_metadata = torch.arange(1024, dtype=torch.int32)
 
     with patch.object(
-        torch.ops._C_ascend,
-        "npu_quant_lightning_indexer_v2_metadata",
+        bytenn_ops,
+        "npu_quant_lightning_indexer_metadata",
         create=True,
         return_value=generated_metadata,
     ) as metadata_op:
@@ -895,9 +881,13 @@ def test_dsa_cp_qli_metadata_uses_device_query_lengths():
         )
 
     assert metadata_op.call_args.kwargs["max_seqlen_q"] == 2
-    assert metadata_op.call_args.kwargs["max_seqlen_k"] == 2
-    assert torch.equal(builder.qli_seqused_k, torch.tensor([2, 1], dtype=torch.int32))
-    assert torch.equal(builder.qli_cmp_residual_k, torch.tensor([0, 2], dtype=torch.int32))
+    assert metadata_op.call_args.kwargs["max_seqlen_k"] == 8
+    assert metadata_op.call_args.kwargs["sparse_count"] == 512
+    assert torch.equal(
+        metadata_op.call_args.kwargs["actual_seq_lengths_query"], torch.tensor([2, 3], dtype=torch.int32)
+    )
+    assert torch.equal(metadata_op.call_args.kwargs["actual_seq_lengths_key"], seq_lens)
+    assert torch.equal(builder.req_qli_metadata, generated_metadata)
 
 
 def test_dsa_cp_legacy_compressor_waits_for_local_metadata():
@@ -975,9 +965,6 @@ def _make_dsa_cp_metadata(sas_metadata: torch.Tensor) -> AscendDSACPMetadata:
         start_pos=torch.zeros(1, dtype=torch.int32),
         sas_metadata=sas_metadata,
         qli_metadata=torch.zeros(1024, dtype=torch.int32),
-        qli_cu_seqlens_q=query_start_loc,
-        qli_seqused_k=torch.zeros(1, dtype=torch.int32),
-        qli_cmp_residual_k=torch.ones(1, dtype=torch.int32),
         cu_cmp_seqlen_list=torch.tensor([0, 1], dtype=torch.int32),
     )
     return AscendDSACPMetadata(
@@ -1028,8 +1015,8 @@ def test_dsa_cp_indexer_waits_before_qli_consumer():
         patch.object(DeviceOperator, "prepare_dsa_indexer_key_scale", side_effect=lambda value: value),
         patch.object(torch.ops._C_ascend, "inplace_partial_rotary_mul", create=True),
         patch.object(
-            torch.ops._C_ascend,
-            "npu_quant_lightning_indexer_v2",
+            bytenn_ops,
+            "npu_quant_lightning_indexer",
             create=True,
             side_effect=run_indexer,
         ),
