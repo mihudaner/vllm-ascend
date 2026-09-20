@@ -506,6 +506,10 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
         self.draft_window_size = (
             self.vllm_config.additional_config.get("draft_window_size") if self.vllm_config.additional_config else None
         )
+        # DSpark implements block visibility itself, including the whole query
+        # block. The generic causal adapter must not adjust its metadata again.
+        if self.method == "dspark":
+            self.draft_window_size = None
         if self.draft_window_size is not None:
             # EAGLE3: seq_lens is context-only, K draft positions lie beyond it
             #   -> future_offset = K.

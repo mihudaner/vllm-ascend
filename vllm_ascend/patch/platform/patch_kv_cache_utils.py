@@ -141,10 +141,11 @@ def group_and_unify_kv_cache_specs(
         return None
 
     ratio_specs: dict[int, dict[str, KVCacheSpec]] = defaultdict(dict)
-    grouped_swa_mla_specs: dict[int, dict[str, KVCacheSpec]] = defaultdict(dict)
+    grouped_swa_mla_specs: dict[tuple[int, int], dict[str, KVCacheSpec]] = defaultdict(dict)
     for name, spec in kv_cache_spec.items():
         if isinstance(spec, SlidingWindowMLASpec):
-            grouped_swa_mla_specs[spec.block_size][name] = spec
+            # Distinct windows must retain independent sets of historical pages.
+            grouped_swa_mla_specs[(spec.block_size, spec.sliding_window)][name] = spec
         elif isinstance(spec, MLAAttentionSpec):
             ratio_specs[spec.compress_ratio][name] = spec
 

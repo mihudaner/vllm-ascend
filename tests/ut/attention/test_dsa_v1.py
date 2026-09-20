@@ -36,6 +36,7 @@ def _make_dspark_draft_builder(max_num_tokens: int = 16):
         get_head_size=lambda: 192,
     )
     builder.vllm_config = SimpleNamespace(
+        additional_config={},
         model_config=builder.model_config,
         speculative_config=builder.speculative_config,
     )

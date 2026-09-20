@@ -8,6 +8,7 @@ module. The target model provides selected layer hidden states; this model
 projects them into the draft attention context and emits a full draft block.
 """
 
+import copy
 import typing
 from collections.abc import Iterable
 
@@ -33,6 +34,7 @@ from vllm.model_executor.layers.vocab_parallel_embedding import (
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.models.utils import PPMissingLayer, maybe_prefix
 
+from vllm_ascend.dspark_config import get_dspark_query_width, get_dspark_window_size
 from vllm_ascend.models.deepseek_v4 import (
     DeepseekV2DecoderLayer,
     DeepseekV2MixtureOfExperts,
@@ -111,12 +113,24 @@ class DeepseekV4DSparkModel(nn.Module):
             quant_config=vllm_config.quant_config,
             prefix=maybe_prefix(prefix, "embed_tokens"),
         )
+        # Isolate draft attention/KV retention from the shared target config.
+        layer_config = copy.copy(vllm_config.model_config.hf_config)
+        layer_config.sliding_window = get_dspark_window_size(vllm_config)
+        logger.info(
+            "DSpark draft window=%d, query_width=%d, window_source=%s",
+            layer_config.sliding_window,
+            get_dspark_query_width(vllm_config.speculative_config),
+            "additional_config"
+            if (vllm_config.additional_config or {}).get("draft_window_size") is not None
+            else "target_hf_config",
+        )
         self.layers = nn.ModuleDict(
             {
                 str(self.mtp_start_layer_idx + idx): DeepseekV2DecoderLayer(
                     vllm_config,
                     prefix=f"mtp.{idx}",
                     is_draft_layer=True,
+                    config=layer_config,
                 )
                 for idx in range(self.num_dspark_layers)
             }

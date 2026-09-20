@@ -17,8 +17,11 @@ from vllm.v1.kv_cache_interface import AttentionSpec
 from vllm_ascend.attention.abstract import DSAAttentionImpl
 from vllm_ascend.attention.attention_v1 import AscendAttentionState
 from vllm_ascend.attention.dsa_v1 import (
+    _DSPARK_MAX_SPARSE_INDEX_WIDTH,
     CompressorMetadataOutput,
+    _aligned_dspark_index_width,
     build_compressor_metadata_out,
+    build_dspark_band_requests,
     build_dspark_swa_indices,
     get_dspark_sparse_sas_window,
     get_or_compute_compressor_metadata,
@@ -33,6 +36,7 @@ from vllm_ascend.attention.utils import (
 from vllm_ascend.core.kv_cache_interface import AscendMLAAttentionSpec
 from vllm_ascend.device.device_op import DeviceOperator
 from vllm_ascend.distributed.utils import all_gather_async
+from vllm_ascend.dspark_config import get_dspark_query_width, get_dspark_window_size
 from vllm_ascend.memcache_comm_fence import record_attention_compute_start
 from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 from vllm_ascend.ops.rope_dsv4 import RopeDataProxy, get_cos_and_sin_dsa, get_full_cos_and_sin_dsa
@@ -81,6 +85,8 @@ class DSACPMetadata:
     num_tokens_pad: int
     local_sin: torch.Tensor = None
     local_cos: torch.Tensor = None
+    # SAS-only query expansion; global KV-write mapping remains unchanged.
+    local_block_table: torch.Tensor | None = None
 
 
 @dataclass
@@ -506,27 +512,42 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         start_pos = self.seq_lens[:num_reqs] - seq_lens_q
 
         dspark_swa_indices = None
+        local_block_table = None
         ori_win_left, ori_win_right = self.model_config.hf_config.sliding_window - 1, 0
         if is_noncausal:
             assert self.speculative_config is not None
-            global_dspark_indices, _ = build_dspark_swa_indices(
-                self.block_table[:num_reqs],
-                self.speculative_config.num_speculative_tokens,
-                self.model_config.hf_config.sliding_window,
-                self.block_size,
-                query_start_loc[: num_reqs + 1],
-                self.seq_lens[:num_reqs],
-                self.num_actual_tokens,
-            )
-            pad_rows = num_tokens_pad - global_dspark_indices.shape[0]
-            if pad_rows < 0:
-                raise ValueError(
-                    "DSpark CP metadata has fewer padded query rows than actual rows: "
-                    f"num_tokens_pad={num_tokens_pad}, actual={global_dspark_indices.shape[0]}"
+            window = get_dspark_window_size(self.vllm_config)
+            query_width = get_dspark_query_width(self.speculative_config)
+            if _aligned_dspark_index_width(window, query_width) > _DSPARK_MAX_SPARSE_INDEX_WIDTH:
+                num_local_tokens = max(0, min(local_end_with_pad, self.num_actual_tokens) - local_start)
+                local_block_table, local_seq_lens = build_dspark_band_requests(
+                    self.block_table[:num_reqs], local_query_start_loc, local_seq_lens, num_local_tokens
                 )
-            if pad_rows:
-                global_dspark_indices = F.pad(global_dspark_indices, (0, 0, 0, 0, 0, pad_rows), value=-1)
-            dspark_swa_indices = global_dspark_indices[local_start:local_end_with_pad].contiguous()
+                local_query_start_loc = torch.arange(
+                    num_local_tokens + 1, dtype=torch.int32, device=local_seq_lens.device
+                )
+                pad_rows = tokens_per_rank - num_local_tokens
+                if pad_rows:
+                    local_block_table = F.pad(local_block_table, (0, 0, 0, pad_rows))
+                    local_seq_lens = F.pad(local_seq_lens, (0, pad_rows))
+                    local_query_start_loc = F.pad(local_query_start_loc, (0, pad_rows), value=num_local_tokens)
+                max_local_query_len = 1
+            else:
+                global_dspark_indices, _ = build_dspark_swa_indices(
+                    self.block_table[:num_reqs],
+                    query_width,
+                    window,
+                    self.block_size,
+                    query_start_loc[: num_reqs + 1],
+                    self.seq_lens[:num_reqs],
+                    self.num_actual_tokens,
+                )
+                pad_rows = num_tokens_pad - global_dspark_indices.shape[0]
+                if pad_rows < 0:
+                    raise ValueError("DSpark CP metadata has fewer padded query rows than actual rows")
+                if pad_rows:
+                    global_dspark_indices = F.pad(global_dspark_indices, (0, 0, 0, 0, 0, pad_rows), value=-1)
+                dspark_swa_indices = global_dspark_indices[local_start:local_end_with_pad].contiguous()
             ori_win_left, ori_win_right = get_dspark_sparse_sas_window(self.vllm_config)
 
         assert self.spec_slot_mapping is not None
@@ -543,7 +564,7 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
                 None,
                 "draft_cu_seqlens_ori_kv",
                 local_seq_lens,
-                num_reqs,
+                len(local_seq_lens),
                 self._zero_i32,
                 self.cu_seqlens_ori_kv,
             )
@@ -559,11 +580,11 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             cu_seqlens_q=local_query_start_loc,
             cu_seqlens_ori_kv=cu_seqlens_ori_kv,
             cu_seqlens_cmp_kv=cu_seqlens_cmp_kv,
-            seqused_q=self.seqused_q,
+            seqused_q=None if local_block_table is not None else self.seqused_q,
             seqused_kv=local_seq_lens,
             max_seqlen_q=max_local_query_len,
             max_seqlen_kv=max_local_seq_lens,
-            batch_size=num_reqs,
+            batch_size=len(local_seq_lens),
             cmp_ratio=1,
             ori_mask_mode=4,
             ori_win_left=ori_win_left,
@@ -583,6 +604,7 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             num_tokens_pad=num_tokens_pad,
             local_sin=local_sin,
             local_cos=local_cos,
+            local_block_table=local_block_table,
         )
 
         return AscendDSAReqMetadata(
@@ -1725,7 +1747,11 @@ class AscendDSACPImpl(DSAAttentionImpl):
             attn_output = attn_op(
                 q,
                 ori_kv=swa_kv_cache,
-                ori_block_table=swa_metadata.req_metadata.block_table,
+                ori_block_table=(
+                    cp_metadata.local_block_table
+                    if cp_metadata.local_block_table is not None
+                    else swa_metadata.req_metadata.block_table
+                ),
                 metadata=sas_metadata,
                 **common_attn_kwargs,
             )[0]
