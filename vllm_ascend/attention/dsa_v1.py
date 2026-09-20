@@ -488,11 +488,19 @@ def _require_decode_metadata(metadata: AscendDSAMetadata) -> AscendDSADecodeMeta
     return metadata.decode
 
 
+def get_dspark_query_width(speculative_config: Any) -> int:
+    """Resolve DSpark's query width using the 0.26 anchor convention."""
+    draft_config = getattr(speculative_config, "draft_model_config", None)
+    hf_config = getattr(draft_config, "hf_config", None)
+    sample_from_anchor = getattr(hf_config, "sample_from_anchor", True)
+    return int(speculative_config.num_speculative_tokens) + int(not sample_from_anchor)
+
+
 def get_dspark_sparse_sas_window(vllm_config: Any) -> tuple[int, int]:
     hf_config = vllm_config.model_config.hf_config
     window_size = int(hf_config.sliding_window)
-    block_size = vllm_config.speculative_config.num_speculative_tokens
-    return window_size + block_size - 1, 0
+    query_width = get_dspark_query_width(vllm_config.speculative_config)
+    return window_size + query_width - 1, 0
 
 
 def _aligned_dspark_index_width(window_size: int, block_size: int, alignment: int = 128) -> int:
@@ -780,7 +788,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         assert self.speculative_config is not None
         index_width = _aligned_dspark_index_width(
             self.model_config.hf_config.sliding_window,
-            self.speculative_config.num_speculative_tokens,
+            get_dspark_query_width(self.speculative_config),
         )
         self.dspark_swa_indices_buffer = torch.empty(
             (max_num_tokens, 1, index_width),
@@ -1586,7 +1594,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             assert num_decodes is not None
             dspark_swa_args = (
                 block_table[:num_decodes],
-                self.speculative_config.num_speculative_tokens,
+                get_dspark_query_width(self.speculative_config),
                 self.model_config.hf_config.sliding_window,
                 self.block_size,
                 query_start_loc[: num_decodes + 1],

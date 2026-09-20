@@ -1,25 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import copy
 from typing import Any
 
 import torch
 from vllm.config import CUDAGraphMode, VllmConfig, get_layers_from_vllm_config
+from vllm.forward_context import get_forward_context
+from vllm.logger import logger
 from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
 from vllm.v1.attention.backends.utils import CommonAttentionMetadata
 from vllm.v1.kv_cache_interface import UniformTypeKVCacheSpecs
 from vllm.v1.worker.utils import AttentionGroup
 
-from vllm_ascend.ascend_forward_context import set_ascend_forward_context
+from vllm_ascend.ascend_forward_context import _EXTRA_CTX, set_ascend_forward_context
 from vllm_ascend.attention.attention_v1 import AscendAttentionState
 from vllm_ascend.attention.dsa_v1 import AscendDSAMetadataBuilder
 from vllm_ascend.attention.mla_v1 import AscendMLAMetadataBuilder
+from vllm_ascend.attention.utils import AscendCommonAttentionMetadata
 from vllm_ascend.ops.triton.spec_decode.utils import copy_and_expand_dflash_and_dspark_inputs_kernel_single_grid
 from vllm_ascend.spec_decode.dflash_proposer import AscendDflashProposer
 from vllm_ascend.transformers_utils.configs.kimi_k3 import (
     K3_DSPARK_USE_MLA_ROPE,
     K3DSparkConfig,
 )
+from vllm_ascend.utils import enable_dsa_cp
 
 
 class AscendDSparkProposer(AscendDflashProposer):
@@ -73,8 +78,10 @@ class AscendDSparkProposer(AscendDflashProposer):
             dtype=self.dtype,
             device=self.device,
         )
-        # DSpark runs eager only (Ascend cudagraph unsupported on this path).
-        self.use_cuda_graph = False
+        # This migration enables the DeepSeek V4 DSA backend only. Keep
+        # Qwen/Kimi DSpark eager until their graph contracts are validated.
+        target_hf_config = vllm_config.model_config.hf_config
+        self.use_cuda_graph = self.use_cuda_graph and getattr(target_hf_config, "model_type", None) == "deepseek_v4"
         # Max query tokens depend on whether sampling from anchor or not.
         self.max_query_tokens = self.max_batch_size * self.num_query_per_req
         # Position ids for the draft query block [max_query_tokens].
@@ -119,6 +126,112 @@ class AscendDSparkProposer(AscendDflashProposer):
 
         # per-layer context slot mappings as a flat list
         self._context_slot_mapping_buffers: list[torch.Tensor | None] | None = None
+
+    @property
+    def uses_independent_cudagraph_dispatcher(self) -> bool:
+        """DSpark graph buckets use its own ``num_query_per_req`` width."""
+        return True
+
+    def can_dispatch_full_graph(
+        self,
+        target_runtime_mode: CUDAGraphMode,
+        uniform_decode: bool,
+    ) -> bool:
+        """Whether a target capture can be paired with a DSpark FULL graph."""
+        return self.use_cuda_graph and target_runtime_mode == CUDAGraphMode.FULL and uniform_decode
+
+    def initialize_cudagraph_keys(self, cudagraph_mode: CUDAGraphMode) -> None:
+        """Initialize FULL-decode graph keys in DSpark's own token domain.
+
+        The target dispatcher captures descriptors shaped as ``B * (K + 1)``.
+        DSpark preserves the logical request bucket ``B`` while remapping each
+        FULL descriptor to ``B * num_query_per_req``.  Mixed batches remain
+        eager because their token count cannot identify a uniform request
+        bucket safely.
+        """
+        draft_dispatcher = self.cudagraph_dispatcher
+        draft_width = int(self.num_query_per_req)
+        # CudagraphDispatcher.initialize_cudagraph_keys() uses its argument to
+        # bound the decode capture sizes, but _create_padded_batch_descriptor()
+        # reads this attribute when deriving num_reqs. Keep both in DSpark's
+        # B*num_query_per_req domain instead of the target model's B*(K+1)
+        # domain.
+        draft_dispatcher.uniform_decode_query_len = draft_width
+
+        if not self.use_cuda_graph:
+            draft_dispatcher.initialize_cudagraph_keys(
+                CUDAGraphMode.NONE,
+                draft_width,
+            )
+            logger.info(
+                "DSpark draft FULL graph is disabled; draft execution will "
+                "remain eager while the target model may still use ACL graph."
+            )
+            return
+
+        if not cudagraph_mode.separate_routine() or cudagraph_mode.decode_mode() != CUDAGraphMode.FULL:
+            draft_dispatcher.initialize_cudagraph_keys(
+                CUDAGraphMode.NONE,
+                draft_width,
+            )
+            logger.warning(
+                "DSpark FULL graph is disabled because the resolved target "
+                "cudagraph mode does not provide a separate uniform-decode "
+                "routine: mode=%s",
+                cudagraph_mode,
+            )
+            return
+
+        if enable_dsa_cp():
+            raise NotImplementedError(
+                "DSpark draft FULL graph does not support DSA-CP. Use DSA-CP "
+                "with an eager DSpark draft, or disable the draft graph with "
+                "speculative_config.enforce_eager=true."
+            )
+
+        target_full_descs = [
+            desc
+            for mode, descs in self.runner.cudagraph_dispatcher.get_capture_descs()
+            if mode == CUDAGraphMode.FULL
+            for desc in descs
+            if desc.uniform and desc.num_reqs is not None
+        ]
+        draft_capture_sizes = sorted({int(desc.num_reqs) * draft_width for desc in target_full_descs})
+        if not draft_capture_sizes:
+            raise RuntimeError(
+                "Cannot initialize DSpark FULL graph: target dispatcher produced no uniform FULL capture descriptors."
+            )
+
+        # The proposer-owned dispatcher needs independent padding and keys, but
+        # still uses the shared scheduler/LoRA settings from vllm_config.
+        # static_forward_context is populated with live model layers by this
+        # point.  A deep copy would recursively clone their Parameters and can
+        # fail for vLLM's parameter subclasses.  The dispatcher only overrides
+        # the scalar/list fields below, so a shallow config copy gives it an
+        # independent top-level object while intentionally retaining runtime
+        # context references.
+        draft_config = copy.copy(self.runner.cudagraph_dispatcher.compilation_config)
+        draft_config.cudagraph_mode = CUDAGraphMode.FULL_DECODE_ONLY
+        draft_config.cudagraph_capture_sizes = draft_capture_sizes
+        draft_config.max_cudagraph_capture_size = draft_capture_sizes[-1]
+        # Target compile sizes live in the B*(K+1) domain and must not be
+        # validated against the B*num_query_per_req padding table owned by this
+        # dispatcher.
+        draft_config.compile_sizes = []
+
+        draft_dispatcher.compilation_config = draft_config
+        draft_dispatcher.initialize_cudagraph_keys(
+            CUDAGraphMode.FULL_DECODE_ONLY,
+            draft_width,
+        )
+
+        logger.info(
+            "Initialized independent DSpark FULL graph shapes: target=%s, draft=%s, target_width=%d, draft_width=%d",
+            sorted({int(desc.num_tokens) for desc in target_full_descs}),
+            draft_capture_sizes,
+            int(self.runner.uniform_decode_query_len),
+            draft_width,
+        )
 
     @staticmethod
     def _resolve_kernel_block_size(
@@ -291,11 +404,8 @@ class AscendDSparkProposer(AscendDflashProposer):
         self._dflash_num_context = int(cad.query_start_loc_cpu[batch_size])
         self._dflash_hidden_states[: self._dflash_num_context] = target_hidden_states[: self._dflash_num_context]
 
-        token_indices_to_sample = torch.empty(
-            num_sample_total,
-            dtype=torch.int32,
-            device=self.device,
-        )
+        # Capture and replay must consume the same sampling-index address.
+        token_indices_to_sample = self.token_indices_to_sample[:num_sample_total]
 
         # Query block: reuse the DFlash inputs kernel logic (host-side ref)
         # per kv-cache-group to fill positions / input_ids / query slot_mapping
@@ -382,10 +492,12 @@ class AscendDSparkProposer(AscendDflashProposer):
         batch_descriptor=None,
         dummy_compute_logits=lambda hidden_states: None,
         is_profile=False,
+        *,
+        dspark_num_context_tokens: int | None = None,
         **kwargs,
     ) -> None:
         num_query_total = num_reqs * self.num_query_per_req
-        num_query_tokens = min(num_query_total if num_reqs > 0 else num_tokens, self.max_query_tokens)
+        num_query_tokens = num_query_total if num_reqs > 0 else num_tokens
 
         (
             num_input_tokens,
@@ -396,14 +508,78 @@ class AscendDSparkProposer(AscendDflashProposer):
         if not self.use_cuda_graph:
             aclgraph_runtime_mode = CUDAGraphMode.NONE
 
-        context_positions = self._context_positions_buffer[:num_input_tokens]
-        context_states = self.hidden_states[:num_input_tokens]
+        if dspark_num_context_tokens is None:
+            dspark_num_context_tokens = num_tokens
+        if not 0 <= dspark_num_context_tokens <= self.max_num_tokens:
+            raise ValueError("DSpark context tokens exceed the context buffer capacity")
+        self._dflash_num_context = dspark_num_context_tokens
+        context_positions = self._context_positions_buffer[:dspark_num_context_tokens]
+        context_states = self._dflash_hidden_states[:dspark_num_context_tokens]
 
         self.token_indices_to_sample.fill_(0)
         self._pad_draft_buffers(num_query_total, num_input_tokens)
 
+        multi_steps_attn_metadata = []
+        if aclgraph_runtime_mode == CUDAGraphMode.FULL:
+            # Use the same persistent tensors as runtime replay.  In
+            # particular, query_start_loc advances by num_query_per_req instead
+            # of reusing the target query width.
+            query_start_loc_cpu = (
+                torch.from_numpy(self.token_arange_np[: num_reqs + 1]) * self.num_query_per_req
+            ).to(torch.int32)
+            self.query_start_loc.cpu[: num_reqs + 1].copy_(query_start_loc_cpu)
+            self.query_start_loc.copy_to_gpu()
+            self.query_start_loc_group[0][: num_reqs + 1].copy_(self.query_start_loc.gpu[: num_reqs + 1])
+            self.query_start_loc_group[0][num_reqs + 1 :].fill_(0)
+
+            self.seq_lens_group[0][:num_reqs].copy_(self.runner.seq_lens[:num_reqs])
+            self.seq_lens_group[0][:num_reqs].add_(self.num_query_per_req)
+            self.seq_lens_group[0][num_reqs:].fill_(0)
+
+            seq_lens_cpu = self.runner.optimistic_seq_lens_cpu[:num_reqs] + self.num_query_per_req
+            self._per_group_block_table_buffers = dict(self._per_group_block_tables)
+            self._context_slot_mapping_buffers = [
+                self._per_group_context_slot_mapping_buffers[group_idx] for group_idx in self._layer_group_idx
+            ]
+
+            primary_gid = self.draft_attn_groups[0].kv_cache_group_id
+            common_attn_metadata = AscendCommonAttentionMetadata(
+                query_start_loc=self.query_start_loc_group[0][: num_reqs + 1],
+                query_start_loc_cpu=self.query_start_loc.cpu[: num_reqs + 1],
+                seq_lens_cpu=seq_lens_cpu,
+                _seq_lens_cpu=seq_lens_cpu,
+                seq_lens_cpu_upper_bound=seq_lens_cpu,
+                seq_lens=self.seq_lens_group[0][:num_reqs],
+                num_reqs=num_reqs,
+                num_actual_tokens=num_input_tokens,
+                num_input_tokens=num_input_tokens,
+                max_query_len=self.num_query_per_req,
+                max_seq_len=0,
+                slot_mapping=self._per_group_query_slot_mapping_buffers[primary_gid][:num_input_tokens],
+                block_table_tensor=self._per_group_block_tables[primary_gid][:num_reqs],
+                positions=self.positions,
+                attn_state=AscendAttentionState.ChunkedPrefill,
+                causal=False,
+                decode_token_per_req=self.num_query_per_req,
+                is_prefilling=torch.zeros(
+                    num_reqs,
+                    dtype=torch.bool,
+                    device=self.device,
+                ),
+            )
+            multi_steps_attn_metadata, _ = self.build_draft_attn_metadata(
+                common_attn_metadata,
+                num_input_tokens,
+                num_input_tokens,
+                aclgraph_runtime_mode=aclgraph_runtime_mode,
+                batch_descriptor=batch_descriptor,
+            )
+
+        active_executor = getattr(self.runner, "device_metadata_executor", None)
+        if active_executor is not None and not active_executor.submission_in_flight:
+            active_executor = None
         with set_ascend_forward_context(
-            None,
+            multi_steps_attn_metadata[0] if multi_steps_attn_metadata else None,
             self.vllm_config,
             num_tokens=num_input_tokens,
             num_tokens_across_dp=num_tokens_across_dp,
@@ -412,7 +588,8 @@ class AscendDSparkProposer(AscendDflashProposer):
             batch_descriptor=batch_descriptor,
             aclgraph_runtime_mode=aclgraph_runtime_mode,
             is_draft_model=True,
-            draft_attn_metadatas=[],
+            draft_attn_metadatas=multi_steps_attn_metadata,
+            device_metadata_executor=active_executor,
             eplb_heat_collection_status=(
                 self.runner.eplb_heat_collection_status if self.runner.dynamic_eplb else False
             ),
@@ -426,13 +603,23 @@ class AscendDSparkProposer(AscendDflashProposer):
                 )
 
             else:
-                self._dflash_num_context = num_input_tokens
                 self._runnable(
                     num_input_tokens=num_input_tokens,
                     batch_size=num_reqs,
                     token_indices_to_sample=self.token_indices_to_sample[: num_reqs * self.num_speculative_tokens],
-                    target_positions=self._get_positions(num_input_tokens),
+                    target_positions=context_positions,
                     inputs_embeds=None,
-                    multi_steps_attn_metadata=[],
+                    multi_steps_attn_metadata=multi_steps_attn_metadata,
                     num_tokens=num_input_tokens,
                 )
+
+            forward_context = get_forward_context()
+            if forward_context.cudagraph_runtime_mode == CUDAGraphMode.FULL and not _EXTRA_CTX.capturing:
+                self._update_full_graph_params(
+                    forward_context,
+                    num_input_tokens,
+                    multi_steps_attn_metadata,
+                )
+
+        if active_executor is not None:
+            active_executor.release()

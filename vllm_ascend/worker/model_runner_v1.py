@@ -846,11 +846,17 @@ class NPUModelRunner(GPUModelRunner):
         num_reqs: int,
         cudagraph_runtime_mode: CUDAGraphMode | None = None,
         batch_desc_num_reqs: int | None = None,
+        uniform_decode_query_len: int | None = None,
     ) -> int:
         """
         This function is only designed to satisfied the constraint that when the layout is TND,
         the first dimension of `hidden_states` must equal the last element of `actual_seq_lengths_q`.
         """
+        query_width = (
+            self.uniform_decode_query_len
+            if uniform_decode_query_len is None
+            else uniform_decode_query_len
+        )
         # TODO: need refactor later, related to vllm PR #34043 this pr delete func
         # relax_for_mixed_batch_cudagraphs, num_reqs no longer equals the actual number of requests.
         if cudagraph_runtime_mode == CUDAGraphMode.FULL and \
@@ -863,7 +869,7 @@ class NPUModelRunner(GPUModelRunner):
         # e.g. 1 request with 1 token when num_spec > 1 (num_spec = 3 and cudagraph_batch_size = 4 for example)
         # will cause tokens are padded but requests are not
         if (
-            num_tokens_padded == num_reqs_padded * self.uniform_decode_query_len
+            num_tokens_padded == num_reqs_padded * query_width
             and self.compilation_config.cudagraph_mode != CUDAGraphMode.FULL
         ):
             # Uniform-batch case: num_reqs must be no greater than num_reqs_padded
@@ -871,7 +877,7 @@ class NPUModelRunner(GPUModelRunner):
 
             last_loc = query_start_loc.np[num_reqs]
             query_start_loc.np[num_reqs + 1 : num_reqs_padded + 1] = (
-                self.arange_np[1 : num_reqs_padded + 1 - num_reqs] * self.uniform_decode_query_len + last_loc
+                self.arange_np[1 : num_reqs_padded + 1 - num_reqs] * query_width + last_loc
             )
         else:
             # Mixed-batch case: num_reqs must equal num_reqs_padded
@@ -2294,6 +2300,7 @@ class NPUModelRunner(GPUModelRunner):
                 self.drafter.dummy_run(
                     num_tokens=self.drafter.num_query_per_req,
                     num_reqs=1,
+                    dspark_num_context_tokens=0,
                 )
             else:
                 # Match upstream: one token is sufficient for the dummy rank;
@@ -3671,16 +3678,67 @@ class NPUModelRunner(GPUModelRunner):
             dummy_compute_logits(hidden_states)
 
             if self.drafter and not profile_cpp:
+                drafter_num_tokens = num_tokens_padded
+                drafter_num_reqs = num_reqs_padded
+                drafter_num_tokens_across_dp = num_tokens_across_dp
+                drafter_runtime_mode = cudagraph_runtime_mode
+                drafter_batch_desc = batch_desc
+                drafter_extra_kwargs: dict[str, Any] = {}
+
+                if isinstance(self.drafter, AscendDSparkProposer):
+                    # The target graph has B*(K+1) tokens while DSpark runs a
+                    # B*num_query_per_req query block. Preserve B explicitly;
+                    # token counts alone cannot express both shapes.
+                    drafter_num_tokens = (
+                        drafter_num_reqs
+                        * self.drafter.num_query_per_req
+                    )
+                    drafter_num_tokens_across_dp = None
+                    drafter_extra_kwargs["dspark_num_context_tokens"] = int(
+                        num_tokens_padded
+                    )
+
+                    if self.drafter.can_dispatch_full_graph(
+                        cudagraph_runtime_mode,
+                        uniform_decode,
+                    ):
+                        (
+                            drafter_runtime_mode,
+                            drafter_batch_desc,
+                        ) = self.drafter.cudagraph_dispatcher.dispatch(
+                            num_tokens=drafter_num_tokens,
+                            uniform_decode=True,
+                            has_lora=num_active_loras > 0,
+                            num_active_loras=num_active_loras,
+                            valid_modes={CUDAGraphMode.FULL},
+                        )
+                        drafter_num_tokens = int(
+                            drafter_batch_desc.num_tokens
+                        )
+                    else:
+                        # Profile, warmup, mixed batches, and explicitly eager
+                        # draft execution all use DSpark's own
+                        # B*num_query_per_req query shape.
+                        drafter_runtime_mode = CUDAGraphMode.NONE
+                        drafter_batch_desc = BatchDescriptor(
+                            num_tokens=drafter_num_tokens,
+                            num_reqs=drafter_num_reqs,
+                            uniform=bool(uniform_decode),
+                            has_lora=num_active_loras > 0,
+                            num_active_loras=num_active_loras,
+                        )
+
                 self.drafter.dummy_run(
-                    num_tokens=num_tokens_padded,
+                    num_tokens=drafter_num_tokens,
                     with_prefill=with_prefill,
-                    num_reqs=num_reqs_padded,
-                    num_tokens_across_dp=num_tokens_across_dp,
-                    aclgraph_runtime_mode=cudagraph_runtime_mode,
-                    batch_descriptor=batch_desc,
+                    num_reqs=drafter_num_reqs,
+                    num_tokens_across_dp=drafter_num_tokens_across_dp,
+                    aclgraph_runtime_mode=drafter_runtime_mode,
+                    batch_descriptor=drafter_batch_desc,
                     dummy_compute_logits=dummy_drafter_compute_logits,
                     in_graph_capturing=not force_attention,
                     is_profile=is_profile,
+                    **drafter_extra_kwargs,
                 )
             if is_profile and self.dynamic_eplb:
                 self.eplb_updator.adaptor.clear_all_moe_loads()
@@ -5134,6 +5192,7 @@ class NPUModelRunner(GPUModelRunner):
             and (
                 self.speculative_config.use_eagle()
                 or self.speculative_config.uses_extract_hidden_states()
+                or self.speculative_config.use_dspark()
             )
         ):
             assert isinstance(
@@ -5149,12 +5208,31 @@ class NPUModelRunner(GPUModelRunner):
             for desc in descs
         })
 
+        draft_capture_sizes = capture_sizes
+        if (
+            self.drafter is not None
+            and getattr(
+                self.drafter,
+                "uses_independent_cudagraph_dispatcher",
+                False,
+            )
+        ):
+            draft_capture_sizes = sorted(
+                {
+                    desc.num_tokens
+                    for _, descs in (
+                        self.drafter.cudagraph_dispatcher.get_capture_descs()
+                    )
+                    for desc in descs
+                }
+            )
+
         # NOTE: Since aclgraph_batch_sizes cannot be determined until here,
         # we set the graph params right before initializing the keys.
         if self.use_aclgraph:
             set_graph_params(capture_sizes)
             if self.speculative_config:
-                set_draft_graph_params(capture_sizes)
+                set_draft_graph_params(draft_capture_sizes)
 
     def capture_model(self) -> int:
         """Capture NPU graphs and return actual graph pool memory bytes consumed."""

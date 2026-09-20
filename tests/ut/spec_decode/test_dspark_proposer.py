@@ -28,6 +28,8 @@ import numpy as np
 import pytest
 import torch
 from vllm.config import CUDAGraphMode
+from vllm.forward_context import BatchDescriptor
+from vllm.v1.cudagraph_dispatcher import CudagraphDispatcher
 from vllm.v1.worker.utils import AttentionGroup
 
 import vllm_ascend.spec_decode.dspark_proposer as dspark_proposer_module
@@ -46,6 +48,7 @@ _MAX_NUM_TOKENS = 8
 _HIDDEN_SIZE = 16
 
 
+@pytest.mark.parametrize("full_graph", [False, True])
 @pytest.mark.parametrize(
     ("dcp_size", "pcp_size", "expected_submit"),
     [(1, 1, True), (2, 1, False), (1, 2, False)],
@@ -54,6 +57,7 @@ def test_build_draft_metadata_submits_only_non_cp_device_tasks(
     dcp_size: int,
     pcp_size: int,
     expected_submit: bool,
+    full_graph: bool,
 ):
     tasks = [DeviceMetadataTask(DeviceMetadataStage.ATTENTION, lambda: None, group_id) for group_id in (7, 9)]
 
@@ -98,16 +102,22 @@ def test_build_draft_metadata_submits_only_non_cp_device_tasks(
         slot_mapping=torch.zeros(1, dtype=torch.int32),
     )
 
+    descriptor = BatchDescriptor(num_tokens=1, num_reqs=1, uniform=True)
     metadata, first = AscendSpecDecodeBaseProposer.build_draft_attn_metadata(
         proposer,
         common_attn_metadata,
         num_input_tokens=1,
         num_actual_tokens=1,
+        aclgraph_runtime_mode=CUDAGraphMode.FULL if full_graph else CUDAGraphMode.NONE,
+        batch_descriptor=descriptor if full_graph else None,
     )
 
     assert metadata[0]["draft.attn.0"] is first
     if expected_submit:
-        executor.submit.assert_called_once_with(tasks)
+        if full_graph:
+            executor.submit.assert_called_once_with(tasks, batch_descriptor=descriptor, graph_namespace="draft")
+        else:
+            executor.submit.assert_called_once_with(tasks)
     else:
         executor.submit.assert_not_called()
 
@@ -245,7 +255,8 @@ class _DSparkProposerTestBase:
         """Build the minimal config consumed by the DSpark initializer."""
         draft_model_config = SimpleNamespace(hf_config=hf_config, get_hidden_size=lambda: _HIDDEN_SIZE)
         return SimpleNamespace(
-            speculative_config=SimpleNamespace(draft_sample_method="greedy", draft_model_config=draft_model_config)
+            speculative_config=SimpleNamespace(draft_sample_method="greedy", draft_model_config=draft_model_config),
+            model_config=SimpleNamespace(hf_config=SimpleNamespace(model_type="deepseek_v4")),
         )
 
     @classmethod
@@ -269,6 +280,7 @@ class _DSparkProposerTestBase:
         ) -> None:
             del runner
             proposer.draft_model_config = vllm_config.speculative_config.draft_model_config
+            proposer.use_cuda_graph = False
             proposer.num_speculative_tokens = block_size
             proposer.max_batch_size = num_reqs
             proposer.max_num_tokens = max_num_tokens
@@ -297,6 +309,7 @@ class _DSparkProposerTestBase:
         proposer._slot_mapping_buffer = torch.zeros(max_num_tokens, dtype=torch.int32, device=device)
         proposer._dspark_seed_buffer = torch.zeros(max_num_tokens, dtype=torch.int64, device=device)
         proposer._dflash_hidden_states = torch.zeros((max_num_tokens, 8), dtype=torch.float32, device=device)
+        proposer.token_indices_to_sample = torch.zeros(max_num_tokens, dtype=torch.int32, device=device)
         proposer.arange_dflash = torch.arange(max_num_tokens + 1, dtype=torch.int32, device=device)
         proposer.token_arange_np = np.arange(max_num_tokens + 1, dtype=np.int32)
 
@@ -653,7 +666,10 @@ class TestDSparkInitValidation:
                 get_hidden_size=lambda: hidden_size
             ),
         )
-        return SimpleNamespace(speculative_config=speculative_config)
+        return SimpleNamespace(
+            speculative_config=speculative_config,
+            model_config=SimpleNamespace(hf_config=SimpleNamespace(model_type="deepseek_v4")),
+        )
 
     @staticmethod
     def _stub_dflash_init(
@@ -669,6 +685,7 @@ class TestDSparkInitValidation:
         the attributes DSpark's ``__init__`` subsequently reads."""
 
         def _stub(self, vllm_config, device, runner=None):
+            self.use_cuda_graph = False
             self.num_speculative_tokens = num_speculative_tokens
             self.max_batch_size = max_batch_size
             self.max_num_tokens = max_num_tokens
@@ -1155,3 +1172,132 @@ class TestInitializeAttnBackendErrors(_DSparkProposerTestBase):
             == 384
         )
 # fmt: on
+
+
+class _RejectDeepcopy:
+    """Stand-in for live model layers stored in static_forward_context."""
+
+    def __deepcopy__(self, memo):
+        del memo
+        raise AssertionError("runtime model objects must not be deep-copied")
+
+
+class TestDSparkCudagraphDispatcher(_DSparkProposerTestBase):
+    @pytest.mark.parametrize(
+        "enabled,target_mode",
+        [(False, CUDAGraphMode.FULL_DECODE_ONLY), (True, CUDAGraphMode.FULL)],
+    )
+    @patch("vllm_ascend.spec_decode.dspark_proposer.enable_dsa_cp", return_value=True)
+    def test_unsupported_graph_modes_keep_draft_eager(self, mock_enable_dsa_cp, enabled, target_mode):
+        proposer = self._make_proposer(max_num_tokens=256, num_reqs=16, block_size=5)
+        proposer.use_cuda_graph = enabled
+        proposer.cudagraph_dispatcher = MagicMock()
+
+        proposer.initialize_cudagraph_keys(target_mode)
+
+        proposer.cudagraph_dispatcher.initialize_cudagraph_keys.assert_called_once_with(CUDAGraphMode.NONE, 5)
+        mock_enable_dsa_cp.assert_not_called()
+
+    @patch("vllm_ascend.spec_decode.dspark_proposer.enable_dsa_cp", return_value=True)
+    def test_dspark_full_graph_rejects_dsa_cp(self, mock_enable_dsa_cp):
+        proposer = self._make_proposer(
+            max_num_tokens=256,
+            num_reqs=16,
+            block_size=5,
+        )
+        proposer.use_cuda_graph = True
+        proposer.cudagraph_dispatcher = MagicMock()
+
+        with pytest.raises(NotImplementedError, match="DSA-CP"):
+            proposer.initialize_cudagraph_keys(CUDAGraphMode.FULL_DECODE_ONLY)
+
+        mock_enable_dsa_cp.assert_called_once_with()
+        proposer.cudagraph_dispatcher.initialize_cudagraph_keys.assert_not_called()
+
+    @pytest.mark.parametrize("sample_from_anchor,width", [(True, 5), (False, 6)])
+    @patch("vllm_ascend.spec_decode.dspark_proposer.enable_dsa_cp", return_value=False)
+    def test_maps_and_pads_target_full_descriptors_by_request_bucket(self, mock_enable_dsa_cp, sample_from_anchor, width):
+        proposer = self._make_proposer(
+            max_num_tokens=256,
+            num_reqs=16,
+            block_size=5,
+            hf_config=SimpleNamespace(sample_from_anchor=sample_from_anchor),
+        )
+        proposer.use_cuda_graph = True
+
+        target_config = SimpleNamespace(
+            cudagraph_mode=CUDAGraphMode.FULL_DECODE_ONLY,
+            cudagraph_capture_sizes=[6, 12, 36, 96],
+            max_cudagraph_capture_size=96,
+            compile_sizes=[6, 12, 36, 96],
+            static_forward_context={"model.layers.0": _RejectDeepcopy()},
+        )
+        draft_dispatcher_config = SimpleNamespace(
+            compilation_config=target_config,
+            num_speculative_tokens=5,
+            speculative_config=SimpleNamespace(num_speculative_tokens=5),
+            lora_config=None,
+            scheduler_config=SimpleNamespace(max_num_seqs=16),
+        )
+        proposer.cudagraph_dispatcher = CudagraphDispatcher(draft_dispatcher_config)
+
+        target_dispatcher = MagicMock()
+        target_dispatcher.compilation_config = target_config
+        target_dispatcher.get_capture_descs.return_value = [
+            (
+                CUDAGraphMode.FULL,
+                [
+                    BatchDescriptor(96, 16, True),
+                    BatchDescriptor(36, 6, True),
+                    BatchDescriptor(12, 2, True),
+                    BatchDescriptor(6, 1, True),
+                ],
+            )
+        ]
+        proposer.runner = SimpleNamespace(
+            cudagraph_dispatcher=target_dispatcher,
+            uniform_decode_query_len=6,
+        )
+
+        proposer.initialize_cudagraph_keys(CUDAGraphMode.FULL_DECODE_ONLY)
+
+        draft_config = proposer.cudagraph_dispatcher.compilation_config
+        assert draft_config is not target_config
+        assert draft_config.static_forward_context is target_config.static_forward_context
+        assert draft_config.cudagraph_capture_sizes == [width, 2 * width, 6 * width, 16 * width]
+        assert draft_config.compile_sizes == []
+
+        runtime_mode, batch_descriptor = proposer.cudagraph_dispatcher.dispatch(
+            num_tokens=5 * width,
+            uniform_decode=True,
+            has_lora=False,
+        )
+        assert runtime_mode == CUDAGraphMode.FULL
+        assert batch_descriptor.num_tokens == 6 * width
+        assert batch_descriptor.num_reqs == 6
+        assert batch_descriptor.uniform
+
+        # Requests beyond the captured maximum must remain eager, not reuse
+        # the largest graph and silently truncate the batch.
+        oversized_tokens = 17 * width
+        runtime_mode, oversized = proposer.cudagraph_dispatcher.dispatch(
+            num_tokens=oversized_tokens,
+            uniform_decode=True,
+            has_lora=False,
+        )
+        assert runtime_mode == CUDAGraphMode.NONE
+        assert oversized.num_tokens == oversized_tokens
+
+
+@pytest.mark.parametrize("context_tokens", [0, 2])
+def test_full_query_bucket_still_clears_unused_context_slots(context_tokens):
+    buffers = {gid: torch.arange(8, dtype=torch.int32) for gid in (0, 2)}
+    proposer = SimpleNamespace(
+        _per_group_block_table_buffers={},
+        _per_group_context_slot_mapping_buffers=buffers,
+        _dflash_num_context=context_tokens,
+    )
+    AscendSpecDecodeBaseProposer._pad_draft_buffers(proposer, 6, 6)
+    for buffer in buffers.values():
+        assert buffer[:context_tokens].tolist() == list(range(context_tokens))
+        assert buffer[context_tokens:].tolist() == [-1] * (8 - context_tokens)

@@ -331,3 +331,38 @@ def test_wait_helper_is_noop_without_forward_context(monkeypatch):
     )
 
     wait_for_device_metadata(DeviceMetadataStage.ATTENTION, 7)
+
+
+@pytest.mark.parametrize("same_frontiers", [False, True])
+def test_target_draft_equal_descriptors_have_independent_events(executor_env, same_frontiers):
+    executor, calls, allocations = executor_env
+    descriptor = BatchDescriptor(num_tokens=6, num_reqs=1, uniform=True)
+    target_tasks = _tasks(calls)
+    draft_tasks = target_tasks if same_frontiers else target_tasks[-1:]
+    executor.submit(target_tasks, descriptor)
+    executor.wait(DeviceMetadataStage.ATTENTION, 3)
+    target_wait = next(call for call in reversed(calls) if call[:2] == ("model", "external_wait"))
+    executor.release()
+    executor.submit(draft_tasks, descriptor, graph_namespace="draft")
+    executor.wait(DeviceMetadataStage.ATTENTION, 3)
+    draft_wait = next(call for call in reversed(calls) if call[:2] == ("model", "external_wait"))
+    assert draft_wait != target_wait
+    executor.release()
+    allocations_after_capture = list(allocations)
+    executor.submit(target_tasks, descriptor)
+    executor.wait(DeviceMetadataStage.ATTENTION, 3)
+    assert next(call for call in reversed(calls) if call[:2] == ("model", "external_wait")) == target_wait
+    executor.release()
+    executor.submit(draft_tasks, descriptor, graph_namespace="draft")
+    executor.wait(DeviceMetadataStage.ATTENTION, 3)
+    assert next(call for call in reversed(calls) if call[:2] == ("model", "external_wait")) == draft_wait
+    assert allocations == allocations_after_capture
+
+
+def test_draft_namespace_does_not_bypass_unreleased_submission(executor_env):
+    executor, calls, _ = executor_env
+    descriptor = BatchDescriptor(num_tokens=6, num_reqs=1)
+    executor.submit(_tasks(calls), descriptor)
+    with pytest.raises(RuntimeError, match="has not been released"):
+        executor.submit(_tasks(calls), descriptor, graph_namespace="draft")
+    assert executor.submission_in_flight

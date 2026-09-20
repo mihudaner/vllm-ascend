@@ -1233,3 +1233,21 @@ def test_dsa_cp_attention_waits_before_memcache_fence(compress_ratio: int):
         "attention-start",
         "attention",
     ]
+
+
+@pytest.mark.parametrize("sample_from_anchor,expected_width", [(True, 5), (False, 6)])
+def test_dspark_indices_capacity_uses_anchor_query_width(sample_from_anchor, expected_width):
+    from vllm_ascend.attention.dsa_v1 import get_dspark_query_width, get_dspark_sparse_sas_window
+
+    builder = _make_dspark_draft_builder()
+    builder.speculative_config.num_speculative_tokens = 5
+    builder.speculative_config.draft_model_config = SimpleNamespace(
+        hf_config=SimpleNamespace(sample_from_anchor=sample_from_anchor)
+    )
+    # W+K fits 128 exactly, but W+(K+1) requires a second 128-wide block.
+    builder.model_config.hf_config.sliding_window = 123
+    builder.enable_dspark_device_metadata(12)
+    assert get_dspark_query_width(builder.speculative_config) == expected_width
+    expected_columns = 128 if sample_from_anchor else 256
+    assert builder.dspark_swa_indices_buffer.shape == (12, 1, expected_columns)
+    assert get_dspark_sparse_sas_window(builder.vllm_config) == (123 + expected_width - 1, 0)

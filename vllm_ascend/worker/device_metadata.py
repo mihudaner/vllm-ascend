@@ -49,8 +49,10 @@ class DeviceMetadataExecutor:
         self.stream = torch.npu.Stream()
         self._inputs_ready = torch.npu.Event()
         self._stage_ready: dict[tuple[DeviceMetadataStage, int], torch.npu.Event] = {}
-        self._external_stage_ready: dict[tuple[BatchDescriptor, DeviceMetadataStage, int], torch.npu.ExternalEvent] = {}
-        self._external_frontiers: dict[BatchDescriptor, set[tuple[DeviceMetadataStage, int]]] = {}
+        self._external_stage_ready: dict[
+            tuple[str, BatchDescriptor, DeviceMetadataStage, int], torch.npu.ExternalEvent
+        ] = {}
+        self._external_frontiers: dict[tuple[str, BatchDescriptor], set[tuple[DeviceMetadataStage, int]]] = {}
         self._buffer_reusable = torch.npu.Event()
         self._has_reuse_fence = False
         self._submission_in_flight = False
@@ -58,6 +60,7 @@ class DeviceMetadataExecutor:
         self._batch_descriptor: BatchDescriptor | None = None
         # Reuse each SAS group's first-consumption order across batch shapes.
         self._attention_order: dict[int, int] = {}
+        self._graph_namespace = "target"
 
     @property
     def submission_in_flight(self) -> bool:
@@ -71,9 +74,14 @@ class DeviceMetadataExecutor:
         self,
         tasks: Iterable[DeviceMetadataTask],
         batch_descriptor: BatchDescriptor | None = None,
+        *,
+        graph_namespace: str = "target",
     ) -> None:
         if self._submission_in_flight:
             raise RuntimeError("The previous device metadata submission has not been released")
+        if graph_namespace not in ("target", "draft"):
+            raise ValueError("Device metadata graph namespace must be target or draft")
+        graph_key = (graph_namespace, batch_descriptor)
         ordered_tasks = sorted(
             tasks,
             key=lambda task: (
@@ -87,21 +95,22 @@ class DeviceMetadataExecutor:
             raise ValueError("At least one device metadata task is required")
         # Graph waits bind to event keys, independently of producer order.
         submitted_frontiers = {(task.stage, task.group_id) for task in ordered_tasks}
-        expected_frontiers = self._external_frontiers.get(batch_descriptor) if batch_descriptor is not None else None
+        expected_frontiers = self._external_frontiers.get(graph_key) if batch_descriptor is not None else None
         if expected_frontiers is not None and expected_frontiers != submitted_frontiers:
             raise RuntimeError("Device metadata frontiers changed for an existing full-graph batch descriptor")
         for task in ordered_tasks:
             frontier = (task.stage, task.group_id)
-            external_frontier = (batch_descriptor, *frontier) if batch_descriptor is not None else None
+            external_frontier = (graph_namespace, batch_descriptor, *frontier) if batch_descriptor is not None else None
             if external_frontier is not None and external_frontier not in self._external_stage_ready:
                 self._external_stage_ready[external_frontier] = torch.npu.ExternalEvent()
             elif external_frontier is None and frontier not in self._stage_ready:
                 self._stage_ready[frontier] = torch.npu.Event()
         if batch_descriptor is not None and expected_frontiers is None:
-            self._external_frontiers[batch_descriptor] = submitted_frontiers
+            self._external_frontiers[graph_key] = submitted_frontiers
 
         self._submission_in_flight = True
         self._batch_descriptor = batch_descriptor
+        self._graph_namespace = graph_namespace
         self._waited_stages.clear()
         self._inputs_ready.record(torch.npu.current_stream())
         with torch.npu.stream(self.stream):
@@ -118,7 +127,7 @@ class DeviceMetadataExecutor:
                     if batch_descriptor is None:
                         self._stage_ready[frontier].record(self.stream)
                     else:
-                        self._external_stage_ready[(batch_descriptor, *frontier)].record(self.stream)
+                        self._external_stage_ready[(graph_namespace, batch_descriptor, *frontier)].record(self.stream)
                     task_index += 1
 
     def wait(self, stage: DeviceMetadataStage, group_id: int) -> None:
@@ -130,7 +139,7 @@ class DeviceMetadataExecutor:
             if self._batch_descriptor is None:
                 stream.wait_event(self._stage_ready[frontier])
             else:
-                event = self._external_stage_ready[(self._batch_descriptor, *frontier)]
+                event = self._external_stage_ready[(self._graph_namespace, self._batch_descriptor, *frontier)]
                 event.wait(stream)
                 event.reset(stream)
             self._waited_stages.add(frontier)
