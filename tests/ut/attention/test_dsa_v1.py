@@ -49,7 +49,9 @@ def _make_dspark_draft_builder(max_num_tokens: int = 16):
     builder._device_metadata_enabled = False
     builder._device_metadata_tasks = ()
     builder.dspark_swa_indices_buffer = None
-    builder.cache_group_key = "draft"
+    builder.cache_group_key = "mtp.0.self_attn.swa_cache"
+    builder.layer_names = ("mtp.0.self_attn.swa_cache",)
+    builder.rope_layer_names = ("mtp.0.self_attn.attn",)
     builder.enable_dspark_device_metadata(max_num_tokens)
     return builder
 
@@ -180,6 +182,73 @@ def test_pure_prefill_draft_build_keeps_device_tasks_empty():
     assert metadata.prefill is prefill_metadata
     assert metadata.decode is None
     assert builder.take_device_metadata_tasks() == ()
+
+
+def test_pure_decode_draft_build_reuses_common_rope():
+    builder = _make_dspark_draft_builder()
+    builder.metadata_cls = SimpleNamespace
+    builder.decode_threshold = 4
+    common = _make_dspark_common_metadata(2, 6)
+    common.num_input_tokens = 6
+    common.num_actual_tokens = 6
+    common.slot_mapping = torch.zeros(6, dtype=torch.int32)
+    common.attn_state = None
+    common_cos, common_sin = object(), object()
+    decode_metadata = object()
+
+    with (
+        patch("vllm_ascend.attention.dsa_v1.split_decodes_and_prefills", return_value=(2, 0, 6, 0)),
+        patch(
+            "vllm_ascend.attention.dsa_v1.get_cos_and_sin_dsa",
+            return_value=(common_cos, common_sin),
+        ) as get_rope,
+        patch.object(DeviceOperator, "format_dsa_slot_mapping", return_value=torch.zeros((6, 2), dtype=torch.int32)),
+        patch.object(
+            builder,
+            "build_decode_metadata_for_drafting",
+            return_value=decode_metadata,
+        ) as build_decode,
+    ):
+        metadata = builder.build_for_drafting(common, draft_index=1)
+
+    get_rope.assert_called_once()
+    assert get_rope.call_args.kwargs == {
+        "use_cache": True,
+        "draft_index": 1,
+        "layer_names": builder.rope_layer_names,
+    }
+    assert torch.equal(get_rope.call_args.args[0], common.positions)
+    assert build_decode.call_args.kwargs["common_cos"] is common_cos
+    assert build_decode.call_args.kwargs["common_sin"] is common_sin
+    assert metadata.cos is common_cos
+    assert metadata.sin is common_sin
+    assert metadata.decode is decode_metadata
+
+
+def test_mixed_draft_build_does_not_reuse_common_rope_for_submetadata():
+    builder = _make_dspark_draft_builder()
+    builder.metadata_cls = SimpleNamespace
+    builder.decode_threshold = 4
+    common = _make_dspark_common_metadata(2, 6)
+    common.num_input_tokens = 6
+    common.num_actual_tokens = 6
+    common.slot_mapping = torch.zeros(6, dtype=torch.int32)
+    common.attn_state = None
+
+    with (
+        patch("vllm_ascend.attention.dsa_v1.split_decodes_and_prefills", return_value=(1, 1, 3, 3)),
+        patch(
+            "vllm_ascend.attention.dsa_v1.get_cos_and_sin_dsa",
+            return_value=(object(), object()),
+        ),
+        patch.object(DeviceOperator, "format_dsa_slot_mapping", return_value=torch.zeros((6, 2), dtype=torch.int32)),
+        patch.object(builder, "build_prefill_metadata_for_drafting", return_value=object()),
+        patch.object(builder, "build_decode_metadata_for_drafting", return_value=object()) as build_decode,
+    ):
+        builder.build_for_drafting(common, draft_index=1)
+
+    assert build_decode.call_args.kwargs["common_cos"] is None
+    assert build_decode.call_args.kwargs["common_sin"] is None
 
 
 def test_draft_swa_metadata_rejects_rows_above_buffer_capacity():
