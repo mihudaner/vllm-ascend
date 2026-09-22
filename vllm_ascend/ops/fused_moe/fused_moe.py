@@ -802,9 +802,9 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
                 self.moe_load.index_add_(
                     dim=0, index=cur_iter, source=local_load.to(torch.int32, non_blocking=True).view(1, -1)
                 )
-                self.load_counter.add_(1)
+                torch._foreach_add_([self.load_counter], 1)
             else:
-                self.moe_load.add_(local_load)
+                torch._foreach_add_([self.moe_load], [local_load])
 
         routed_out = _EXTRA_CTX.moe_comm_method.finalize(
             hidden_states=fused_experts_results.routed_out,
