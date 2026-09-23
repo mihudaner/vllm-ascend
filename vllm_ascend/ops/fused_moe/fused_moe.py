@@ -799,8 +799,13 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             )
             if self.multi_stage:
                 cur_iter = torch.remainder(self.load_counter, self.num_iter)
+                local_load_int32 = (
+                    local_load
+                    if local_load.dtype == torch.int32
+                    else torch.ops._C_ascend.npu_int64_to_int32_static_cast(local_load)
+                )
                 self.moe_load.index_add_(
-                    dim=0, index=cur_iter, source=local_load.to(torch.int32, non_blocking=True).view(1, -1)
+                    dim=0, index=cur_iter, source=local_load_int32.view(1, -1)
                 )
                 torch._foreach_add_([self.load_counter], 1)
             else:

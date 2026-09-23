@@ -13,6 +13,7 @@ STATIC_CAST_OPS_ARRAY=(
     "fp32_to_bf16_static_cast"
     "fp32_to_fp16_static_cast"
     "bf16_to_fp16_static_cast"
+    "int64_to_int32_static_cast"
 )
 
 setup_catlass_dependency() {

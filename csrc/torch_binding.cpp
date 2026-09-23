@@ -1747,6 +1747,16 @@ at::Tensor npu_static_cast_npu(
     return at::Tensor();
 }
 
+at::Tensor npu_int64_to_int32_static_cast_npu(const at::Tensor& x)
+{
+    TORCH_CHECK(x.device().type() == c10::DeviceType::PrivateUse1 && x.dtype() == at::kLong &&
+                    x.is_contiguous(),
+                "npu_int64_to_int32_static_cast expects a contiguous INT64 NPU tensor.");
+    at::Tensor y = at::empty_symint(x.sym_sizes(), x.options().dtype(at::kInt));
+    EXEC_NPU_CMD(aclnnInt64ToInt32StaticCast, x, y);
+    return y;
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> construct_hc_pre_sinkhorn_output_tensor(const at::Tensor& mixes, const at::Tensor& x, int64_t hc_mult)
 {
     auto xDims = x.dim();
@@ -3246,6 +3256,9 @@ TORCH_LIBRARY_EXPAND(CONCAT(_C, _ascend), ops)
 
     ops.def("npu_static_cast(Tensor x, str input_dtype, str output_dtype) -> Tensor");
     ops.impl("npu_static_cast", torch::kPrivateUse1, &vllm_ascend::npu_static_cast_npu);
+    ops.def("npu_int64_to_int32_static_cast(Tensor x) -> Tensor");
+    ops.impl("npu_int64_to_int32_static_cast", torch::kPrivateUse1,
+             &vllm_ascend::npu_int64_to_int32_static_cast_npu);
 
     ops.def("npu_matmul_out(Tensor(a!) out, Tensor x1, Tensor weight) -> ()");
     ops.impl("npu_matmul_out", torch::kPrivateUse1,
