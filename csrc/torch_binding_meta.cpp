@@ -1295,6 +1295,15 @@ at::Tensor npu_int64_to_int32_static_cast_meta(const at::Tensor& x)
     return at::empty_symint(x.sym_sizes(), x.options().dtype(at::kInt));
 }
 
+at::Tensor npu_int32_gather_1d_meta(const at::Tensor& mapping, const at::Tensor& indices)
+{
+    TORCH_CHECK(mapping.dtype() == at::kInt && mapping.dim() == 1,
+                "npu_int32_gather_1d expects a 1-D INT32 mapping.");
+    TORCH_CHECK(indices.dtype() == at::kInt,
+                "npu_int32_gather_1d expects INT32 indices.");
+    return at::empty_symint(indices.sym_sizes(), mapping.options());
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> construct_hc_pre_sinkhorn_output_tensor(const at::Tensor& mixes, const at::Tensor& x, int64_t hc_mult)
 {
     auto xDims = x.dim();
@@ -2228,6 +2237,7 @@ TORCH_LIBRARY_IMPL_EXPAND(CONCAT(_C, _ascend), Meta, ops) {
     ops.impl("npu_hc_pre_inv_rms", &vllm_ascend::meta::npu_hc_pre_inv_rms_meta);
     ops.impl("npu_static_cast", &vllm_ascend::meta::npu_static_cast_meta);
     ops.impl("npu_int64_to_int32_static_cast", &vllm_ascend::meta::npu_int64_to_int32_static_cast_meta);
+    ops.impl("npu_int32_gather_1d", &vllm_ascend::meta::npu_int32_gather_1d_meta);
     ops.impl("npu_matmul_out", &vllm_ascend::meta::npu_matmul_out_meta);
     ops.impl("npu_quant_matmul_out", &vllm_ascend::meta::npu_quant_matmul_out_meta);
     ops.impl("npu_hc_pre_sinkhorn", &vllm_ascend::meta::npu_hc_pre_sinkhorn_meta);

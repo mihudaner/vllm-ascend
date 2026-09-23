@@ -1757,6 +1757,23 @@ at::Tensor npu_int64_to_int32_static_cast_npu(const at::Tensor& x)
     return y;
 }
 
+at::Tensor npu_int32_gather_1d_npu(const at::Tensor& mapping, const at::Tensor& indices)
+{
+    TORCH_CHECK(mapping.device().type() == c10::DeviceType::PrivateUse1 &&
+                    mapping.dtype() == at::kInt && mapping.is_contiguous() &&
+                    mapping.dim() == 1 && mapping.numel() > 0,
+                "npu_int32_gather_1d expects a non-empty contiguous 1-D INT32 NPU mapping.");
+    TORCH_CHECK(indices.device().type() == c10::DeviceType::PrivateUse1 &&
+                    indices.dtype() == at::kInt && indices.is_contiguous() &&
+                    indices.numel() > 0,
+                "npu_int32_gather_1d expects non-empty contiguous INT32 NPU indices.");
+    TORCH_CHECK(mapping.device() == indices.device(),
+                "npu_int32_gather_1d expects mapping and indices on the same NPU.");
+    at::Tensor output = at::empty_symint(indices.sym_sizes(), mapping.options());
+    EXEC_NPU_CMD(aclnnInt32Gather, mapping, indices, output);
+    return output;
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> construct_hc_pre_sinkhorn_output_tensor(const at::Tensor& mixes, const at::Tensor& x, int64_t hc_mult)
 {
     auto xDims = x.dim();
@@ -3259,6 +3276,9 @@ TORCH_LIBRARY_EXPAND(CONCAT(_C, _ascend), ops)
     ops.def("npu_int64_to_int32_static_cast(Tensor x) -> Tensor");
     ops.impl("npu_int64_to_int32_static_cast", torch::kPrivateUse1,
              &vllm_ascend::npu_int64_to_int32_static_cast_npu);
+    ops.def("npu_int32_gather_1d(Tensor mapping, Tensor indices) -> Tensor");
+    ops.impl("npu_int32_gather_1d", torch::kPrivateUse1,
+             &vllm_ascend::npu_int32_gather_1d_npu);
 
     ops.def("npu_matmul_out(Tensor(a!) out, Tensor x1, Tensor weight) -> ()");
     ops.impl("npu_matmul_out", torch::kPrivateUse1,

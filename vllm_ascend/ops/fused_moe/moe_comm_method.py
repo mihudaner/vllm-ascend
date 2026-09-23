@@ -566,7 +566,10 @@ class FusedMC2CommImpl(MoECommMethod):
         # Apply log2phy if needed
         topk_ids = fused_experts_input.topk_ids
         if fused_experts_input.routing.log2phy is not None:
-            topk_ids = fused_experts_input.routing.log2phy[topk_ids]
+            topk_ids = torch.ops._C_ascend.npu_int32_gather_1d(
+                fused_experts_input.routing.log2phy,
+                topk_ids,
+            )
 
         expert_tokens = None
         shared_out = None

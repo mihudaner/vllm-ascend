@@ -178,6 +178,7 @@ elif [[ "$SOC_VERSION" =~ ^ascend910_93 ]]; then
         "hc_pre_sinkhorn"
         "hc_pre_inv_rms"
         "static_cast"
+        "int32_gather"
         "hc_post"
         "inplace_partial_rotary_mul"
         "rms_norm_dynamic_quant"

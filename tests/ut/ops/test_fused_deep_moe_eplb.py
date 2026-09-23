@@ -61,9 +61,17 @@ def test_dynamic_eplb_routes_physical_experts_and_validates_inputs(invalid):
     elif invalid == "weight_count":
         inputs = replace(inputs, weights=replace(weights, w2=[weight]))
 
-    with patch(
-        "vllm_ascend.ops.fused_moe.moe_comm_method.get_ascend_config",
-        return_value=SimpleNamespace(enable_fused_mc2=1),
+    with (
+        patch(
+            "vllm_ascend.ops.fused_moe.moe_comm_method.get_ascend_config",
+            return_value=SimpleNamespace(enable_fused_mc2=1),
+        ),
+        patch.object(
+            torch.ops._C_ascend,
+            "npu_int32_gather_1d",
+            side_effect=lambda mapping, indices: mapping[indices],
+            create=True,
+        ),
     ):
         if invalid:
             with pytest.raises(ValueError, match="fused_deep_moe"):
