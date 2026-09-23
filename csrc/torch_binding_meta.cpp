@@ -5,6 +5,7 @@
 #include <torch_npu/csrc/framework/OpCommand.h>
 #include <torch_npu/csrc/npu/Module.h>
 #include "utils.h"
+#include <limits>
 /*
  * How to write a meta implementation for a custom operator (meta kernel):
  *
@@ -1304,6 +1305,29 @@ at::Tensor npu_int32_gather_1d_meta(const at::Tensor& mapping, const at::Tensor&
     return at::empty_symint(indices.sym_sizes(), mapping.options());
 }
 
+at::Tensor npu_int32_remainder_scalar_meta(const at::Tensor& x, int64_t divisor)
+{
+    TORCH_CHECK(x.dtype() == at::kInt,
+                "npu_int32_remainder_scalar expects an INT32 input.");
+    TORCH_CHECK(divisor > 0 && divisor <= std::numeric_limits<int32_t>::max(),
+                "npu_int32_remainder_scalar expects a positive INT32 divisor.");
+    return at::empty_symint(x.sym_sizes(), x.options());
+}
+
+at::Tensor npu_int32_remainder_scalar_and_add_meta(at::Tensor& counter, int64_t divisor, int64_t increment)
+{
+    TORCH_CHECK(counter.dtype() == at::kInt,
+                "npu_int32_remainder_scalar_and_add_ expects an INT32 counter.");
+    TORCH_CHECK(counter.numel() == 1,
+                "npu_int32_remainder_scalar_and_add_ supports only a single-element counter.");
+    TORCH_CHECK(divisor > 0 && divisor <= std::numeric_limits<int32_t>::max(),
+                "npu_int32_remainder_scalar_and_add_ expects a positive INT32 divisor.");
+    TORCH_CHECK(increment >= std::numeric_limits<int32_t>::min() &&
+                    increment <= std::numeric_limits<int32_t>::max(),
+                "npu_int32_remainder_scalar_and_add_ expects an INT32 increment.");
+    return at::empty_symint(counter.sym_sizes(), counter.options());
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> construct_hc_pre_sinkhorn_output_tensor(const at::Tensor& mixes, const at::Tensor& x, int64_t hc_mult)
 {
     auto xDims = x.dim();
@@ -2238,6 +2262,8 @@ TORCH_LIBRARY_IMPL_EXPAND(CONCAT(_C, _ascend), Meta, ops) {
     ops.impl("npu_static_cast", &vllm_ascend::meta::npu_static_cast_meta);
     ops.impl("npu_int64_to_int32_static_cast", &vllm_ascend::meta::npu_int64_to_int32_static_cast_meta);
     ops.impl("npu_int32_gather_1d", &vllm_ascend::meta::npu_int32_gather_1d_meta);
+    ops.impl("npu_int32_remainder_scalar", &vllm_ascend::meta::npu_int32_remainder_scalar_meta);
+    ops.impl("npu_int32_remainder_scalar_and_add_", &vllm_ascend::meta::npu_int32_remainder_scalar_and_add_meta);
     ops.impl("npu_matmul_out", &vllm_ascend::meta::npu_matmul_out_meta);
     ops.impl("npu_quant_matmul_out", &vllm_ascend::meta::npu_quant_matmul_out_meta);
     ops.impl("npu_hc_pre_sinkhorn", &vllm_ascend::meta::npu_hc_pre_sinkhorn_meta);

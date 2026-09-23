@@ -1774,6 +1774,35 @@ at::Tensor npu_int32_gather_1d_npu(const at::Tensor& mapping, const at::Tensor& 
     return output;
 }
 
+at::Tensor npu_int32_remainder_scalar_npu(const at::Tensor& x, int64_t divisor)
+{
+    TORCH_CHECK(x.device().type() == c10::DeviceType::PrivateUse1 && x.dtype() == at::kInt &&
+                    x.is_contiguous(),
+                "npu_int32_remainder_scalar expects a contiguous INT32 NPU tensor.");
+    TORCH_CHECK(divisor > 0 && divisor <= std::numeric_limits<int32_t>::max(),
+                "npu_int32_remainder_scalar expects a positive INT32 divisor.");
+    at::Tensor y = at::empty_symint(x.sym_sizes(), x.options());
+    EXEC_NPU_CMD(aclnnInt32RemainderScalar, x, divisor, y);
+    return y;
+}
+
+at::Tensor npu_int32_remainder_scalar_and_add_npu(at::Tensor& counter, int64_t divisor, int64_t increment)
+{
+    TORCH_CHECK(counter.device().type() == c10::DeviceType::PrivateUse1 &&
+                    counter.dtype() == at::kInt && counter.is_contiguous(),
+                "npu_int32_remainder_scalar_and_add_ expects a contiguous INT32 NPU counter.");
+    TORCH_CHECK(counter.numel() == 1,
+                "npu_int32_remainder_scalar_and_add_ supports only a single-element counter.");
+    TORCH_CHECK(divisor > 0 && divisor <= std::numeric_limits<int32_t>::max(),
+                "npu_int32_remainder_scalar_and_add_ expects a positive INT32 divisor.");
+    TORCH_CHECK(increment >= std::numeric_limits<int32_t>::min() &&
+                    increment <= std::numeric_limits<int32_t>::max(),
+                "npu_int32_remainder_scalar_and_add_ expects an INT32 increment.");
+    at::Tensor cur_iter = at::empty_symint(counter.sym_sizes(), counter.options());
+    EXEC_NPU_CMD(aclnnInt32RemainderScalarAndAdd, counter, divisor, increment, cur_iter);
+    return cur_iter;
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor> construct_hc_pre_sinkhorn_output_tensor(const at::Tensor& mixes, const at::Tensor& x, int64_t hc_mult)
 {
     auto xDims = x.dim();
@@ -3279,6 +3308,12 @@ TORCH_LIBRARY_EXPAND(CONCAT(_C, _ascend), ops)
     ops.def("npu_int32_gather_1d(Tensor mapping, Tensor indices) -> Tensor");
     ops.impl("npu_int32_gather_1d", torch::kPrivateUse1,
              &vllm_ascend::npu_int32_gather_1d_npu);
+    ops.def("npu_int32_remainder_scalar(Tensor x, int divisor) -> Tensor");
+    ops.impl("npu_int32_remainder_scalar", torch::kPrivateUse1,
+             &vllm_ascend::npu_int32_remainder_scalar_npu);
+    ops.def("npu_int32_remainder_scalar_and_add_(Tensor(a!) counter, int divisor, int increment=1) -> Tensor");
+    ops.impl("npu_int32_remainder_scalar_and_add_", torch::kPrivateUse1,
+             &vllm_ascend::npu_int32_remainder_scalar_and_add_npu);
 
     ops.def("npu_matmul_out(Tensor(a!) out, Tensor x1, Tensor weight) -> ()");
     ops.impl("npu_matmul_out", torch::kPrivateUse1,
