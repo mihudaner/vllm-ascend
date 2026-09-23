@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, patch
 
 import torch
@@ -9,6 +10,7 @@ from tests.ut.quantization.conftest_quantization import (
     create_mock_vllm_config,
     create_moe_layer,
 )
+from vllm_ascend.ascend_forward_context import MoECommType
 from vllm_ascend.quantization.methods.w8a8_dynamic import (
     AscendW8A8DynamicFusedMoEMethod,
     AscendW8A8DynamicLinearMethod,
@@ -225,18 +227,24 @@ class TestAscendW8A8FusedMoEMethod(TestBase):
         mock_extra_ctx.moe_comm_method = mock_comm
         self.quant_method.in_dtype = torch.bfloat16
 
-        self.quant_method.apply(
-            layer=layer,
-            x=x,
-            router_logits=router_logits,
-            top_k=2,
-            renormalize=True,
-            num_experts=self.num_experts,
-            activation="gelu",
-            apply_router_weight_on_input=True,
-            mc2_mask=mc2_mask,
-            pertoken_scale=pertoken_scale,
-        )
+        with patch.object(
+            torch.ops._C_ascend,
+            "npu_static_cast",
+            return_value=topk_weights,
+            create=True,
+        ):
+            self.quant_method.apply(
+                layer=layer,
+                x=x,
+                router_logits=router_logits,
+                top_k=2,
+                renormalize=True,
+                num_experts=self.num_experts,
+                activation="gelu",
+                apply_router_weight_on_input=True,
+                mc2_mask=mc2_mask,
+                pertoken_scale=pertoken_scale,
+            )
 
         fused_experts_input = mock_comm.fused_experts.call_args.kwargs["fused_experts_input"]
         self.assertEqual(fused_experts_input.activation, "gelu")
@@ -246,6 +254,77 @@ class TestAscendW8A8FusedMoEMethod(TestBase):
         self.assertIs(fused_experts_input.topk_weights, topk_weights)
         self.assertEqual(fused_experts_input.topk_weights.dtype, torch.float32)
         self.assertIs(fused_experts_input.topk_ids, topk_ids)
+
+    @patch("vllm_ascend.quantization.methods.w8a8_dynamic._EXTRA_CTX")
+    @patch("vllm_ascend.quantization.methods.w8a8_dynamic.select_experts")
+    def test_fused_deep_moe_preserves_fp32_topk_weights(self, mock_select_experts, mock_extra_ctx):
+        tokens = 4
+        layer = torch.nn.Module()
+        layer.w13_weight = torch.randint(
+            -8,
+            8,
+            (self.num_experts, 2 * self.intermediate_size, self.hidden_size),
+            dtype=torch.int8,
+        )
+        layer.w2_weight = torch.randint(
+            -8,
+            8,
+            (self.num_experts, self.hidden_size, self.intermediate_size),
+            dtype=torch.int8,
+        )
+        layer.w13_weight_scale_fp32 = torch.ones(
+            self.num_experts, 2 * self.intermediate_size, dtype=torch.float32
+        )
+        layer.w2_weight_scale = torch.ones(self.num_experts, self.hidden_size, dtype=torch.float32)
+        layer.swiglu_limit = 1000000
+
+        topk_weights = torch.randn(tokens, 2, dtype=torch.float32)
+        topk_ids = torch.randint(0, self.num_experts, (tokens, 2), dtype=torch.int64)
+        mock_select_experts.return_value = (topk_weights, topk_ids)
+        mock_comm = Mock()
+        mock_comm.fused_experts.return_value = torch.randn(tokens, self.hidden_size, dtype=torch.float32)
+        mock_extra_ctx.moe_comm_method = mock_comm
+        mock_extra_ctx.moe_comm_type = MoECommType.FUSED_MC2
+        self.quant_method.dynamic_eplb = False
+        self.quant_method.in_dtype = torch.bfloat16
+
+        shared_experts = SimpleNamespace(
+            expert_gate=None,
+            gate_up_proj=SimpleNamespace(
+                weight=torch.randint(-8, 8, (self.hidden_size, self.hidden_size), dtype=torch.int8),
+                weight_scale_fp32=torch.ones(self.hidden_size, dtype=torch.float32),
+            ),
+            down_proj=SimpleNamespace(
+                weight=torch.randint(-8, 8, (self.hidden_size, self.hidden_size), dtype=torch.int8),
+                weight_scale=torch.ones(self.hidden_size, dtype=torch.float32),
+            ),
+            smooth_scales=None,
+        )
+
+        with (
+            patch(
+                "vllm_ascend.quantization.methods.w8a8_dynamic.get_ascend_config",
+                return_value=SimpleNamespace(
+                    enable_fused_mc2=1,
+                    fused_mc2_backend="fused_deep_moe",
+                ),
+            ),
+            patch.object(torch.ops._C_ascend, "npu_static_cast", create=True) as mock_static_cast,
+        ):
+            self.quant_method.apply(
+                layer=layer,
+                x=torch.randn(tokens, self.hidden_size, dtype=torch.bfloat16),
+                router_logits=torch.randn(tokens, self.num_experts, dtype=torch.float32),
+                top_k=2,
+                renormalize=True,
+                num_experts=self.num_experts,
+                shared_experts=shared_experts,
+            )
+
+        fused_experts_input = mock_comm.fused_experts.call_args.kwargs["fused_experts_input"]
+        self.assertIs(fused_experts_input.topk_weights, topk_weights)
+        self.assertEqual(fused_experts_input.topk_weights.dtype, torch.float32)
+        mock_static_cast.assert_not_called()
 
     @patch("torch_npu.npu_format_cast")
     @patch("vllm_ascend.quantization.methods.w8a8_dynamic.get_ascend_config")

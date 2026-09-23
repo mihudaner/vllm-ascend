@@ -526,6 +526,9 @@ class FusedMC2CommImpl(MoECommMethod):
         if shared_experts is None:
             raise ValueError("fused_deep_moe requires shared expert weights.")
         assert isinstance(self.token_dispatcher, TokenDispatcherWithMC2)
+        expert_scales = fused_experts_input.topk_weights
+        if expert_scales.dtype != torch.float32:
+            raise ValueError(f"fused_deep_moe requires FP32 expert_scales, got {expert_scales.dtype}.")
         return self.fused_deep_moe(
             x=fused_experts_input.hidden_states,
             expert_ids=topk_ids.to(torch.int32),
@@ -533,7 +536,7 @@ class FusedMC2CommImpl(MoECommMethod):
             gmm1_weight_scale=fused_experts_input.weights.w1_scale,
             gmm2_weight=fused_experts_input.weights.w2,
             gmm2_weight_scale=fused_experts_input.weights.w2_scale,
-            expert_scales=fused_experts_input.topk_weights.to(torch.float32),
+            expert_scales=expert_scales,
             share_gmm1_weight=shared_experts.w1,
             share_gmm1_weight_scale=shared_experts.w1_scale,
             share_gmm2_weight=shared_experts.w2,

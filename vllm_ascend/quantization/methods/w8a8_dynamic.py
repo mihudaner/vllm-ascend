@@ -323,20 +323,23 @@ class AscendW8A8DynamicFusedMoEMethod(AscendMoEScheme):
             random_matrix = torch.rand(topk_ids.size(0), num_logical_experts, device=topk_ids.device)
             topk_ids = torch.argsort(random_matrix, dim=1)[:, : topk_ids.size(1)].to(topk_ids.dtype)
 
-        assert topk_weights is not None
-        if topk_weights.dtype == torch.float32 and self.in_dtype == torch.bfloat16:
-            topk_weights = torch.ops._C_ascend.npu_static_cast(
-                topk_weights, "float32", "bfloat16"
-            )
-        else:
-            topk_weights = topk_weights.to(self.in_dtype)
-
         act_name = getattr(activation, "value", activation)
         moe_comm_method = _EXTRA_CTX.moe_comm_method
         use_fused_deep_moe = (
             _EXTRA_CTX.moe_comm_type == MoECommType.FUSED_MC2
             and getattr(get_ascend_config(), "fused_mc2_backend", "auto") == "fused_deep_moe"
         )
+        assert topk_weights is not None
+        if use_fused_deep_moe:
+            if topk_weights.dtype != torch.float32:
+                topk_weights = topk_weights.to(torch.float32)
+        elif topk_weights.dtype == torch.float32 and self.in_dtype == torch.bfloat16:
+            topk_weights = torch.ops._C_ascend.npu_static_cast(
+                topk_weights, "float32", "bfloat16"
+            )
+        else:
+            topk_weights = topk_weights.to(self.in_dtype)
+
         if use_fused_deep_moe:
             if x.shape[0] > 256:
                 raise ValueError(f"fused_deep_moe supports at most 256 input tokens per rank, got {x.shape[0]}.")
