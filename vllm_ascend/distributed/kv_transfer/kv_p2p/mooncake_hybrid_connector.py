@@ -39,6 +39,7 @@ from vllm.distributed.parallel_state import (
 )
 from vllm.distributed.utils import get_pp_indices
 from vllm.logger import logger
+from vllm.model_executor.models.utils import extract_layer_index
 from vllm.utils.math_utils import cdiv
 from vllm.utils.network_utils import get_ip, make_zmq_path, make_zmq_socket
 from vllm.v1.core.sched.output import SchedulerOutput
@@ -88,6 +89,10 @@ class MooncakeAgentMetadata(msgspec.Struct, omit_defaults=True, dict=True):
     block_lens: list[int]
     ssm_sizes: tuple[int, int]
     local_ip: str = ""
+    cache_name_to_addr_idx: dict[str, int] = msgspec.field(default_factory=dict)
+    cache_name_to_view_offset: dict[str, int] = msgspec.field(default_factory=dict)
+    cache_name_to_page_len: dict[str, int] = msgspec.field(default_factory=dict)
+    block_strides: list[int] = msgspec.field(default_factory=list)
 
 
 @dataclass
@@ -102,6 +107,8 @@ class ReqMeta:
     remote_ptp_size: int | None
     remote_multi_nodes_meta_mapping: dict[str, dict[str, Any]]
     num_prompt_blocks: int
+    local_full_block_ids: BlockIds = tuple()
+    context_tokens: int = 0
 
 
 @dataclass
@@ -385,6 +392,9 @@ class KVCacheRecvingThread(threading.Thread):
         kv_cache_config: KVCacheConfig,
         kv_caches: dict[str, Any],
         prefill_pp_layer_partition: str | None = None,
+        cache_name_to_addr_idx: dict[str, int] | None = None,
+        cache_name_to_view_offset: dict[str, int] | None = None,
+        cache_name_to_page_len: dict[str, int] | None = None,
     ):
         super().__init__(daemon=True, name="KVCacheRecvingThread")
         self.tp_rank = tp_rank
@@ -402,6 +412,10 @@ class KVCacheRecvingThread(threading.Thread):
         self.block_len_per_addr = block_len_per_addr
         self.block_stride_per_addr = block_stride_per_addr
         self.addr_group_idx = addr_group_idx
+        self.cache_name_to_addr_idx = cache_name_to_addr_idx or {}
+        self.cache_name_to_view_offset = cache_name_to_view_offset or {}
+        self.cache_name_to_page_len = cache_name_to_page_len or {}
+        self.remote_layout: dict[str, dict[int, MooncakeAgentMetadata]] = SizedDict()
         self.hma_group_size = hma_group_size
         self.mamba_ssm_size = mamba_ssm_size
         self.remote_te_port: dict[str, dict[int, int]] = SizedDict()
@@ -476,6 +490,8 @@ class KVCacheRecvingThread(threading.Thread):
         tp_num_need_pulls: int,
         remote_port_send_num: dict[int, RemotePortInfo] | None = None,
         all_task_done: bool = False,
+        local_full_block_ids: BlockIds = tuple(),
+        context_tokens: int = 0,
     ):
         """Add a new request to the queue for processing."""
         if remote_port_send_num is None:
@@ -494,6 +510,8 @@ class KVCacheRecvingThread(threading.Thread):
                 "tp_num_need_pulls": tp_num_need_pulls,
                 "remote_port_send_num": remote_port_send_num,
                 "all_task_done": all_task_done,
+                "local_full_block_ids": local_full_block_ids,
+                "context_tokens": context_tokens,
             }
         )
 
@@ -643,7 +661,7 @@ class KVCacheRecvingThread(threading.Thread):
         remote_engine_id = req_meta["remote_engine_id"]
         remote_host = req_meta["remote_host"]
         remote_handshake_port = req_meta["remote_handshake_port"]
-        # offset = req_meta["offset"]
+        named_pp = self._prefill_pp_size > 1 and self.model_config.hf_text_config.model_type == "deepseek_v4"
         # tp_num_need_pulls = req_meta["tp_num_need_pulls"]
 
         # Full prefix cache hit: do not need to read remote blocks, just notify
@@ -665,6 +683,17 @@ class KVCacheRecvingThread(threading.Thread):
             remote_kv_caches_base_addrs = self.kv_caches_base_addr[remote_engine_id][remote_handshake_port]
             local_kv_caches_base_addrs = self.kv_caches_base_addr[self.local_engine_id][self.local_handshake_port]
             remote_transfer_port = self.remote_te_port[remote_engine_id][remote_handshake_port]
+            remote_layout = self.remote_layout[remote_engine_id][remote_handshake_port] if named_pp else None
+        if named_pp and not (
+            remote_layout.cache_name_to_addr_idx
+            and remote_layout.cache_name_to_view_offset
+            and remote_layout.cache_name_to_page_len
+            and remote_layout.block_strides
+        ):
+            raise ValueError("DSV4 PP transfer requires remote cache names, view offsets, page sizes and strides")
+        if named_pp:
+            pp_rank = req_meta["offset"] // req_meta["tp_num_need_pulls"]
+            first_layer, end_layer = self.pp_layer_indices[pp_rank]
         session_id = f"{remote_host}:{remote_transfer_port}"
 
         req_start_time = time.perf_counter()
@@ -674,27 +703,66 @@ class KVCacheRecvingThread(threading.Thread):
                 continue
             cur_remote_block_ids = remote_block_ids[i]
             cur_local_block_ids = local_block_ids[i]
-            if not isinstance(self.kv_cache_specs[i], MambaSpec) and len(cur_local_block_ids) < len(
+            if named_pp:
+                cur_local_block_ids, cur_remote_block_ids = self._get_pp_group_block_ids(req_meta, i)
+            elif not isinstance(self.kv_cache_specs[i], MambaSpec) and len(cur_local_block_ids) < len(
                 cur_remote_block_ids
             ):
                 cur_remote_block_ids = cur_remote_block_ids[-len(cur_local_block_ids) :]
             grouped_remote_block_ids, grouped_local_block_ids = group_concurrent_contiguous(
                 cur_remote_block_ids, cur_local_block_ids
             )
-            for k, (src_layer_base_addr, dst_layer_base_addr) in enumerate(
-                zip(local_kv_caches_base_addrs, remote_kv_caches_base_addrs)
-            ):
+            if named_pp:
+                # P stages register subsets of D's caches, in a different raw-buffer order.
+                addr_pairs = [
+                    (name, self.cache_name_to_addr_idx[name], remote_layout.cache_name_to_addr_idx[name])
+                    for name in self.kv_cache_config.kv_cache_groups[i].layer_names
+                    if (
+                        ("mtp" in name and pp_rank == self._prefill_pp_size - 1)
+                        or ("mtp" not in name and first_layer <= extract_layer_index(name) < end_layer)
+                    )
+                ]
+            else:
+                addr_pairs = [
+                    (None, k, k) for k in range(min(len(local_kv_caches_base_addrs), len(remote_kv_caches_base_addrs)))
+                ]
+            for cache_name, k, remote_k in addr_pairs:
+                src_layer_base_addr = local_kv_caches_base_addrs[k]
+                dst_layer_base_addr = remote_kv_caches_base_addrs[remote_k]
                 if self.addr_group_idx and i not in self.addr_group_idx[k]:  # type: ignore[operator]
                     continue
                 block_len = self.block_len_per_addr[k]
                 block_stride = self.block_stride_per_addr[k]
+                remote_stride = block_stride
+                if named_pp:
+                    block_len = self.cache_name_to_page_len[cache_name]
+                    if block_len != remote_layout.cache_name_to_page_len[cache_name]:
+                        raise ValueError(f"DSV4 PP requires matching logical page sizes: {cache_name}")
+                    remote_stride = remote_layout.block_strides[remote_k]
+                    local_offset = self.cache_name_to_view_offset[cache_name]
+                    remote_offset = remote_layout.cache_name_to_view_offset[cache_name]
+                    if (
+                        block_len <= 0
+                        or local_offset < 0
+                        or remote_offset < 0
+                        or local_offset + block_len > block_stride
+                        or remote_offset + block_len > remote_stride
+                    ):
+                        raise ValueError(f"DSV4 PP logical view exceeds its physical page: {cache_name}")
+                    src_layer_base_addr += local_offset
+                    dst_layer_base_addr += remote_offset
                 for remote_block_id, local_block_id in zip(grouped_remote_block_ids, grouped_local_block_ids):
-                    src = src_layer_base_addr + local_block_id[0] * block_stride
-                    dst = dst_layer_base_addr + remote_block_id[0] * block_stride
-                    length = block_len * len(local_block_id)
-                    src_list.append(src)
-                    dst_list.append(dst)
-                    length_list.append(length)
+                    # A logical view may occupy only part of a physical page.
+                    # Coalesce adjacent blocks only when both views are contiguous.
+                    if not named_pp or block_stride == remote_stride == block_len:
+                        src_list.append(src_layer_base_addr + local_block_id[0] * block_stride)
+                        dst_list.append(dst_layer_base_addr + remote_block_id[0] * remote_stride)
+                        length_list.append(block_len * len(local_block_id))
+                    else:
+                        for local_id, remote_id in zip(local_block_id, remote_block_id):
+                            src_list.append(src_layer_base_addr + local_id * block_stride)
+                            dst_list.append(dst_layer_base_addr + remote_id * remote_stride)
+                            length_list.append(block_len)
 
         ret = self.engine.batch_transfer_sync_read(session_id, src_list, dst_list, length_list)
         if ret < 0:
@@ -715,6 +783,30 @@ class KVCacheRecvingThread(threading.Thread):
             self.tp_rank,
             session_id,
         )
+
+    def _get_pp_group_block_ids(self, req_meta: dict[str, Any], group_idx: int) -> tuple[list[int], list[int]]:
+        """Pair P's clipped blocks with the same logical positions in D's full table."""
+        spec = self.kv_cache_specs[group_idx]
+        if isinstance(spec, UniformTypeKVCacheSpecs):
+            spec = next(iter(spec.kv_cache_specs.values()))
+        block_size = spec.block_size
+        ratio = max(1, getattr(spec, "compress_ratio", 1))
+        context_tokens = req_meta["context_tokens"]
+        remote = req_meta["remote_block_ids"][group_idx]
+        full_local = req_meta["local_full_block_ids"][group_idx]
+        # A reserved compression slot is not valid until its input group is complete.
+        end = cdiv(context_tokens // ratio, block_size)
+        start = cdiv(context_tokens, block_size * ratio) - len(remote) if getattr(spec, "sliding_window", None) else 0
+        if start < 0 or end > len(full_local) or start + len(remote) < end:
+            raise ValueError("P-side blocks do not match the D-side logical block table")
+        writable = set(req_meta["local_block_ids"][group_idx])
+        # D may have dropped an older window block or retained a cached prefix.
+        pairs = [
+            (local_id, remote_id)
+            for local_id, remote_id in zip(full_local[start:end], remote)
+            if local_id != 0 and local_id in writable
+        ]
+        return [local for local, _ in pairs], [remote for _, remote in pairs]
 
     def _transfer_kv_cache(self, req_meta: dict[str, Any]):
         """Handle a KV cache transfer request."""
@@ -970,6 +1062,7 @@ class KVCacheRecvingThread(threading.Thread):
             with self.remote_metadata_lock:
                 self.kv_caches_base_addr[engine_id][remote_handshake_port] = agent_meta.kv_caches_base_addr
                 self.remote_te_port[engine_id][remote_handshake_port] = agent_meta.te_rpc_port
+                self.remote_layout[engine_id][remote_handshake_port] = agent_meta
         except Exception:
             if isinstance(sock, zmq.Socket):  # type: ignore
                 sock.close()
@@ -1063,6 +1156,8 @@ class MooncakeConnectorMetadata(KVConnectorMetadata):
         local_block_ids: BlockIds,
         num_external_tokens: int,
         kv_transfer_params: dict[str, Any],
+        local_full_block_ids: BlockIds = tuple(),
+        context_tokens: int = 0,
     ):
         self.requests[request_id] = ReqMeta(
             local_block_ids=local_block_ids,
@@ -1075,6 +1170,8 @@ class MooncakeConnectorMetadata(KVConnectorMetadata):
             remote_ptp_size=kv_transfer_params.get("remote_ptp_size"),
             remote_multi_nodes_meta_mapping=kv_transfer_params.get("remote_multi_nodes_meta_mapping", {}),
             num_prompt_blocks=kv_transfer_params.get("num_prompt_blocks", 0),
+            local_full_block_ids=local_full_block_ids,
+            context_tokens=context_tokens,
         )
 
 
@@ -1175,6 +1272,16 @@ class MooncakeConnector(KVConnectorBase_V1, SupportsHMA):
         assert self.connector_scheduler is not None
         self.connector_scheduler.set_xfer_handshake_metadata(metadata)
 
+    def set_xfer_handshake_metadata_pp_aware(
+        self, metadata: dict[tuple[int, int], KVConnectorHandshakeMetadata]
+    ) -> None:
+        """Index every PP/TP shard by its offset from the handshake base port."""
+        assert self.connector_scheduler is not None
+        tp_size = self.connector_scheduler.tp_size
+        self.set_xfer_handshake_metadata(
+            {pp_rank * tp_size + tp_rank: rank_metadata for (pp_rank, tp_rank), rank_metadata in metadata.items()}
+        )
+
 
 class MooncakeConnectorScheduler:
     """Implementation of Scheduler side methods"""
@@ -1210,7 +1317,7 @@ class MooncakeConnectorScheduler:
         # Requests that need to start recv.
         # New requests are added by update_state_after_alloc in
         # the scheduler. Used to make metadata passed to Worker.
-        self._reqs_need_recv: dict[str, tuple[Request, BlockIds, int]] = {}
+        self._reqs_need_recv: dict[str, tuple[Request, BlockIds, BlockIds, int]] = {}
         self._reqs_need_send: dict[str, float] = {}
         self._reqs_in_batch: set[str] = set()
 
@@ -1382,7 +1489,12 @@ class MooncakeConnectorScheduler:
                 if all(p in params for p in ("remote_engine_id", "remote_host", "remote_port", "remote_request_id")):
                     local_block_ids = blocks.get_unhashed_block_ids_all_groups() if num_external_tokens > 0 else []
                     # Get unhashed blocks to pull from remote.
-                    self._reqs_need_recv[request.request_id] = (request, local_block_ids, num_external_tokens)
+                    self._reqs_need_recv[request.request_id] = (
+                        request,
+                        local_block_ids,
+                        blocks.get_block_ids(),
+                        num_external_tokens,
+                    )
                 else:
                     logger.warning("Got invalid KVTransferParams. params=%s. ", params)
             else:
@@ -1397,7 +1509,7 @@ class MooncakeConnectorScheduler:
         meta = MooncakeConnectorMetadata()
 
         # Loop through scheduled reqs and convert to ReqMeta.
-        for req_id, (req, block_ids, num_external_tokens) in self._reqs_need_recv.items():
+        for req_id, (req, block_ids, full_block_ids, num_external_tokens) in self._reqs_need_recv.items():
             assert req.kv_transfer_params is not None
             # For the case where there are no remote blocks to pull
             # (block_ids is empty), we don't need to schedule
@@ -1407,6 +1519,8 @@ class MooncakeConnectorScheduler:
                 local_block_ids=block_ids,
                 num_external_tokens=num_external_tokens,
                 kv_transfer_params=req.kv_transfer_params,
+                local_full_block_ids=full_block_ids,
+                context_tokens=self._state_prefill_token_count(len(req.prompt_token_ids or [])),
             )
 
         # Clear the list once workers start the transfers
@@ -1616,6 +1730,9 @@ class MooncakeConnectorWorker:
         self.block_len_per_addr: list[int] = []
         self.block_stride_per_addr: list[int] = []
         self.addr_group_idx: list[int] = []
+        self.cache_name_to_addr_idx: dict[str, int] = {}
+        self.cache_name_to_view_offset: dict[str, int] = {}
+        self.cache_name_to_page_len: dict[str, int] = {}
         ptrs = []
         lengths = []
         if not self.use_hybrid:
@@ -1664,12 +1781,22 @@ class MooncakeConnectorWorker:
                     continue
                 share_tensor_addr = []
                 share_tensor_stride = []
+                layer_view_bases = {}
                 cur_tensor_group_idx = []
                 for layer_name in kv_cache_tensor.shared_by:
                     cur_tensor_group_idx.append(layer_group_idx[layer_name])
+                    self.cache_name_to_addr_idx[layer_name] = len(self.kv_caches_base_addr)
+                    group_spec = self.kv_cache_config.kv_cache_groups[layer_group_idx[layer_name]].kv_cache_spec
+                    layer_spec = (
+                        group_spec.kv_cache_specs[layer_name]
+                        if isinstance(group_spec, UniformTypeKVCacheSpecs)
+                        else group_spec
+                    )
+                    self.cache_name_to_page_len[layer_name] = layer_spec.page_size_bytes
                     kv_cache_tuple = kv_caches[layer_name]
                     if not isinstance(kv_cache_tuple, (tuple, list)):
-                        kv_cache_tuple = kv_cache_tuple
+                        kv_cache_tuple = [kv_cache_tuple]
+                    layer_view_bases[layer_name] = min(t.data_ptr() for t in kv_cache_tuple)
                     for single_tensor in kv_cache_tuple:
                         tensor_addr = single_tensor.data_ptr()
                         if tensor_addr in share_tensor_addr or tensor_addr in self.kv_caches_base_addr:
@@ -1677,7 +1804,10 @@ class MooncakeConnectorWorker:
                         share_tensor_addr.append(tensor_addr)
                         share_tensor_stride.append(single_tensor.stride(0) * single_tensor.element_size())
                 cur_tensor_group_idx = sorted(list(set(cur_tensor_group_idx)))
-                self.kv_caches_base_addr.append(min(share_tensor_addr))
+                buffer_base = min(share_tensor_addr)
+                for layer_name, view_base in layer_view_bases.items():
+                    self.cache_name_to_view_offset[layer_name] = view_base - buffer_base
+                self.kv_caches_base_addr.append(buffer_base)
                 self.addr_group_idx.append(cur_tensor_group_idx)  # type: ignore[arg-type]
                 self.block_stride_per_addr.append(share_tensor_stride[0])
                 self.block_len_per_addr.append(share_tensor_stride[0])
@@ -1696,6 +1826,10 @@ class MooncakeConnectorWorker:
             num_blocks=self.num_blocks,
             block_lens=self.block_len_per_addr,
             ssm_sizes=self._mamba_ssm_size,
+            cache_name_to_addr_idx=self.cache_name_to_addr_idx,
+            cache_name_to_view_offset=self.cache_name_to_view_offset,
+            cache_name_to_page_len=self.cache_name_to_page_len,
+            block_strides=self.block_stride_per_addr,
             local_ip=get_ip(),
         )
         self.xfer_handshake_metadata = metadata
@@ -1736,6 +1870,9 @@ class MooncakeConnectorWorker:
                 self.kv_cache_config,
                 self.kv_caches,
                 self._prefill_pp_layer_partition,
+                cache_name_to_addr_idx=self.cache_name_to_addr_idx,
+                cache_name_to_view_offset=self.cache_name_to_view_offset,
+                cache_name_to_page_len=self.cache_name_to_page_len,
             )
             self.kv_recv_thread.start()
 
@@ -1830,6 +1967,8 @@ class MooncakeConnectorWorker:
                         remote_host=remote_host,
                         remote_handshake_port=remote_handshake_port_list[i][0],
                         offset=i,
+                        local_full_block_ids=meta.local_full_block_ids,
+                        context_tokens=meta.context_tokens,
                         tp_num_need_pulls=tp_num_need_pulls,
                         all_task_done=(i == tp_num_need_pulls * self._prefill_pp_size - 1),
                     )

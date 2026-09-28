@@ -3845,10 +3845,20 @@ class NPUModelRunner(GPUModelRunner):
             )
 
             pp_group = get_pp_group()
+            speculative_config = self.speculative_config
+            draft_model_config = getattr(speculative_config, "draft_model_config", None)
+            local_dspark_pp = (
+                pp_group.world_size > 1
+                and pp_group.is_last_rank
+                and self.use_aux_hidden_state_outputs
+                and speculative_config is not None
+                and speculative_config.use_dspark()
+                and "DSparkDraftModel" in getattr(draft_model_config, "architectures", ())
+            )
             should_configure_aux_hidden_states = (
                 self.use_aux_hidden_state_outputs
                 if pp_group.world_size == 1
-                else self._eagle3_uses_aux_hidden_state()
+                else self._eagle3_uses_aux_hidden_state() or local_dspark_pp
             )
             if should_configure_aux_hidden_states:
                 from vllm.model_executor.models.interfaces import supports_eagle3
@@ -3862,22 +3872,6 @@ class NPUModelRunner(GPUModelRunner):
                 aux_layers = self._get_eagle3_aux_layers_from_config()
                 if not aux_layers:
                     aux_layers = self.model.get_eagle3_default_aux_hidden_state_layers()
-                self.model.set_aux_hidden_state_layers(aux_layers)
-                if self.speculative_config.use_dspark():
-                    # Only Kimi targets expose this hook. Qwen target models do
-                    # not, so their existing DSpark auxiliary stream is unchanged.
-                    set_capture_mode = getattr(
-                        self.model,
-                        "set_dspark_aux_capture_materialized",
-                        None,
-                    )
-                    if set_capture_mode is not None:
-                        materialized = self._draft_uses_qwen3_gqa_dspark()
-                        set_capture_mode(materialized)
-                        logger.info(
-                            "Kimi K3 DSpark auxiliary capture uses %s stream.",
-                            "materialized GQA" if materialized else "raw MLA",
-                        )
 
                 if pp_group.world_size > 1:
                     inner_model = self.model
@@ -3892,6 +3886,34 @@ class NPUModelRunner(GPUModelRunner):
                         )
                     if hasattr(inner_model, "model"):
                         inner_model = inner_model.model
+
+                    if local_dspark_pp:
+                        start_layer = getattr(inner_model, "start_layer", None)
+                        end_layer = getattr(inner_model, "end_layer", None)
+                        if (
+                            not isinstance(start_layer, int)
+                            or not isinstance(end_layer, int)
+                            or not all(start_layer < layer <= end_layer for layer in aux_layers)
+                        ):
+                            raise ValueError(
+                                "DeepSeek-V4 DSpark PP requires all auxiliary hidden-state layers "
+                                f"{aux_layers} (1-based) on the last stage [{start_layer}, {end_layer}) (0-based)."
+                            )
+
+                self.model.set_aux_hidden_state_layers(aux_layers)
+                if self.speculative_config.use_dspark():
+                    # Preserve the target branch's independent draft capture mode.
+                    set_capture_mode = getattr(self.model, "set_dspark_aux_capture_materialized", None)
+                    if set_capture_mode is not None:
+                        materialized = self._draft_uses_qwen3_gqa_dspark()
+                        set_capture_mode(materialized)
+                        logger.info(
+                            "Kimi K3 DSpark auxiliary capture uses %s stream.",
+                            "materialized GQA" if materialized else "raw MLA",
+                        )
+                if local_dspark_pp:
+                    logger.info("Configured local DSpark auxiliary layers %s on last PP stage.", aux_layers)
+                elif pp_group.world_size > 1:
                     from vllm_ascend.patch.worker.patch_eagle3_pp_aux import (
                         patch_eagle3_pp_aux_propagation,
                     )
@@ -3974,8 +3996,15 @@ class NPUModelRunner(GPUModelRunner):
         self.initialize_attn_backend(kv_cache_config)
         self.use_hybrid_blocks = len(self.attn_groups) > 1
         # NOTE: Currently, we determine whether we need `num_accepted_tokens` through `MambaSpec`.
+        # Under pipeline parallelism a rank only owns a slice of the layers, so a
+        # kv cache group whose layers all live on other stages yields an empty
+        # attention group here. Skip those instead of indexing into them.
         self.need_accepted_tokens = any(
-            [isinstance(attn_group[0].kv_cache_spec, MambaSpec) for attn_group in self.attn_groups]
+            [
+                isinstance(attn_group[0].kv_cache_spec, MambaSpec)
+                for attn_group in self.attn_groups
+                if attn_group
+            ]
         )
 
         self.may_reinitialize_input_batch(kv_cache_config)
