@@ -120,17 +120,16 @@ def load_cann_mega_moe_ops():
     return get_symm_buffer_for_mega_moe, mega_moe
 
 
-def load_bytenn_fused_deep_moe_op():
+def load_bytenn_fused_deep_moe_op(quant_type: QuantType = QuantType.W8A8):
+    op_name = "fused_deep_moe_w4a8" if quant_type == QuantType.W4A8 else "fused_deep_moe"
     try:
         import_module("bytenn_ops")
     except ImportError as exc:
-        raise RuntimeError(
-            "fused_mc2_backend='fused_deep_moe' requires the bytenn_ops Python package."
-        ) from exc
+        raise RuntimeError("fused_mc2_backend='fused_deep_moe' requires the bytenn_ops Python package.") from exc
     try:
-        return torch.ops.bytenn_ops.fused_deep_moe
+        return getattr(torch.ops.bytenn_ops, op_name)
     except AttributeError as exc:
-        raise RuntimeError("bytenn_ops is installed, but fused_deep_moe is not registered.") from exc
+        raise RuntimeError(f"bytenn_ops is installed, but {op_name} is not registered.") from exc
 
 
 def _get_cann_mega_moe_quant_settings(quant_type: QuantType) -> tuple[int, int | None, int | None]:

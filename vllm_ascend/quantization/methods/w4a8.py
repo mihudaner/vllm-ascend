@@ -26,14 +26,17 @@ from vllm.distributed import get_tensor_model_parallel_world_size
 from vllm.logger import logger
 
 from vllm_ascend.ascend_config import get_ascend_config
-from vllm_ascend.ascend_forward_context import _EXTRA_CTX, use_cann_megamoe
+from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType, use_cann_megamoe
 from vllm_ascend.distributed.parallel_state import get_mc2_group
 from vllm_ascend.ops.fused_moe.experts_selector import select_experts
-from vllm_ascend.ops.fused_moe.moe_runtime_args import build_fused_experts_input
-from vllm_ascend.utils import COMPRESSED_TENSORS_METHOD, maybe_trans_nz
+from vllm_ascend.ops.fused_moe.moe_runtime_args import MoESharedExpertWeights, build_fused_experts_input
+from vllm_ascend.utils import ACL_FORMAT_FRACTAL_NZ, COMPRESSED_TENSORS_METHOD, maybe_trans_nz
 
 from .base import AscendLinearScheme, AscendMoEScheme, QuantType, get_moe_num_logical_experts
 from .registry import register_scheme
+
+_W4A8_NZ_K_BLOCK = 16
+_W4A8_NZ_PACKED_N_BLOCK = 32
 
 
 @register_scheme("W4A8_DYNAMIC", "linear")
@@ -520,6 +523,7 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
         apply_router_weight_on_input: bool = False,
         mc2_mask: torch.Tensor | None = None,
         tid2eid: torch.Tensor | None = None,
+        shared_experts: torch.nn.Module | None = None,
     ) -> torch.Tensor:
         num_shared_experts = getattr(layer, "n_shared_experts", 0)
         if num_shared_experts is None:
@@ -559,6 +563,18 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
             random_matrix = torch.rand(topk_ids.size(0), num_logical_experts, device=topk_ids.device)
             topk_ids = torch.argsort(random_matrix, dim=1)[:, : topk_ids.size(1)].to(topk_ids.dtype)
 
+        moe_comm_method = _EXTRA_CTX.moe_comm_method
+        use_fused_deep_moe = (
+            _EXTRA_CTX.moe_comm_type == MoECommType.FUSED_MC2
+            and getattr(get_ascend_config(), "fused_mc2_backend", "auto") == "fused_deep_moe"
+        )
+        if use_fused_deep_moe and topk_weights.dtype != torch.float32:
+            topk_weights = topk_weights.to(torch.float32)
+        shared_expert_weights = None
+        if use_fused_deep_moe:
+            shared_expert_weights = self._get_fused_deep_moe_shared_weights(shared_experts)
+            if getattr(layer, "_ascend_moe_lora_context", None) is not None:
+                raise ValueError("fused_deep_moe does not support MoE LoRA.")
         if self.dynamic_eplb:
             w1 = [i.view(torch.int32) for i in layer.w13_weight_list]
             w1_scale = layer.w13_weight_scale_list
@@ -586,7 +602,14 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
             w1_scale_bias = [layer.w13_scale_bias.detach()] if hasattr(layer, "w13_scale_bias") else None
             w2_scale_bias = [layer.w2_scale_bias.detach()] if hasattr(layer, "w2_scale_bias") else None
 
-        moe_comm_method = _EXTRA_CTX.moe_comm_method
+        if not use_fused_deep_moe and getattr(self, "_fused_deep_moe_weights", False):
+            # The initialization/profile fallback needs encoded scales. Derive
+            # them from the current EPLB buffers, never cache a pre-rebalance copy.
+            w1_scale = [scale.view(torch.int32).to(torch.int64) & 0xFFFFFFFF for scale in w1_scale]
+            w2_scale = [scale.view(torch.int32).to(torch.int64) & 0xFFFFFFFF for scale in w2_scale]
+            w1 = [self._fused_deep_moe_weight_to_gmm(weight) for weight in w1]
+            w2 = [self._fused_deep_moe_weight_to_gmm(weight) for weight in w2]
+
         return moe_comm_method.fused_experts(
             fused_experts_input=build_fused_experts_input(
                 hidden_states=x,
@@ -610,7 +633,34 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
                 w2_scale_bias=w2_scale_bias,
                 is_per_channel_weight=self.is_per_channel_weight,
                 swiglu_limit=layer.swiglu_limit,
+                swiglu_alpha=getattr(layer, "swiglu_alpha", 1.0),
+                swiglu_beta=getattr(layer, "swiglu_beta", 0.0),
+                expert_smooth_scales=getattr(layer, "expert_smooth_scales", None),
+                shared_experts=shared_expert_weights,
             )
+        )
+
+    @staticmethod
+    def _get_fused_deep_moe_shared_weights(shared_experts):
+        if shared_experts is None:
+            raise ValueError("fused_deep_moe requires an independently represented W8A8 shared expert.")
+        if getattr(shared_experts, "expert_gate", None) is not None:
+            raise ValueError("fused_deep_moe does not support an additional shared expert gate.")
+        projections = [getattr(shared_experts, name, None) for name in ("gate_up_proj", "down_proj")]
+        for proj in projections:
+            if (
+                proj is None
+                or getattr(proj, "weight", None) is None
+                or proj.weight.dtype != torch.int8
+                or getattr(proj, "weight_scale_fp32", None) is None
+            ):
+                raise ValueError("fused_deep_moe W4A8 requires W8A8 shared expert weights and float32 scales.")
+        return MoESharedExpertWeights(
+            w1=projections[0].weight,
+            w2=projections[1].weight,
+            w1_scale=projections[0].weight_scale_fp32,
+            w2_scale=projections[1].weight_scale_fp32,
+            smooth_scales=getattr(shared_experts, "smooth_scales", None),
         )
 
     def process_scale(self, weight: torch.Tensor, scale, per_group_scale):
@@ -619,7 +669,8 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
             scale_np = scale.cpu().numpy()
             scale_np.dtype = np.uint32
             scale_uint64_tensor = torch.from_numpy(scale_np.astype(np.int64)).npu()
-            return scale_uint64_tensor, None
+            bias = None if self.new_quant_version else 8 * (weight.to(torch.float32) * scale).sum(axis=1)
+            return scale_uint64_tensor, bias
         per_group_scale = per_group_scale.transpose(1, 2).contiguous()
         group_num, k, n = weight.shape
         # the weight of the new version is reduced by half by pack n, so it needs to be restored
@@ -686,10 +737,52 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
         return scale
 
     def process_weights_after_loading(self, layer):
+        use_fused_deep_moe = getattr(get_ascend_config(), "fused_mc2_backend", "auto") == "fused_deep_moe"
+        self._fused_deep_moe_weights = use_fused_deep_moe
+        if use_fused_deep_moe and not self.is_per_channel_weight:
+            raise ValueError("fused_deep_moe W4A8 requires per-channel weight quantization.")
         if self.quant_method == COMPRESSED_TENSORS_METHOD:
             self.process_weights_after_loading_compressed_tensors(layer)
         else:
             self.process_weights_after_loading_modelslim(layer)
+        if use_fused_deep_moe:
+            # ByteNN consumes float scales. These are the same six buffers that
+            # EPLB migrates, so graph replay also observes scale updates in place.
+            for name in ("w13_weight_scale", "w2_weight_scale"):
+                if self.dynamic_eplb:
+                    scales = getattr(layer, f"{name}_list")
+                    setattr(layer, f"{name}_list", [s.to(torch.int32).view(torch.float32) for s in scales])
+                else:
+                    parameter = getattr(layer, name)
+                    parameter.data = parameter.data.to(torch.int32).view(torch.float32)
+
+    @staticmethod
+    def _pack_fused_deep_moe_weight(weight: torch.Tensor) -> torch.Tensor:
+        # ByteNN requires an ND descriptor with int4 NZ storage: [N/64, K/16,
+        # 16, 32 bytes]. Keep its logical [K, N/2] int8 shape for int32 views.
+        k, packed_n = weight.shape[-2:]
+        k_block, packed_n_block = _W4A8_NZ_K_BLOCK, _W4A8_NZ_PACKED_N_BLOCK
+        if k % k_block or packed_n % packed_n_block:
+            raise ValueError("fused_deep_moe W4A8 requires K divisible by 16 and N divisible by 64.")
+        return (
+            weight.reshape(*weight.shape[:-2], k // k_block, k_block, packed_n // packed_n_block, packed_n_block)
+            .movedim(-2, -4)
+            .contiguous()
+            .reshape(weight.shape)
+        )
+
+    @staticmethod
+    def _fused_deep_moe_weight_to_gmm(weight: torch.Tensor) -> torch.Tensor:
+        packed = weight.view(torch.int8)
+        k, packed_n = packed.shape[-2:]
+        k_block, packed_n_block = _W4A8_NZ_K_BLOCK, _W4A8_NZ_PACKED_N_BLOCK
+        nd_weight = (
+            packed.reshape(*packed.shape[:-2], packed_n // packed_n_block, k // k_block, k_block, packed_n_block)
+            .movedim(-4, -2)
+            .contiguous()
+            .reshape(packed.shape)
+        )
+        return torch_npu.npu_format_cast(nd_weight, ACL_FORMAT_FRACTAL_NZ).view(torch.int32)
 
     def process_weights_after_loading_compressed_tensors(self, layer):
         layer.w13_weight.data = layer.w13_weight.data.transpose(1, 2).contiguous()
@@ -743,13 +836,42 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
         # FIX(mega W4A8 all-route): with MegaMoe on, keep ND int8 (skip trans_nz + pack_to_int32);
         # _maybe_build_cann_mega_moe_lists casts each expert slice to FRACTAL_NZ individually. See
         # the modelslim path below for the full rationale. Non-mega keeps the standard NZ-int32 form.
-        if not self.dynamic_eplb and use_cann_megamoe(get_current_vllm_config()):
+        if self.dynamic_eplb:
+            self._build_dynamic_eplb_weight_lists(layer)
+        elif getattr(self, "_fused_deep_moe_weights", False):
+            layer.w13_weight.data = self._pack_fused_deep_moe_weight(layer.w13_weight.data).view(torch.int32)
+            layer.w2_weight.data = self._pack_fused_deep_moe_weight(layer.w2_weight.data).view(torch.int32)
+        elif use_cann_megamoe(get_current_vllm_config()):
             self._maybe_build_cann_mega_moe_lists(layer)
         else:
             layer.w13_weight.data = maybe_trans_nz(layer.w13_weight.data)
             layer.w2_weight.data = maybe_trans_nz(layer.w2_weight.data)
             layer.w13_weight.data = self.pack_to_int32(layer.w13_weight.data)
             layer.w2_weight.data = self.pack_to_int32(layer.w2_weight.data)
+
+    def _build_dynamic_eplb_weight_lists(self, layer):
+        # EPLB copies all six tensors for each expert in place. Keep the
+        # operator payload backed by these lists so a rebalance updates the
+        # packed weights, scales and quantization compensation together.
+        if not self.new_quant_version and self.quant_method != COMPRESSED_TENSORS_METHOD:
+            layer.w13_weight.data = self.pack_int4_to_int8(layer.w13_weight.data)
+            layer.w2_weight.data = self.pack_int4_to_int8(layer.w2_weight.data)
+        convert_weight = (
+            self._pack_fused_deep_moe_weight if getattr(self, "_fused_deep_moe_weights", False) else maybe_trans_nz
+        )
+        layer.w13_weight.data = convert_weight(layer.w13_weight.data)
+        layer.w2_weight.data = convert_weight(layer.w2_weight.data)
+        for name in (
+            "w13_weight",
+            "w2_weight",
+            "w13_weight_scale",
+            "w2_weight_scale",
+            "w13_scale_bias",
+            "w2_scale_bias",
+        ):
+            parameter = getattr(layer, name)
+            setattr(layer, f"{name}_list", [tensor.clone() for tensor in parameter.data.unbind(dim=0)])
+            delattr(layer, name)
 
     def _maybe_build_cann_mega_moe_lists(self, layer):
         layer.w13_weight.data = maybe_trans_nz(layer.w13_weight.data)
@@ -800,28 +922,12 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
             layer.w13_weight_scale.data = self.maybe_squeeze_per_channel_weight_scale(layer.w13_weight_scale.data)
 
         if self.dynamic_eplb:
-            layer.w13_weight.data = maybe_trans_nz(layer.w13_weight.data)
-            layer.w2_weight.data = maybe_trans_nz(layer.w2_weight.data)
-            layer.w13_weight_list = [weight.clone() for weight in layer.w13_weight.data.unbind(dim=0)]
-            layer.w2_weight_list = [weight.clone() for weight in layer.w2_weight.data.unbind(dim=0)]
-            layer.w13_weight_scale_list = [weight.clone() for weight in layer.w13_weight_scale.data.unbind(dim=0)]
-            layer.w2_weight_scale_list = [weight.clone() for weight in layer.w2_weight_scale.data.unbind(dim=0)]
-            layer.w13_scale_bias_list = (
-                [weight.clone() for weight in layer.w13_scale_bias.data.unbind(dim=0)]
-                if hasattr(layer, "w13_scale_bias")
-                else None
-            )
-            layer.w2_scale_bias_list = (
-                [weight.clone() for weight in layer.w2_scale_bias.data.unbind(dim=0)]
-                if hasattr(layer, "w2_scale_bias")
-                else None
-            )
-            del layer.w13_weight
-            del layer.w2_weight
-            del layer.w13_weight_scale
-            del layer.w2_weight_scale
-            del layer.w13_scale_bias
-            del layer.w2_scale_bias
+            self._build_dynamic_eplb_weight_lists(layer)
+        elif getattr(self, "_fused_deep_moe_weights", False):
+            for name in ("w13_weight", "w2_weight"):
+                weight = getattr(layer, name)
+                packed = weight.data if self.new_quant_version else self.pack_int4_to_int8(weight.data)
+                weight.data = self._pack_fused_deep_moe_weight(packed).view(torch.int32)
         # keep weights as ND int8 when MegaMoe is on (skip trans_nz).
         elif use_cann_megamoe(get_current_vllm_config()):
             self._maybe_build_cann_mega_moe_lists(layer)

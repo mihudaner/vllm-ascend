@@ -1020,6 +1020,7 @@ class NPUPlatform(Platform):
         moe_comm_type = select_moe_comm_method(
             max_tokens_across_dp,
             vllm_config,
+            in_profile_run=in_profile_run,
         )
         moe_comm_method = get_moe_comm_method(moe_comm_type)
 

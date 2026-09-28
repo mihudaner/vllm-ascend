@@ -145,6 +145,7 @@ def set_ascend_forward_context(
             max_num_tokens,
             vllm_config,
             is_draft_model=is_draft_model,
+            in_profile_run=in_profile_run,
         )
 
         forward_context.moe_comm_type = moe_comm_type
@@ -422,6 +423,7 @@ def _select_a3_moe_comm_method(
     mc2_tokens_capacity: int,
     vllm_config: VllmConfig,
     is_draft_model: bool = False,
+    in_profile_run: bool = False,
 ) -> MoECommType:
     skip_fused_mc2 = is_draft_model and _moe_quant_mismatch
     if not skip_fused_mc2 and get_ascend_config().enable_fused_mc2 == 1:
@@ -429,6 +431,9 @@ def _select_a3_moe_comm_method(
         ep_world_size = get_ep_group().world_size
         if backend == "fused_deep_moe":
             if num_tokens is not None and num_tokens > _FUSED_DEEP_MOE_TOKENS_PER_RANK_LIMIT:
+                if in_profile_run:
+                    # Profile only: actual decode/capture calls keep the strict limit.
+                    return MoECommType.ALLTOALL
                 raise ValueError(
                     "fused_deep_moe supports at most "
                     f"{_FUSED_DEEP_MOE_TOKENS_PER_RANK_LIMIT} input tokens per rank, got {num_tokens}."
@@ -478,6 +483,7 @@ def select_moe_comm_method(
     num_tokens: int,
     vllm_config: VllmConfig,
     is_draft_model: bool = False,
+    in_profile_run: bool = False,
 ) -> MoECommType | None:
     """Select the MoE communication method according to parallel settings,
     device generation, and token count.
@@ -498,6 +504,7 @@ def select_moe_comm_method(
         num_tokens (int): The number of tokens in the current batch.
         vllm_config (VllmConfig): Runtime configuration for the model.
         is_draft_model (bool): Whether the model runs in MTP mode.
+        in_profile_run (bool): Allow oversized FusedDeepMoe initialization profiles to use all-to-all.
 
     Raises:
         ValueError: If the soc version is unsupported.
@@ -530,6 +537,7 @@ def select_moe_comm_method(
             mc2_tokens_capacity,
             vllm_config,
             is_draft_model=is_draft_model,
+            in_profile_run=in_profile_run,
         )
     elif soc_version == AscendDeviceType.A5:
         moe_comm_type = _select_a5_moe_comm_method(num_tokens, vllm_config, mc2_tokens_capacity)

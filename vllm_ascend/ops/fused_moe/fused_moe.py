@@ -758,8 +758,8 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             _EXTRA_CTX.moe_comm_type == MoECommType.FUSED_MC2
             and getattr(get_ascend_config(), "fused_mc2_backend", "auto") == "fused_deep_moe"
         )
-        if fused_deep_moe_enabled and self.quant_type != QuantType.W8A8:
-            raise ValueError("fused_deep_moe only supports W8A8.")
+        if fused_deep_moe_enabled and self.quant_type not in (QuantType.W8A8, QuantType.W4A8):
+            raise ValueError("fused_deep_moe only supports W8A8 and W4A8.")
         fused_backend_kwargs = {"shared_experts": self._shared_experts} if fused_deep_moe_enabled else {}
         fused_experts_results: FusedExpertsResult = self._quant_method.apply(
             layer=self.routed_experts,
@@ -798,17 +798,13 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
                 else torch.cat([expert_tokens[:1], expert_tokens[1:] - expert_tokens[:-1]])
             )
             if self.multi_stage:
-                cur_iter = torch.ops._C_ascend.npu_int32_remainder_scalar_and_add_(
-                    self.load_counter, self.num_iter
-                )
+                cur_iter = torch.ops._C_ascend.npu_int32_remainder_scalar_and_add_(self.load_counter, self.num_iter)
                 local_load_int32 = (
                     local_load
                     if local_load.dtype == torch.int32
                     else torch.ops._C_ascend.npu_int64_to_int32_static_cast(local_load)
                 )
-                self.moe_load.index_add_(
-                    dim=0, index=cur_iter, source=local_load_int32.view(1, -1)
-                )
+                self.moe_load.index_add_(dim=0, index=cur_iter, source=local_load_int32.view(1, -1))
             else:
                 torch._foreach_add_([self.moe_load], [local_load])
 
@@ -1004,9 +1000,7 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             if router_logits.dtype == torch.float32:
                 hidden_states_fp32 = router_logits
             elif shared_hidden_states.dtype == torch.bfloat16:
-                hidden_states_fp32 = torch.ops._C_ascend.npu_static_cast(
-                    shared_hidden_states, "bfloat16", "float32"
-                )
+                hidden_states_fp32 = torch.ops._C_ascend.npu_static_cast(shared_hidden_states, "bfloat16", "float32")
             else:
                 hidden_states_fp32 = shared_hidden_states.float()
             before_routed_experts = torch.npu.current_stream().record_event()

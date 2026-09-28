@@ -481,8 +481,14 @@ class FusedMC2CommImpl(MoECommMethod):
         fused_experts_input: MoEFusedExpertsInput,
         topk_ids: torch.Tensor,
     ):
-        if fused_experts_input.quant.quant_type != QuantType.W8A8:
-            raise ValueError("fused_deep_moe only supports W8A8.")
+        quant_type = fused_experts_input.quant.quant_type
+        if quant_type not in (QuantType.W8A8, QuantType.W4A8):
+            raise ValueError("fused_deep_moe only supports W8A8 and W4A8.")
+        if quant_type == QuantType.W4A8:
+            if not fused_experts_input.quant.is_per_channel_weight:
+                raise ValueError("fused_deep_moe W4A8 requires per-channel weight quantization.")
+            if fused_experts_input.weights.w1_scale_bias is None or fused_experts_input.weights.w2_scale_bias is None:
+                raise ValueError("fused_deep_moe W4A8 requires both weight assist matrices (scale_bias).")
         if fused_experts_input.dynamic_eplb:
             if fused_experts_input.routing.log2phy is None or fused_experts_input.routing.expert_map is None:
                 raise ValueError("fused_deep_moe dynamic EPLB requires expert_map and log2phy.")
@@ -502,6 +508,11 @@ class FusedMC2CommImpl(MoECommMethod):
                 "w2": fused_experts_input.weights.w2,
                 "w2_scale": fused_experts_input.weights.w2_scale,
             }
+            if quant_type == QuantType.W4A8:
+                dynamic_weights.update(
+                    w1_scale_bias=fused_experts_input.weights.w1_scale_bias,
+                    w2_scale_bias=fused_experts_input.weights.w2_scale_bias,
+                )
             for name, tensors in dynamic_weights.items():
                 if not isinstance(tensors, list) or len(tensors) != expected_local_experts:
                     raise ValueError(
@@ -515,12 +526,12 @@ class FusedMC2CommImpl(MoECommMethod):
             )
         if fused_experts_input.lora_context is not None:
             raise ValueError("fused_deep_moe does not support MoE LoRA.")
-        if fused_experts_input.swiglu_alpha != 1 or fused_experts_input.swiglu_beta != 0:
-            logger.warning_once(
-                "fused_deep_moe does not expose SwiGLU alpha/beta; numerical parity must be verified "
-                "for swiglu_alpha=%s, swiglu_beta=%s.",
-                fused_experts_input.swiglu_alpha,
-                fused_experts_input.swiglu_beta,
+        activation = getattr(fused_experts_input.activation, "value", fused_experts_input.activation)
+        if activation != "silu" or fused_experts_input.swiglu_alpha != 1.0 or fused_experts_input.swiglu_beta != 0.0:
+            raise ValueError(
+                "fused_deep_moe only supports activation='silu', swiglu_alpha=1 and swiglu_beta=0; "
+                f"got activation={activation!r}, swiglu_alpha={fused_experts_input.swiglu_alpha}, "
+                f"swiglu_beta={fused_experts_input.swiglu_beta}."
             )
         shared_experts = fused_experts_input.shared_experts
         if shared_experts is None:
@@ -529,13 +540,28 @@ class FusedMC2CommImpl(MoECommMethod):
         expert_scales = fused_experts_input.topk_weights
         if expert_scales.dtype != torch.float32:
             raise ValueError(f"fused_deep_moe requires FP32 expert_scales, got {expert_scales.dtype}.")
-        return self.fused_deep_moe(
+        op = self.fused_deep_moe
+        extra_kwargs = {}
+        w2_scale = fused_experts_input.weights.w2_scale
+        if quant_type == QuantType.W4A8:
+            # Load only when needed so W8A8 can use older ByteNN packages.
+            if getattr(self, "fused_deep_moe_w4a8", None) is None:
+                self.fused_deep_moe_w4a8 = comm_utils.load_bytenn_fused_deep_moe_op(QuantType.W4A8)
+            op = self.fused_deep_moe_w4a8
+            extra_kwargs = {
+                "gmm1_weight_assist_matrix": fused_experts_input.weights.w1_scale_bias,
+                "gmm2_weight_assist_matrix": fused_experts_input.weights.w2_scale_bias,
+            }
+            # GMM keeps a singleton group axis; ByteNN expects [N] per
+            # expert (or [E, N] for batched weights). These remain EPLB views.
+            w2_scale = [s.squeeze(-2) if s.dim() >= 2 and s.shape[-2] == 1 else s for s in w2_scale]
+        return op(
             x=fused_experts_input.hidden_states,
             expert_ids=topk_ids.to(torch.int32),
             gmm1_weight=fused_experts_input.weights.w1,
             gmm1_weight_scale=fused_experts_input.weights.w1_scale,
             gmm2_weight=fused_experts_input.weights.w2,
-            gmm2_weight_scale=fused_experts_input.weights.w2_scale,
+            gmm2_weight_scale=w2_scale,
             expert_scales=expert_scales,
             share_gmm1_weight=shared_experts.w1,
             share_gmm1_weight_scale=shared_experts.w1_scale,
@@ -551,15 +577,19 @@ class FusedMC2CommImpl(MoECommMethod):
             quant_mode=0,
             global_bs=self.token_dispatcher.global_bs,
             swiglu_clamp=fused_experts_input.swiglu_limit,
+            **extra_kwargs,
         )
 
     def fused_experts(
         self,
         fused_experts_input: MoEFusedExpertsInput,
     ):
-        # SiTU is implemented by the generic MoE path. Keep other activations
-        # on the upstream MegaMoE path, including unquantized shared experts.
-        if isinstance(fused_experts_input.activation, SituActivationConfig):
+        # ByteNN-packed W4A8 weights cannot enter the generic SiTU path.
+        # Explicit FusedDeepMoe requests go through its activation validation.
+        if (
+            isinstance(fused_experts_input.activation, SituActivationConfig)
+            and self.fused_mc2_backend != "fused_deep_moe"
+        ):
             return super().fused_experts(fused_experts_input)
 
         assert isinstance(self.token_dispatcher, TokenDispatcherWithMC2), (
@@ -579,9 +609,7 @@ class FusedMC2CommImpl(MoECommMethod):
         if get_ascend_config().enable_fused_mc2 == 1:
             if self.fused_mc2_backend == "fused_deep_moe":
                 out, shared_out, expert_tokens = self._apply_fused_deep_moe(fused_experts_input, topk_ids)
-            elif self.fused_mc2_backend == "mega_moe" or (
-                self.fused_mc2_backend == "auto" and _EXTRA_CTX.use_mega_moe
-            ):
+            elif self.fused_mc2_backend == "mega_moe" or (self.fused_mc2_backend == "auto" and _EXTRA_CTX.use_mega_moe):
                 out, expert_tokens = self._apply_cann_mega_moe(
                     fused_experts_input,
                     topk_ids,
