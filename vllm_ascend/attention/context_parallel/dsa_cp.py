@@ -1682,7 +1682,7 @@ class AscendDSACPImpl(DSAAttentionImpl):
             compress_cos, compress_sin, compress_slot_mapping = self._compute_compressor_metadata(
                 compressor_attn_metadata.req_metadata,
             )
-            compressed_kv = torch.ops._C_ascend.compressor(
+            compressed_kv = bytenn_ops.compressor(
                 hidden_states_cache,
                 self.compressor_wkv.weight,
                 self.compressor_wgate.weight,
@@ -1841,7 +1841,7 @@ class AscendDSACPImpl(DSAAttentionImpl):
         compressed_cos, compressed_sin, indexer_slot_mapping = self._compute_compressor_metadata(
             indexer_kv_scale_metadata.req_metadata,
         )
-        kv = torch.ops._C_ascend.compressor(
+        kv = bytenn_ops.compressor(
             x,
             self.indexcom_wkv.weight,
             self.indexcom_wgate.weight,

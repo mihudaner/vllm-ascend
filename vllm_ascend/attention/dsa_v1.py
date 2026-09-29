@@ -90,7 +90,7 @@ def build_compressor_metadata_out(
         metadata.full_compress_sin.shape[0],
         metadata.full_compress_sin.shape[-1],
     )
-    torch.ops._C_ascend.compressor_metadata_out(
+    bytenn_ops.compressor_metadata_out(
         full_compress_cos,
         full_compress_sin,
         metadata.query_start_loc,
@@ -143,7 +143,7 @@ def get_or_compute_compressor_metadata(
         metadata.full_compress_sin.shape[0],
         metadata.full_compress_sin.shape[-1],
     )
-    computed_metadata = torch.ops._C_ascend.compressor_metadata(
+    computed_metadata = bytenn_ops.compressor_metadata(
         full_compress_cos,
         full_compress_sin,
         metadata.query_start_loc,
@@ -1938,7 +1938,7 @@ class AscendDSAImpl(DSAAttentionImpl):
         compress_cos, compress_sin, compress_slot_mapping = self._compute_compressor_metadata(
             compressor_metadata,
         )
-        compressed_kv = torch.ops._C_ascend.compressor(
+        compressed_kv = bytenn_ops.compressor(
             hidden_states,
             self.compressor_wkv.weight,
             self.compressor_wgate.weight,
@@ -3047,7 +3047,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                 indexer_scale_decode_metadata,
             )
 
-        kv = torch.ops._C_ascend.compressor(
+        kv = bytenn_ops.compressor(
             x,
             self.indexcom_wkv.weight,
             self.indexcom_wgate.weight,
@@ -3277,7 +3277,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                 indexer_scale_decode_metadata,
             )
 
-        kv = torch.ops._C_ascend.compressor(
+        kv = bytenn_ops.compressor(
             x,
             self.indexcom_wkv.weight,
             self.indexcom_wgate.weight,
