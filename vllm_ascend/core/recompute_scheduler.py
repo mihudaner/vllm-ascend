@@ -49,6 +49,8 @@ from vllm.v1.request import Request, RequestStatus
 from vllm.v1.spec_decode.metrics import SpecDecodingStats
 from vllm.v1.utils import ConstantList, record_function_or_nullcontext
 
+from vllm_ascend.distributed.kv_transfer.kv_p2p.hybrid_load_failure import handle_hybrid_load_failures
+
 
 @dataclass
 class RecomputeSchedulerConfig(SchedulerConfig):
@@ -919,6 +921,7 @@ class RecomputeScheduler(Scheduler):
                 )
             )
 
+    @handle_hybrid_load_failures
     def update_from_output(
         self,
         scheduler_output: SchedulerOutput,
