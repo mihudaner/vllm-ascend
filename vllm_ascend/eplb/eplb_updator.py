@@ -27,6 +27,7 @@ from vllm_ascend.distributed.parallel_state import get_dynamic_eplb_group
 from vllm_ascend.eplb.adaptor.vllm_adaptor import VllmEplbAdaptor
 from vllm_ascend.eplb.core.eplb_device_transfer_loader import D2DExpertWeightLoader
 from vllm_ascend.eplb.core.eplb_worker import EplbProcess
+from vllm_ascend.eplb.eplb_async_heat import AsyncHeatPublisher
 
 
 class EplbUpdator:
@@ -38,6 +39,7 @@ class EplbUpdator:
         self.eplb_process = eplb_process
         self.shared_dict = self.eplb_process.shared_dict
         self.comm_group = get_dynamic_eplb_group()
+        self._heat_publisher: AsyncHeatPublisher | None = None
 
     def set_adaptor(self, adaptor: VllmEplbAdaptor):
         self.pp_rank = get_pp_group().rank_in_group
@@ -104,8 +106,12 @@ class EplbUpdator:
         self.eplb_process.planner_q.put(1)
 
     def forward_before(self):
+        if self._heat_publisher is not None:
+            self._heat_publisher.check_error()
         # Batch after eplb process being triggered, get update info provided by eplb process
         if self.get_update_info_flag():
+            if self._heat_publisher is not None:
+                self._heat_publisher.finish_before_update()
             self.update_info_all = self.eplb_process.block_update_q.get()
         if self.update_expert_weight_flag():
             with record_function_or_nullcontext("EPLB generate p2p task"):
@@ -129,8 +135,7 @@ class EplbUpdator:
     def forward_end(self, eplb_heat_collection_status: bool = True):
         if self.wakeup_eplb_worker_flag():
             with record_function_or_nullcontext("EPLB gather moe load"):
-                self.compute_and_set_moe_load()
-                self.wakeup_eplb_worker()
+                self.enqueue_moe_load()
 
         if self.update_expert_weight_flag() and self.expert_map_record_path is None:
             self.eplb_loader.update_expert_map_and_weight(self.reqs)
@@ -142,9 +147,23 @@ class EplbUpdator:
         if self.cur_iterations >= self.expert_heat_collection_interval - 1 or eplb_heat_collection_status:
             self.update_iteration()
 
+    def _publish_moe_load(self, moe_load):
+        self.shared_dict["moe_load"] = moe_load
+        self.wakeup_eplb_worker()
+
+    def enqueue_moe_load(self):
+        if self._heat_publisher is None:
+            raise RuntimeError("EPLB heat publisher was not initialized during warm-up")
+        local_load = self.adaptor.get_rank_expert_workload().unsqueeze(1)
+        gathered = self.comm_group.all_gather(local_load, dim=1)
+        self._heat_publisher.submit(gathered, local_load, self.multi_stage)
+
     def compute_and_set_moe_load(self):
         local_load = self.adaptor.get_rank_expert_workload().unsqueeze(1)
-        moe_load = self.comm_group.all_gather(local_load, dim=1).cpu()
+        gathered = self.comm_group.all_gather(local_load, dim=1)
+        if self._heat_publisher is None:
+            self._heat_publisher = AsyncHeatPublisher(gathered, self.rank_id, self._publish_moe_load)
+        moe_load = gathered.cpu()
 
         if self.multi_stage:
             moe_load = moe_load.permute(2, 0, 1, 3)
@@ -186,6 +205,8 @@ class EplbUpdator:
         """
         Clean up the EPLB process.
         """
+        if self._heat_publisher is not None:
+            self._heat_publisher.close()
         if self.process.is_alive():
             self.process.terminate()
             self.process.join()

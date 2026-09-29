@@ -24,6 +24,7 @@ import torch.distributed as dist
 from vllm.logger import logger
 
 from vllm_ascend.ascend_config import get_ascend_config
+from vllm_ascend.eplb.adaptor.eplb_async_map import PinnedMapStaging
 from vllm_ascend.quantization.quant_type import QuantType
 
 EPLB_EXPERT_WEIGHT_NAMES = {
@@ -108,6 +109,7 @@ class VllmEplbAdaptor:
         self.buffer_tensor_list: dict[Any, list[list[Any]]] = dict()
         self.init_buffer_tensor(num_buffer_tensor)
 
+        self._log2phy_staging: dict[int, PinnedMapStaging] = {}
         self.log2phy_map_per_layer = dict()
         for local_idx, layer in enumerate(self.moe_layers):
             self.log2phy_map_per_layer[local_idx] = layer.get_log2phy_map()
@@ -209,8 +211,18 @@ class VllmEplbAdaptor:
             logger.debug("Expert tensor shape is :%s", expert_tensor.shape)
 
     def do_update_log2phy_map(self, layer_id, updated_log2phy_map):
-        if self.log2phy_map_per_layer[layer_id] is not None:
-            self.log2phy_map_per_layer[layer_id].copy_(updated_log2phy_map)
+        destination = self.log2phy_map_per_layer[layer_id]
+        if destination is None:
+            return
+        if layer_id not in self._log2phy_staging:
+            self._log2phy_staging[layer_id] = PinnedMapStaging(destination)
+            logger.info(
+                "[EPLB async map] staging initialized rank=%s layer=%s shape=%s",
+                self.rank_id,
+                layer_id,
+                tuple(destination.shape),
+            )
+        self._log2phy_staging[layer_id].copy_to(destination, updated_log2phy_map)
 
     def get_global_expert_map(self):
         all_layer_global_expert_map = []
