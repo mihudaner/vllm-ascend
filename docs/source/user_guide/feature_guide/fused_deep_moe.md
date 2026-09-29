@@ -12,15 +12,13 @@ expert weights. It does not support mix placement, shared expert DP, an
 additional shared expert gate, or MoE LoRA. W4A8 additionally requires
 `torch.ops.bytenn_ops.fused_deep_moe_w4a8`; per-group W4A8 is unsupported.
 
-Each call supports at most 256 input tokens per rank. With five speculative
-slots, BS40 uses 240 tokens and BS48 uses 288 tokens. Oversized decode calls
-raise an error. Only the initialization memory profile can use ALLTOALL when
-its token budget exceeds 256; supported decode calls keep FusedDeepMoe.
-
-Capability queries used to configure DP synchronization report oversized
-FusedDeepMoe shapes as unsupported without executing a model forward. A larger
-scheduler budget therefore does not fail this query when decode shapes fit the
-limit. Actual oversized decode calls still raise an error.
+Each call supports at most 256 input tokens per rank, including initialization
+memory profiling, graph capture, and inference. With five speculative slots,
+BS40 uses 240 tokens and BS48 uses 288 tokens. Oversized calls and capability
+queries raise an error; they do not switch to ALLTOALL. Reduce
+`max_num_batched_tokens` to at most 256 and keep decode batches and graph capture
+sizes within the same limit, accounting for speculative tokens and padding.
+Profiling must use the configured backend so its memory usage is measured.
 
 Dynamic EPLB uses the supplied logical-to-physical mapping and per-expert
 weight lists. The physical expert count must be at most 512 and divisible by
@@ -32,8 +30,7 @@ compensation tensors together. The backend keeps scales in float32 in these
 same buffers and passes `scale_bias` as the kernel's `weight_assist_matrix`.
 Routed weights use ND tensors containing NZ-packed int4 data; the input
 dimension must be divisible by 16 and the output dimension by 64.
-The initialization fallback restores the current weights and scales to the GMM
-format. No separate cached expert weights or scales need to be refreshed after
+No separate cached expert weights or scales need to be refreshed after
 rebalancing.
 
 This backend preserves model-selected routing. Dynamic EPLB maps those expert

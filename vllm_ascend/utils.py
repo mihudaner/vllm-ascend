@@ -1203,16 +1203,13 @@ def should_skip_allreduce_across_dp_group(vllm_config: VllmConfig, is_draft_mode
     )
     from vllm_ascend.ops.fused_moe.moe_comm_method import MoECommType
 
-    def query_comm_method(num_tokens: int) -> MoECommType | None:
-        # This only classifies potential shapes. Use the profile fallback for
-        # oversized FusedDeepMoe queries, retaining the draft mismatch rules.
-        return select_moe_comm_method(num_tokens, vllm_config, is_draft_model=is_draft_model, in_profile_run=True)
-
     scheduler_config = vllm_config.scheduler_config
     # potential_max_tokens is read from the set/get global (computed once in init).
-    decode_comm_method = query_comm_method(get_potential_max_tokens())
+    decode_comm_method = select_moe_comm_method(get_potential_max_tokens(), vllm_config, is_draft_model=is_draft_model)
     # For prefill, use the scheduler's max_num_batched_tokens for a single batch.
-    prefill_comm_method = query_comm_method(scheduler_config.max_num_batched_tokens)
+    prefill_comm_method = select_moe_comm_method(
+        scheduler_config.max_num_batched_tokens, vllm_config, is_draft_model=is_draft_model
+    )
 
     if use_cann_megamoe(vllm_config):
         return False

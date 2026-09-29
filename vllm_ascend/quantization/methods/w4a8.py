@@ -30,7 +30,7 @@ from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType, use_cann
 from vllm_ascend.distributed.parallel_state import get_mc2_group
 from vllm_ascend.ops.fused_moe.experts_selector import select_experts
 from vllm_ascend.ops.fused_moe.moe_runtime_args import MoESharedExpertWeights, build_fused_experts_input
-from vllm_ascend.utils import ACL_FORMAT_FRACTAL_NZ, COMPRESSED_TENSORS_METHOD, maybe_trans_nz
+from vllm_ascend.utils import COMPRESSED_TENSORS_METHOD, maybe_trans_nz
 
 from .base import AscendLinearScheme, AscendMoEScheme, QuantType, get_moe_num_logical_experts
 from .registry import register_scheme
@@ -602,14 +602,6 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
             w1_scale_bias = [layer.w13_scale_bias.detach()] if hasattr(layer, "w13_scale_bias") else None
             w2_scale_bias = [layer.w2_scale_bias.detach()] if hasattr(layer, "w2_scale_bias") else None
 
-        if not use_fused_deep_moe and getattr(self, "_fused_deep_moe_weights", False):
-            # The initialization/profile fallback needs encoded scales. Derive
-            # them from the current EPLB buffers, never cache a pre-rebalance copy.
-            w1_scale = [scale.view(torch.int32).to(torch.int64) & 0xFFFFFFFF for scale in w1_scale]
-            w2_scale = [scale.view(torch.int32).to(torch.int64) & 0xFFFFFFFF for scale in w2_scale]
-            w1 = [self._fused_deep_moe_weight_to_gmm(weight) for weight in w1]
-            w2 = [self._fused_deep_moe_weight_to_gmm(weight) for weight in w2]
-
         return moe_comm_method.fused_experts(
             fused_experts_input=build_fused_experts_input(
                 hidden_states=x,
@@ -770,19 +762,6 @@ class AscendW4A8DynamicFusedMoEMethod(AscendMoEScheme):
             .contiguous()
             .reshape(weight.shape)
         )
-
-    @staticmethod
-    def _fused_deep_moe_weight_to_gmm(weight: torch.Tensor) -> torch.Tensor:
-        packed = weight.view(torch.int8)
-        k, packed_n = packed.shape[-2:]
-        k_block, packed_n_block = _W4A8_NZ_K_BLOCK, _W4A8_NZ_PACKED_N_BLOCK
-        nd_weight = (
-            packed.reshape(*packed.shape[:-2], packed_n // packed_n_block, k // k_block, k_block, packed_n_block)
-            .movedim(-4, -2)
-            .contiguous()
-            .reshape(packed.shape)
-        )
-        return torch_npu.npu_format_cast(nd_weight, ACL_FORMAT_FRACTAL_NZ).view(torch.int32)
 
     def process_weights_after_loading_compressed_tensors(self, layer):
         layer.w13_weight.data = layer.w13_weight.data.transpose(1, 2).contiguous()

@@ -15,10 +15,10 @@ from vllm_ascend.ops.fused_moe import moe_comm_method
     [
         (profile, tokens)
         for profile in [False, True]
-        for tokens in [24, 48, 96, 144, 192, 240, 256, 264, 288, 352, 440, 528]
+        for tokens in [24, 48, 96, 144, 192, 240, 256, 257, 264, 288, 352, 440, 528]
     ],
 )
-def test_only_oversized_initialization_profile_uses_alltoall(monkeypatch, profile, tokens):
+def test_profile_and_decode_enforce_same_token_limit(monkeypatch, profile, tokens):
     context = SimpleNamespace(dp_metadata=None)
     config = SimpleNamespace(parallel_config=SimpleNamespace(enable_expert_parallel=True), lora_config=None)
     ascend_config = SimpleNamespace(enable_fused_mc2=1, fused_mc2_backend="fused_deep_moe")
@@ -37,7 +37,7 @@ def test_only_oversized_initialization_profile_uses_alltoall(monkeypatch, profil
     monkeypatch.setattr(afc, "use_cann_megamoe", lambda config: False)
     monkeypatch.setattr(afc, "_is_decode_only_node", lambda config: False)
     monkeypatch.setattr(moe_comm_method, "get_moe_comm_method", lambda kind: kind)
-    if tokens > 256 and not profile:
+    if tokens > 256:
         with (
             pytest.raises(ValueError, match="at most 256"),
             afc.set_ascend_forward_context(None, config, num_tokens=tokens, in_profile_run=profile),
@@ -45,8 +45,7 @@ def test_only_oversized_initialization_profile_uses_alltoall(monkeypatch, profil
             pass
     else:
         with afc.set_ascend_forward_context(None, config, num_tokens=tokens, in_profile_run=profile):
-            expected = afc.MoECommType.ALLTOALL if tokens > 256 else afc.MoECommType.FUSED_MC2
-            assert context.moe_comm_type == expected
+            assert context.moe_comm_type == afc.MoECommType.FUSED_MC2
             assert context.num_tokens == tokens
             assert context.in_profile_run == profile
 
@@ -57,7 +56,7 @@ def capability_query_config(monkeypatch):
         parallel_config=SimpleNamespace(enable_expert_parallel=True),
         lora_config=None,
         kv_transfer_config=SimpleNamespace(is_kv_consumer=True),
-        scheduler_config=SimpleNamespace(max_num_batched_tokens=512),
+        scheduler_config=SimpleNamespace(max_num_batched_tokens=256),
         compilation_config=SimpleNamespace(cudagraph_mode=SimpleNamespace(separate_routine=lambda: False)),
     )
     ascend_config = SimpleNamespace(
@@ -83,7 +82,7 @@ def capability_query_config(monkeypatch):
 @pytest.mark.parametrize("budget", [256, 512])
 @pytest.mark.parametrize("recompute", [False, True])
 @pytest.mark.parametrize("separate_routine", [False, True])
-def test_oversized_fused_deep_moe_capability_queries_do_not_raise(
+def test_capability_queries_enforce_fused_deep_moe_token_limit(
     monkeypatch, capability_query_config, decode_tokens, budget, recompute, separate_routine
 ):
     config, ascend_config = capability_query_config
@@ -92,8 +91,11 @@ def test_oversized_fused_deep_moe_capability_queries_do_not_raise(
     ascend_config.scheduler_config.recompute_scheduler_enable = recompute
     monkeypatch.setattr(utils, "get_potential_max_tokens", lambda: decode_tokens)
 
-    expected = decode_tokens <= 256 and ((budget <= 256 and not separate_routine) or recompute)
-    assert utils.should_skip_allreduce_across_dp_group(config) is expected
+    if decode_tokens > 256 or budget > 256:
+        with pytest.raises(ValueError, match="at most 256"):
+            utils.should_skip_allreduce_across_dp_group(config)
+    else:
+        assert utils.should_skip_allreduce_across_dp_group(config) is (not separate_routine or recompute)
 
 
 @pytest.mark.parametrize("tokens", [256, 257, 288, 512])
@@ -111,6 +113,7 @@ def test_capability_query_does_not_relax_execution_limit(capability_query_config
 @pytest.mark.parametrize("recompute", [False, True])
 def test_other_backend_capability_queries_keep_existing_behavior(capability_query_config, enabled, backend, recompute):
     config, ascend_config = capability_query_config
+    config.scheduler_config.max_num_batched_tokens = 512
     ascend_config.enable_fused_mc2 = enabled
     ascend_config.fused_mc2_backend = backend
     ascend_config.scheduler_config.recompute_scheduler_enable = recompute
@@ -146,14 +149,12 @@ def test_v2_initialization_profile_keeps_decode_limit(monkeypatch, capability_qu
     assert utils.should_skip_allreduce_across_dp_group(config) is True
     previous_profile = afc.get_mrv2_in_profile_run()
     with afc.override_mrv2_in_profile_run(profile):
-        if backend == "fused_deep_moe" and tokens > 256 and not profile:
+        if backend == "fused_deep_moe" and tokens > 256:
             with pytest.raises(ValueError, match=f"at most 256 input tokens per rank, got {tokens}"):
                 platform.NPUPlatform.set_additional_forward_context(None, config, None, num_tokens=tokens)
         else:
             context = platform.NPUPlatform.set_additional_forward_context(None, config, None, num_tokens=tokens)
-            expected = (
-                afc.MoECommType.ALLTOALL if backend == "fused_deep_moe" and tokens > 256 else afc.MoECommType.FUSED_MC2
-            )
+            expected = afc.MoECommType.FUSED_MC2
             assert context["moe_comm_type"] == expected
             assert context["moe_comm_method"] == expected
             assert context["num_tokens"] == tokens
@@ -194,24 +195,17 @@ def test_profile_selection_uses_max_tokens_across_dp(monkeypatch, capability_que
                 "moe_comm_type"
             ]
 
-    if profile:
-        assert select() == afc.MoECommType.ALLTOALL
-    else:
-        with pytest.raises(ValueError, match="got 512"):
-            select()
+    with pytest.raises(ValueError, match="got 512"):
+        select()
 
 
-@pytest.mark.parametrize("profile", [False, True])
-def test_v026_draft_quantization_mismatch_keeps_mc2_fallback(monkeypatch, capability_query_config, profile):
+def test_v026_draft_quantization_mismatch_keeps_mc2_fallback(monkeypatch, capability_query_config):
     config, _ = capability_query_config
     monkeypatch.setattr(afc, "_moe_quant_mismatch", True)
     monkeypatch.setattr(afc, "get_mc2_tokens_capacity", lambda: 512)
     monkeypatch.setattr(utils, "is_drafter_moe_model", lambda config: True)
     monkeypatch.setattr(utils, "get_potential_max_tokens", lambda: 384)
-    assert afc.select_moe_comm_method(384, config, is_draft_model=True, in_profile_run=profile) == afc.MoECommType.MC2
+    assert afc.select_moe_comm_method(384, config, is_draft_model=True) == afc.MoECommType.MC2
     assert utils.should_skip_allreduce_across_dp_group(config, is_draft_model=True) is True
-    if profile:
-        assert afc.select_moe_comm_method(384, config, in_profile_run=True) == afc.MoECommType.ALLTOALL
-    else:
-        with pytest.raises(ValueError, match="got 384"):
-            afc.select_moe_comm_method(384, config)
+    with pytest.raises(ValueError, match="got 384"):
+        afc.select_moe_comm_method(384, config)

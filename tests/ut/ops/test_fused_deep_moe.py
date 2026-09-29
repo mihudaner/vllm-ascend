@@ -366,20 +366,6 @@ def test_w4a8_dynamic_eplb_loading_and_inplace_weight_update(monkeypatch, w4a8_l
     for actual, expected in zip(adaptor.expert_param_per_layer[0][1], other_expert):
         torch.testing.assert_close(actual, expected)
 
-    # The profile fallback must encode the scales after the update, without
-    # requiring shared weights or modifying EPLB's float32 scale buffers.
-    monkeypatch.setattr(
-        w4a8,
-        "_EXTRA_CTX",
-        SimpleNamespace(moe_comm_type=w4a8.MoECommType.ALLTOALL, moe_comm_method=comm, use_mega_moe=False),
-    )
-    method.apply(layer, torch.ones(4, 64), torch.ones(4, 2), 1, False, num_experts=2)
-    fallback = comm.fused_experts.call_args.kwargs["fused_experts_input"]
-    assert fallback.shared_experts is None
-    for actual, original in zip(fallback.weights.w1_scale, weights.w1_scale):
-        assert actual.dtype == torch.int64
-        torch.testing.assert_close(actual.to(torch.int32).view(torch.float32), original)
-
 
 @pytest.mark.parametrize("invalid", ["per_group", "missing_assist", "assist_count"])
 def test_w4a8_rejects_incomplete_expert_payload(invalid):
@@ -461,7 +447,7 @@ def test_legacy_modelslim_eplb_packs_int4_pairs(monkeypatch, w4a8_loading_case):
 
 
 @pytest.mark.parametrize("batch_shape", [(), (2,)])
-def test_w4a8_packing_preserves_profile_fallback_values(monkeypatch, batch_shape):
+def test_w4a8_packing_matches_nz_tiles(batch_shape):
     # Nonuniform bytes reveal a layout error that all-one fixture weights hide.
     weight = torch.arange(64 * 128, dtype=torch.int32).to(torch.int8).reshape(64, 128)
     if batch_shape:
@@ -472,9 +458,13 @@ def test_w4a8_packing_preserves_profile_fallback_values(monkeypatch, batch_shape
     assert packed.is_contiguous()
     # The second NZ N tile begins after all K blocks in the first tile.
     torch.testing.assert_close(packed.flatten(-2)[..., 64 * 32 : 64 * 32 + 32], weight[..., 0, 32:64])
-    monkeypatch.setattr(torch_npu, "npu_format_cast", lambda tensor, fmt: tensor)
-    restored = method._fused_deep_moe_weight_to_gmm(packed.view(torch.int32)).view(torch.int8)
-    torch.testing.assert_close(restored, weight)
+    expected_tiles = [
+        weight[..., k : k + 16, n : n + 32]
+        for n in range(0, weight.shape[-1], 32)
+        for k in range(0, weight.shape[-2], 16)
+    ]
+    expected = torch.stack(expected_tiles, dim=-3).reshape(weight.shape)
+    torch.testing.assert_close(packed, expected)
 
 
 @pytest.mark.parametrize("shape", [(15, 32), (16, 31)])
