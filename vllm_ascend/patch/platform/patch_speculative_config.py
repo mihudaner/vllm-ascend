@@ -10,6 +10,7 @@ from vllm_ascend.transformers_utils.configs.kimi_k3 import (
 )
 
 _orig_post_init = SpeculativeConfig.__post_init__
+_orig_max_num_new_slots_for_drafting = SpeculativeConfig.max_num_new_slots_for_drafting.fget
 
 if TYPE_CHECKING:
     import vllm.model_executor.layers.quantization as me_quant
@@ -207,5 +208,16 @@ def _dspark_post_init(self):
             self.update_arch_()
 
 
+def max_num_new_slots_for_drafting(self: SpeculativeConfig) -> int:
+    if self.method in ("dspark", "dflash"):
+        # Ascend stores target context separately and builds a fixed-width
+        # draft query block; it does not append slots to the target input batch.
+        # Context and query buffers (including graph padding) must each fit,
+        # but their token counts do not need a combined scheduler reservation.
+        return 0
+    return _orig_max_num_new_slots_for_drafting(self)
+
+
+SpeculativeConfig.max_num_new_slots_for_drafting = property(max_num_new_slots_for_drafting)
 SpeculativeConfig.hf_config_override = hf_config_override
 SpeculativeConfig.__post_init__ = _dspark_post_init

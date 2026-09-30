@@ -659,6 +659,17 @@
 #    Future Plan:
 #       Remove this patch when the supported vLLM release includes both fixes.
 #
+#   3. `vllm.config.speculative.SpeculativeConfig.max_num_new_slots_for_drafting`
+#    Why:
+#       Ascend DSpark/DFlash store target context separately from their draft
+#       query block. Reserving appended input slots needlessly reduces the
+#       target scheduling budget (e.g. 256 to 128 for K=5, max_num_seqs=32).
+#    How:
+#       Return zero for these two methods; retain the upstream getter for others.
+#       Context and padded query inputs still require independent capacity checks.
+#    Future Plan:
+#       Remove this patch when upstream budgeting supports these separate inputs.
+#
 # ** 21. File: platform/patch_structured_output.py**
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   1. `vllm.sampling_params.SamplingParams._validate_structured_outputs`

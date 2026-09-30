@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
+import pytest
 from transformers import Qwen3Config
-from vllm.config import SpeculativeConfig
+from vllm.config import SpeculativeConfig, VllmConfig
 
 from vllm_ascend.patch.platform.patch_speculative_config import hf_config_override
 from vllm_ascend.transformers_utils.configs.kimi_k3 import K3DSparkConfig
@@ -54,3 +57,35 @@ def test_legacy_qwen3_dspark_config_is_normalized_before_model_inspection():
     assert normalized.target_layer_ids == [7, 23, 51, 67, 83]
     assert normalized.block_size == 7
     assert normalized.pad_token_id == 163839
+
+
+@pytest.mark.parametrize("method", ["dspark", "dflash"])
+@pytest.mark.parametrize("scheduled_tokens", [None, 192, 256])
+def test_separate_context_and_query_keep_scheduled_token_budget(method, scheduled_tokens):
+    spec = object.__new__(SpeculativeConfig)
+    spec.method, spec.parallel_drafting, spec.num_speculative_tokens = method, True, 5
+    config = SimpleNamespace(
+        speculative_config=spec,
+        scheduler_config=SimpleNamespace(
+            max_num_batched_tokens=256, max_num_seqs=32, max_num_scheduled_tokens=scheduled_tokens
+        ),
+    )
+
+    VllmConfig._set_max_num_scheduled_tokens(config)
+
+    assert spec.max_num_new_slots_for_drafting == 0
+    assert config.scheduler_config.max_num_scheduled_tokens == (scheduled_tokens or 256)
+    config.scheduler_config.max_num_scheduled_tokens = 257
+    with pytest.raises(ValueError, match="enough slots"):
+        VllmConfig._set_max_num_scheduled_tokens(config)
+
+
+@pytest.mark.parametrize(
+    "method, parallel, expected_slots",
+    [("eagle3", False, 0), ("eagle3", True, 4), ("draft_model", False, 1), ("draft_model", True, 5)],
+)
+def test_other_proposers_keep_extra_drafting_slots(method, parallel, expected_slots):
+    spec = object.__new__(SpeculativeConfig)
+    spec.method, spec.parallel_drafting, spec.num_speculative_tokens = method, parallel, 5
+
+    assert spec.max_num_new_slots_for_drafting == expected_slots
