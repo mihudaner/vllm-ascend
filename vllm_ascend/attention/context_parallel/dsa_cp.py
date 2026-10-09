@@ -17,12 +17,8 @@ from vllm.v1.kv_cache_interface import AttentionSpec
 from vllm_ascend.attention.abstract import DSAAttentionImpl
 from vllm_ascend.attention.attention_v1 import AscendAttentionState
 from vllm_ascend.attention.dsa_v1 import (
-    _DSPARK_MAX_SPARSE_INDEX_WIDTH,
     CompressorMetadataOutput,
-    _aligned_dspark_index_width,
     build_compressor_metadata_out,
-    build_dspark_band_requests,
-    build_dspark_swa_indices,
     get_dspark_sparse_sas_window,
     get_or_compute_compressor_metadata,
 )
@@ -36,7 +32,6 @@ from vllm_ascend.attention.utils import (
 from vllm_ascend.core.kv_cache_interface import AscendMLAAttentionSpec
 from vllm_ascend.device.device_op import DeviceOperator
 from vllm_ascend.distributed.utils import all_gather_async
-from vllm_ascend.dspark_config import get_dspark_query_width, get_dspark_window_size
 from vllm_ascend.memcache_comm_fence import record_attention_compute_start
 from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 from vllm_ascend.ops.rope_dsv4 import RopeDataProxy, get_cos_and_sin_dsa, get_full_cos_and_sin_dsa
@@ -122,7 +117,7 @@ class AscendDSAReqMetadata:
     attn_mask: torch.Tensor | None = None
     ori_win_left: int | None = None
     ori_win_right: int = 0
-    dspark_swa_indices: torch.Tensor | None = None
+    ori_mask_mode: int = 4
 
 
 @dataclass
@@ -511,43 +506,11 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
 
         start_pos = self.seq_lens[:num_reqs] - seq_lens_q
 
-        dspark_swa_indices = None
-        local_block_table = None
+        ori_mask_mode = 5 if is_noncausal else 4
         ori_win_left, ori_win_right = self.model_config.hf_config.sliding_window - 1, 0
         if is_noncausal:
-            assert self.speculative_config is not None
-            window = get_dspark_window_size(self.vllm_config)
-            query_width = get_dspark_query_width(self.speculative_config)
-            if _aligned_dspark_index_width(window, query_width) > _DSPARK_MAX_SPARSE_INDEX_WIDTH:
-                num_local_tokens = max(0, min(local_end_with_pad, self.num_actual_tokens) - local_start)
-                local_block_table, local_seq_lens = build_dspark_band_requests(
-                    self.block_table[:num_reqs], local_query_start_loc, local_seq_lens, num_local_tokens
-                )
-                local_query_start_loc = torch.arange(
-                    num_local_tokens + 1, dtype=torch.int32, device=local_seq_lens.device
-                )
-                pad_rows = tokens_per_rank - num_local_tokens
-                if pad_rows:
-                    local_block_table = F.pad(local_block_table, (0, 0, 0, pad_rows))
-                    local_seq_lens = F.pad(local_seq_lens, (0, pad_rows))
-                    local_query_start_loc = F.pad(local_query_start_loc, (0, pad_rows), value=num_local_tokens)
-                max_local_query_len = 1
-            else:
-                global_dspark_indices, _ = build_dspark_swa_indices(
-                    self.block_table[:num_reqs],
-                    query_width,
-                    window,
-                    self.block_size,
-                    query_start_loc[: num_reqs + 1],
-                    self.seq_lens[:num_reqs],
-                    self.num_actual_tokens,
-                )
-                pad_rows = num_tokens_pad - global_dspark_indices.shape[0]
-                if pad_rows < 0:
-                    raise ValueError("DSpark CP metadata has fewer padded query rows than actual rows")
-                if pad_rows:
-                    global_dspark_indices = F.pad(global_dspark_indices, (0, 0, 0, 0, 0, pad_rows), value=-1)
-                dspark_swa_indices = global_dspark_indices[local_start:local_end_with_pad].contiguous()
+            # Keep each request's global KV end even when CP splits its queries.
+            # Mode 5 applies the same rectangular W+Q window on every rank.
             ori_win_left, ori_win_right = get_dspark_sparse_sas_window(self.vllm_config)
 
         assert self.spec_slot_mapping is not None
@@ -580,13 +543,13 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             cu_seqlens_q=local_query_start_loc,
             cu_seqlens_ori_kv=cu_seqlens_ori_kv,
             cu_seqlens_cmp_kv=cu_seqlens_cmp_kv,
-            seqused_q=None if local_block_table is not None else self.seqused_q,
+            seqused_q=self.seqused_q,
             seqused_kv=local_seq_lens,
             max_seqlen_q=max_local_query_len,
             max_seqlen_kv=max_local_seq_lens,
             batch_size=len(local_seq_lens),
             cmp_ratio=1,
-            ori_mask_mode=4,
+            ori_mask_mode=ori_mask_mode,
             ori_win_left=ori_win_left,
             ori_win_right=ori_win_right,
             layout_q="TND",
@@ -604,7 +567,6 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             num_tokens_pad=num_tokens_pad,
             local_sin=local_sin,
             local_cos=local_cos,
-            local_block_table=local_block_table,
         )
 
         return AscendDSAReqMetadata(
@@ -624,7 +586,7 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             cu_cmp_seqlen_list=None,
             ori_win_left=ori_win_left,
             ori_win_right=ori_win_right,
-            dspark_swa_indices=dspark_swa_indices,
+            ori_mask_mode=ori_mask_mode,
         )
 
     def _num_compressor_metadata_rows(
@@ -1723,8 +1685,6 @@ class AscendDSACPImpl(DSAAttentionImpl):
             DeviceOperator.add_dsa_sparse_attn_extra_kwargs(
                 extra_attn_kwargs, cu_seqlens_ori_kv=local_seq_lengths_query
             )
-        if swa_req_metadata.dspark_swa_indices is not None:
-            extra_attn_kwargs["ori_sparse_indices"] = swa_req_metadata.dspark_swa_indices
 
         ori_win_left = self.window_size - 1 if swa_req_metadata.ori_win_left is None else swa_req_metadata.ori_win_left
         ori_win_right = 0 if swa_req_metadata.ori_win_right is None else swa_req_metadata.ori_win_right
@@ -1735,7 +1695,7 @@ class AscendDSACPImpl(DSAAttentionImpl):
             sinks=self.attn_sink,
             softmax_scale=self.softmax_scale,
             cmp_ratio=max(self.compress_ratio, 1),
-            ori_mask_mode=4,
+            ori_mask_mode=swa_req_metadata.ori_mask_mode if self.compress_ratio <= 1 else 4,
             ori_win_left=ori_win_left,
             ori_win_right=ori_win_right,
             layout_q="TND",

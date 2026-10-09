@@ -15,16 +15,16 @@ def test_draft_window_sas_matches_reference(monkeypatch, window, bonus_anchor, c
 
 
 @pytest.mark.parametrize("rank", [5, 6])
-def test_cp_band_short_context_and_padding_sas(monkeypatch, rank):
+def test_cp_mode5_short_context_and_padding_sas(monkeypatch, rank):
     _check_sas(monkeypatch, 4096, True, cp_rank=rank, tp_size=8, prefixes=(16,))
 
 
-def test_cp_prefill_band_sas_matches_reference(monkeypatch):
+def test_cp_prefill_mode5_sas_matches_reference(monkeypatch):
     _check_sas(monkeypatch, 4096, True, cp_rank=1, prefill=True)
 
 
 @pytest.mark.parametrize("bonus_anchor", [False, True])
-def test_band_graph_replays_changed_tables_and_lengths(monkeypatch, bonus_anchor):
+def test_mode5_graph_replays_changed_tables_and_lengths(monkeypatch, bonus_anchor):
     _check_sas(monkeypatch, 4096, bonus_anchor, cp_rank=None, graph_replay=True)
 
 
@@ -80,8 +80,6 @@ def _check_sas(
     extra = DeviceOperator.get_dsa_sparse_attn_base_kwargs()
     if prefill:
         DeviceOperator.add_dsa_sparse_attn_extra_kwargs(extra, cu_seqlens_ori_kv=starts)
-    if meta.dspark_swa_indices is not None:
-        extra["ori_sparse_indices"] = meta.dspark_swa_indices
     q_device, kv_device, sinks_device = local_q.to(device), kv_cpu.to(device), sinks_cpu.to(device)
 
     def run_attention():
@@ -95,7 +93,7 @@ def _check_sas(
             metadata=meta.sas_metadata,
             softmax_scale=dim**-0.5,
             cmp_ratio=1,
-            ori_mask_mode=4,
+            ori_mask_mode=meta.ori_mask_mode,
             ori_win_left=meta.ori_win_left,
             ori_win_right=meta.ori_win_right,
             layout_q="TND",

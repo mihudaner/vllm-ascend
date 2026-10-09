@@ -13,16 +13,16 @@ DRAFT_WINDOW_CASES = (
     (1024, False, None),
     (1024, True, 1),
     (64, False, 1),  # CP must honor a smaller override.
-    (123, True, None),  # Bonus anchor pushes sparse width from 128 to 256.
-    (123, True, 1),  # CP sparse path with a split query block.
-    (2042, True, None),  # Exactly 2048 sparse columns.
-    (2043, True, None),  # Bonus anchor crosses the sparse limit: use band.
+    (123, True, None),  # Q6 must extend the left bound by one.
+    (123, True, 1),  # CP with a split query block.
+    (2042, True, None),  # Former sparse-index boundary.
+    (2043, True, None),  # Immediately above the former sparse-index boundary.
     (2043, True, 1),
     (4096, False, None),
     (4096, False, 1),  # Rank spans two requests with different KV lengths.
     (4096, False, 3),  # Last rank includes padding.
     (4096, True, None),
-    (4096, True, 0),  # CP band keeps the full query block's KV end.
+    (4096, True, 0),  # CP keeps the full query block's KV end.
 )
 
 
@@ -188,87 +188,50 @@ def make_draft_metadata_case(
 def test_draft_metadata_visible_window(monkeypatch, window, bonus_anchor, cp_rank):
     builder, common, meta, op = make_draft_metadata_case(monkeypatch, window, bonus_anchor, cp_rank=cp_rank)
     query_width = 5 + int(bonus_anchor)
-    expected_band = window + query_width > 2048
     kwargs = op.call_args.kwargs
+    assert meta.ori_mask_mode == kwargs["ori_mask_mode"] == 5
     assert meta.ori_win_left == window + query_width - 1
     assert kwargs["ori_win_left"] == meta.ori_win_left
     assert builder.model_config.hf_config.sliding_window == 128
+    assert kwargs["batch_size"] == common.num_reqs
+    torch.testing.assert_close(meta.block_table, common.block_table_tensor)
+    torch.testing.assert_close(meta.query_start_loc, common.query_start_loc)
     if cp_rank is None:
-        start, count = 0, common.num_actual_tokens
-        table, lengths, starts = meta.block_table, meta.seq_lens, meta.query_start_loc
-        # Check real constructor capacity, including Q=6 and the sparse/band boundary.
-        capacity = builder.vllm_config.scheduler_config.max_num_seqs * query_width
-        if expected_band:
-            assert builder.dspark_swa_indices_buffer is None
-            buffers = builder.dspark_band_buffers[1]
-            assert [buf.shape[0] for buf in buffers] == [capacity, capacity, capacity + 1]
-        else:
-            columns = {123: 256, 128: 256, 1024: 1152, 2042: 2048}[window]
-            assert meta.dspark_swa_indices.shape == (capacity, 1, columns)
+        lengths, starts = meta.seq_lens, meta.query_start_loc
     else:
         cp = meta.cp_metadata
-        start, count = cp.local_start, cp.tokens_per_rank
-        table, lengths, starts = cp.local_block_table, cp.local_seq_lens, cp.local_query_start_loc
-        # Expanding SAS inputs must not alter the global KV-write metadata.
-        assert meta.block_table is not None
-        torch.testing.assert_close(meta.block_table, common.block_table_tensor)
-        torch.testing.assert_close(meta.query_start_loc, common.query_start_loc)
-        assert (table is not None) == expected_band
-
-    if expected_band:
-        assert meta.dspark_swa_indices is None
-        assert kwargs["max_seqlen_q"] == 1
-        assert kwargs["batch_size"] == count
-        torch.testing.assert_close(kwargs["cu_seqlens_q"], starts)
-        torch.testing.assert_close(kwargs["seqused_kv"], lengths)
-    else:
-        assert meta.dspark_swa_indices is not None
-
-    for local_row in range(count):
-        global_row = start + local_row
-        if global_row >= common.num_actual_tokens:
-            if expected_band:
-                assert starts[local_row + 1] == starts[local_row]
-                assert lengths[local_row] == 0
-            else:
-                assert (meta.dspark_swa_indices[local_row] == -1).all()
+        assert cp.local_block_table is None
+        lengths, starts = cp.local_seq_lens, cp.local_query_start_loc
+    torch.testing.assert_close(kwargs["cu_seqlens_q"], starts)
+    torch.testing.assert_close(kwargs["seqused_kv"], lengths)
+    for req in range(common.num_reqs):
+        if starts[req + 1] == starts[req]:
+            assert lengths[req] == 0
             continue
-        req = global_row // query_width
         end = int(common.seq_lens[req])
-        first = max(0, end - query_width - window)
-        logical = torch.arange(first, end)
-        expected_slots = common.block_table_tensor[req, logical // 32] * 32 + logical % 32
-        if expected_band:
-            assert int(lengths[local_row]) == end
-            assert starts[local_row + 1] - starts[local_row] == 1
-            assert max(0, int(lengths[local_row]) - 1 - meta.ori_win_left) == first
-            actual_slots = table[local_row, logical // 32] * 32 + logical % 32
-        else:
-            row = meta.dspark_swa_indices[local_row, 0]
-            actual_slots = row[row >= 0]
-        torch.testing.assert_close(actual_slots.long(), expected_slots.long())
+        assert int(lengths[req]) == end
+        assert max(0, int(lengths[req]) - 1 - meta.ori_win_left) == max(0, end - query_width - window)
 
 
-def test_band_buffers_reused_across_batch_sizes(monkeypatch):
+def test_mode5_inputs_reused_across_batch_sizes(monkeypatch):
     builder, common, _, _ = make_draft_metadata_case(monkeypatch, 4096, True)
-    buffers = builder.dspark_band_buffers[1]
-    # Boundaries are fixed: later calls must neither allocate nor copy a fresh arange.
-    monkeypatch.setattr(torch, "arange", MagicMock(side_effect=AssertionError("unexpected arange allocation")))
     for batch in (1, 2):
         current = SimpleNamespace(**vars(common))
         current.seq_lens = common.seq_lens + batch
         current._seq_lens_cpu = current.seq_lens
         current.block_table_tensor = common.block_table_tensor + batch
         meta = builder.build_decode_metadata_for_drafting(1, current, num_decodes=batch, num_decode_tokens=batch * 6)
-        for actual, buffer in zip((meta.block_table, meta.seq_lens, meta.query_start_loc), buffers):
-            assert actual.data_ptr() == buffer.data_ptr()
-        assert meta.query_start_loc.tolist() == list(range(batch * 6 + 1))
-        torch.testing.assert_close(meta.seq_lens, current.seq_lens[:batch].repeat_interleave(6))
-        torch.testing.assert_close(meta.block_table, current.block_table_tensor[:batch].repeat_interleave(6, dim=0))
+        for actual, source in zip(
+            (meta.block_table, meta.seq_lens, meta.query_start_loc),
+            (current.block_table_tensor, current.seq_lens, current.query_start_loc),
+        ):
+            assert actual.data_ptr() == source.data_ptr()
+        torch.testing.assert_close(meta.query_start_loc, current.query_start_loc[: batch + 1])
+        torch.testing.assert_close(meta.seq_lens, current.seq_lens[:batch])
 
 
 @pytest.mark.parametrize("rank", [5, 6])
-def test_cp_band_short_context_and_empty_rank(monkeypatch, rank):
+def test_cp_mode5_short_context_and_empty_rank(monkeypatch, rank):
     _, common, meta, op = make_draft_metadata_case(
         monkeypatch,
         4096,
@@ -282,63 +245,45 @@ def test_cp_band_short_context_and_empty_rank(monkeypatch, rank):
     assert cp.local_query_start_loc.tolist() == ([0, 1] if rank < 6 else [0, 0])
     assert cp.local_seq_lens.tolist() == ([22] if rank < 6 else [0])
     if rank < 6:
-        torch.testing.assert_close(cp.local_block_table[0], common.block_table_tensor[0])
+        torch.testing.assert_close(meta.block_table[0], common.block_table_tensor[0])
     assert op.call_args.kwargs["batch_size"] == 1
 
 
 def test_causal_cp_metadata_keeps_original_window(monkeypatch):
     _, _, meta, op = make_draft_metadata_case(monkeypatch, 4096, False, cp_rank=0, causal=True)
-    assert meta.dspark_swa_indices is None
+    assert meta.ori_mask_mode == 4
     assert meta.cp_metadata.local_block_table is None
     assert meta.ori_win_left == 127
     assert op.call_args.kwargs["batch_size"] == 2
 
 
-def test_cp_prefill_band_metadata_uses_expanded_query_boundaries(monkeypatch):
+def test_cp_prefill_mode5_preserves_request_boundaries(monkeypatch):
     _, common, meta, op = make_draft_metadata_case(monkeypatch, 4096, True, cp_rank=1, prefill=True)
     kwargs = op.call_args.kwargs
     torch.testing.assert_close(kwargs["cu_seqlens_ori_kv"], meta.cp_metadata.local_query_start_loc)
-    assert kwargs["batch_size"] == meta.cp_metadata.tokens_per_rank
+    assert kwargs["batch_size"] == common.num_reqs
     torch.testing.assert_close(meta.query_start_loc, common.query_start_loc)
 
 
 @pytest.mark.parametrize("window", [128, 1024, 4096])
-def test_device_task_updates_window_buffers_before_sas_metadata(monkeypatch, window):
-    builder, common, original, op = make_draft_metadata_case(monkeypatch, window, False)
+def test_device_task_reads_current_lengths_for_mode5(monkeypatch, window):
+    builder, common, _, op = make_draft_metadata_case(monkeypatch, window, False)
     builder._device_metadata_enabled = True
-    if original.dspark_swa_indices is not None:
-        builder.dspark_swa_indices_buffer = original.dspark_swa_indices.clone()
-    previous_table = original.block_table.clone()
-    current = SimpleNamespace(**vars(common))
-    current.block_table_tensor = common.block_table_tensor + 30
-    current.seq_lens = common.seq_lens + 1
-    current._seq_lens_cpu = current.seq_lens.cpu()
     op.reset_mock()
-    meta = builder.build_decode_metadata_for_drafting(
-        1,
-        current,
-        num_decodes=2,
-        num_decode_tokens=10,
-    )
+    meta = builder.build_decode_metadata_for_drafting(1, common, num_decodes=2, num_decode_tokens=10)
     op.assert_not_called()
     tasks = builder.take_device_metadata_tasks()
     assert len(tasks) == 1
     assert tasks[0].group_id == id(meta.sas_metadata)
-    if window == 4096:
-        torch.testing.assert_close(meta.block_table, previous_table)
+    common.seq_lens.add_(1)
 
-    def check_buffers(**kwargs):
-        if window == 4096:
-            torch.testing.assert_close(meta.block_table, current.block_table_tensor.repeat_interleave(5, dim=0))
-            torch.testing.assert_close(meta.seq_lens, current.seq_lens.repeat_interleave(5))
-        else:
-            end = int(current.seq_lens[0])
-            positions = torch.arange(end - 5 - window, end)
-            expected = current.block_table_tensor[0, positions // 32] * 32 + positions % 32
-            torch.testing.assert_close(meta.dspark_swa_indices[0, 0, : window + 5].long(), expected.long())
+    def check_inputs(**kwargs):
+        assert kwargs["ori_mask_mode"] == 5
+        torch.testing.assert_close(kwargs["seqused_kv"], common.seq_lens)
+        torch.testing.assert_close(kwargs["cu_seqlens_q"], common.query_start_loc)
         return torch.zeros(1024, dtype=torch.int32)
 
-    op.side_effect = check_buffers
+    op.side_effect = check_inputs
     tasks[0].run()
     op.assert_called_once()
     assert builder.take_device_metadata_tasks() == ()

@@ -21,7 +21,6 @@ from vllm_ascend.attention.context_parallel.dsa_cp import (
 from vllm_ascend.attention.dsa_v1 import (
     AscendDSAMetadataBuilder,
     build_compressor_metadata_out,
-    build_dspark_swa_indices,
 )
 from vllm_ascend.device.device_op import DeviceOperator
 from vllm_ascend.worker.device_metadata import DeviceMetadataStage, DeviceMetadataTask
@@ -49,7 +48,6 @@ def _make_dspark_draft_builder(max_num_tokens: int = 16):
     builder.cu_seqlens_cmp_kv = torch.empty(0, dtype=torch.int32)
     builder._device_metadata_enabled = False
     builder._device_metadata_tasks = ()
-    builder.dspark_swa_indices_buffer = None
     builder.cache_group_key = "mtp.0.self_attn.swa_cache"
     builder.layer_names = ("mtp.0.self_attn.swa_cache",)
     builder.rope_layer_names = ("mtp.0.self_attn.attn",)
@@ -73,59 +71,30 @@ def _make_dspark_common_metadata(num_reqs: int, num_tokens: int):
     )
 
 
-def test_draft_swa_and_sas_share_attention_task():
+def test_draft_mode5_sas_uses_attention_task():
     builder = _make_dspark_draft_builder()
     common = _make_dspark_common_metadata(2, 6)
     sas_result = torch.arange(1024, dtype=torch.int32)
-    buffer = builder.dspark_swa_indices_buffer
-    assert buffer is not None
-
+    sas_op = MagicMock(return_value=sas_result)
     with (
         patch("vllm_ascend.attention.dsa_v1.get_tensor_model_parallel_world_size", return_value=1),
         patch("vllm_ascend.attention.dsa_v1.get_cos_and_sin_dsa", return_value=(torch.ones(6), torch.zeros(6))),
         patch.object(DeviceOperator, "get_dsa_sparse_attn_metadata_kwargs", return_value={}),
-        patch.object(
-            DeviceOperator,
-            "get_dsa_sparse_attn_metadata_op",
-            return_value=MagicMock(return_value=sas_result),
-        ),
-        patch("vllm_ascend.attention.dsa_v1.build_dspark_swa_indices", wraps=build_dspark_swa_indices) as build_swa,
+        patch.object(DeviceOperator, "get_dsa_sparse_attn_metadata_op", return_value=sas_op),
     ):
-        metadata = builder.build_decode_metadata_for_drafting(
-            1,
-            common,
-            num_decodes=2,
-            num_decode_tokens=6,
-        )
+        metadata = builder.build_decode_metadata_for_drafting(1, common, num_decodes=2, num_decode_tokens=6)
         tasks = builder.take_device_metadata_tasks()
-        assert build_swa.call_count == 0
-        assert metadata.dspark_swa_indices.shape == (6, 1, buffer.shape[2])
-        assert metadata.dspark_swa_indices.data_ptr() == buffer.data_ptr()
+        sas_op.assert_not_called()
         assert [(task.stage, task.group_id) for task in tasks] == [
             (DeviceMetadataStage.ATTENTION, id(metadata.sas_metadata))
         ]
-
         tasks[0].run()
-
-        first_indices = metadata.dspark_swa_indices.clone()
         next_common = _make_dspark_common_metadata(1, 3)
-        next_common.block_table_tensor = torch.tensor([[9, 10]], dtype=torch.int32)
-        next_metadata = builder.build_decode_metadata_for_drafting(
-            1,
-            next_common,
-            num_decodes=1,
-            num_decode_tokens=3,
-        )
-        next_tasks = builder.take_device_metadata_tasks()
-        assert next_metadata.dspark_swa_indices.shape == (3, 1, buffer.shape[2])
-        assert next_metadata.dspark_swa_indices.data_ptr() == metadata.dspark_swa_indices.data_ptr()
-        next_tasks[0].run()
-
-    assert build_swa.call_count == 2
-    assert build_swa.call_args.kwargs["indices_output"] is next_metadata.dspark_swa_indices
-    assert builder.dspark_swa_indices_buffer is buffer
-    assert buffer.data_ptr() == metadata.dspark_swa_indices.data_ptr()
-    assert not torch.equal(next_metadata.dspark_swa_indices, first_indices[:3])
+        next_metadata = builder.build_decode_metadata_for_drafting(1, next_common, num_decodes=1, num_decode_tokens=3)
+        assert next_metadata.sas_metadata.data_ptr() == metadata.sas_metadata.data_ptr()
+        builder.take_device_metadata_tasks()[0].run()
+    assert sas_op.call_args.kwargs["ori_mask_mode"] == 5
+    assert sas_op.call_args.kwargs["batch_size"] == 1
     assert torch.equal(metadata.sas_metadata, sas_result)
 
 
@@ -141,7 +110,6 @@ def test_mixed_draft_metadata_keeps_swa_and_sas_synchronous():
         patch("vllm_ascend.attention.dsa_v1.get_cos_and_sin_dsa", return_value=(torch.ones(3), torch.zeros(3))),
         patch.object(DeviceOperator, "get_dsa_sparse_attn_metadata_kwargs", return_value={}),
         patch.object(DeviceOperator, "get_dsa_sparse_attn_metadata_op", return_value=sas_op),
-        patch("vllm_ascend.attention.dsa_v1.build_dspark_swa_indices", wraps=build_dspark_swa_indices) as build_swa,
     ):
         builder.build_decode_metadata_for_drafting(
             1,
@@ -151,7 +119,6 @@ def test_mixed_draft_metadata_keeps_swa_and_sas_synchronous():
         )
 
     assert builder.take_device_metadata_tasks() == ()
-    build_swa.assert_called_once()
     sas_op.assert_called_once()
 
 
@@ -250,28 +217,6 @@ def test_mixed_draft_build_does_not_reuse_common_rope_for_submetadata():
 
     assert build_decode.call_args.kwargs["common_cos"] is None
     assert build_decode.call_args.kwargs["common_sin"] is None
-
-
-def test_draft_swa_metadata_rejects_rows_above_buffer_capacity():
-    builder = _make_dspark_draft_builder()
-    common = _make_dspark_common_metadata(1, 17)
-    common.query_start_loc = torch.tensor([0, 17], dtype=torch.int32)
-    common.query_start_loc_cpu = common.query_start_loc
-    common.seq_lens = torch.tensor([17], dtype=torch.int32)
-    common.seq_lens_cpu = common.seq_lens
-    common._seq_lens_cpu = common.seq_lens
-
-    with (
-        patch("vllm_ascend.attention.dsa_v1.get_tensor_model_parallel_world_size", return_value=1),
-        patch("vllm_ascend.attention.dsa_v1.get_cos_and_sin_dsa", return_value=(torch.ones(17), torch.zeros(17))),
-        pytest.raises(ValueError, match=r"active=17, capacity=16"),
-    ):
-        builder.build_decode_metadata_for_drafting(
-            1,
-            common,
-            num_decodes=1,
-            num_decode_tokens=17,
-        )
 
 
 def _make_decode_builder(compressor_ratio: int, enabled: bool):
@@ -1237,7 +1182,7 @@ def test_dsa_cp_attention_waits_before_memcache_fence(compress_ratio: int):
 
 
 @pytest.mark.parametrize("sample_from_anchor,expected_width", [(True, 5), (False, 6)])
-def test_dspark_indices_capacity_uses_anchor_query_width(sample_from_anchor, expected_width):
+def test_dspark_window_uses_anchor_query_width(sample_from_anchor, expected_width):
     from vllm_ascend.attention.dsa_v1 import get_dspark_query_width, get_dspark_sparse_sas_window
 
     builder = _make_dspark_draft_builder()
@@ -1245,10 +1190,7 @@ def test_dspark_indices_capacity_uses_anchor_query_width(sample_from_anchor, exp
     builder.speculative_config.draft_model_config = SimpleNamespace(
         hf_config=SimpleNamespace(sample_from_anchor=sample_from_anchor)
     )
-    # W+K fits 128 exactly, but W+(K+1) requires a second 128-wide block.
     builder.model_config.hf_config.sliding_window = 123
     builder.enable_dspark_device_metadata(12)
     assert get_dspark_query_width(builder.speculative_config) == expected_width
-    expected_columns = 128 if sample_from_anchor else 256
-    assert builder.dspark_swa_indices_buffer.shape == (12, 1, expected_columns)
     assert get_dspark_sparse_sas_window(builder.vllm_config) == (123 + expected_width - 1, 0)
