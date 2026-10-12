@@ -68,7 +68,9 @@ private:
             AscendC::LocalTensor<float> xf = xFp32Buf_.Get<float>();
             AscendC::LocalTensor<float> yf = yFp32Buf_.Get<float>();
             AscendC::Cast(xf, x, AscendC::RoundMode::CAST_NONE, n);
+            AscendC::PipeBarrier<PIPE_V>();
             AscendC::Muls(yf, xf, scalarValue_, n);
+            AscendC::PipeBarrier<PIPE_V>();
             AscendC::Cast(y, yf, AscendC::RoundMode::CAST_RINT, n);
         } else {
             AscendC::Muls(y, x, scalarValue_, n);
