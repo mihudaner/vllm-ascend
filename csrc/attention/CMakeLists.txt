@@ -10,14 +10,7 @@
 
 set(OPTEST_NAME optest_${PKG_NAME})
 
-set(SKIP_BUILD_OPS
-    vllm_quant_lightning_indexer
-    vllm_quant_lightning_indexer_metadata
-    sparse_attn_sharedkv
-    sparse_attn_sharedkv_metadata
-    compressor
-    compressor_metadata
-)
+set(SKIP_BUILD_OPS)
 
 file(GLOB CURRENT_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/*)
 foreach(SUB_DIR ${CURRENT_DIRS})
