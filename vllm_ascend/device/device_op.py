@@ -698,7 +698,7 @@ class BaseDeviceAdaptor:
     @staticmethod
     def get_dsa_sparse_attn_metadata_op():
         """Returns the metadata-building operator for sparse attention."""
-        return bytenn_ops.npu_sparse_attn_sharedkv_metadata
+        return bytenn_ops.npu_sparse_attn_sharedkv_metadata_bnn
 
     @staticmethod
     def get_dsa_sparse_attn_metadata_kwargs(device):
@@ -708,7 +708,7 @@ class BaseDeviceAdaptor:
     @staticmethod
     def get_dsa_sparse_attn_op():
         """Returns the sparse attention operator."""
-        return bytenn_ops.npu_sparse_attn_sharedkv
+        return bytenn_ops.npu_sparse_attn_sharedkv_bnn
 
     @staticmethod
     def get_dsa_sparse_attn_base_kwargs():

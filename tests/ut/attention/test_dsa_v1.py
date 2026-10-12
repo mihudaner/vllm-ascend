@@ -373,7 +373,7 @@ def test_decode_metadata_defers_device_work(
         ),
         patch.object(
             bytenn_ops,
-            "npu_quant_lightning_indexer_metadata",
+            "npu_quant_lightning_indexer_metadata_bnn",
             create=True,
             return_value=qli_output,
         ) as qli_op,
@@ -491,7 +491,7 @@ def test_prefill_metadata_defers_device_work(
         ),
         patch.object(
             bytenn_ops,
-            "npu_quant_lightning_indexer_metadata",
+            "npu_quant_lightning_indexer_metadata_bnn",
             create=True,
             return_value=qli_output,
         ) as qli_op,
@@ -567,7 +567,7 @@ def test_build_compressor_metadata_out_uses_fixed_outputs():
 
     with (
         patch.object(DeviceOperator, "get_dsa_compressor_slot_mapping_format", return_value=2),
-        patch.object(torch.ops._C_ascend, "compressor_metadata_out", create=True) as metadata_out,
+        patch.object(bytenn_ops, "compressor_metadata_out_bnn", create=True) as metadata_out,
     ):
         build_compressor_metadata_out(metadata, 4, outputs)
 
@@ -661,7 +661,7 @@ def test_full_graph_compressor_uses_stable_padded_extent(phase: str):
         patch.object(DeviceOperator, "get_dsa_decode_cu_seqlens_cmp_kv", return_value=None),
         patch.object(
             bytenn_ops,
-            "npu_quant_lightning_indexer_metadata",
+            "npu_quant_lightning_indexer_metadata_bnn",
             create=True,
             return_value=torch.ones(1024, dtype=torch.int32),
         ),
@@ -956,7 +956,7 @@ def test_dsa_cp_qli_metadata_uses_device_query_lengths():
 
     with patch.object(
         bytenn_ops,
-        "npu_quant_lightning_indexer_metadata",
+        "npu_quant_lightning_indexer_metadata_bnn",
         create=True,
         return_value=generated_metadata,
     ) as metadata_op:
@@ -1103,7 +1103,7 @@ def test_dsa_cp_indexer_waits_before_qli_consumer():
         patch.object(torch.ops._C_ascend, "inplace_partial_rotary_mul", create=True),
         patch.object(
             bytenn_ops,
-            "npu_quant_lightning_indexer",
+            "npu_quant_lightning_indexer_bnn",
             create=True,
             side_effect=run_indexer,
         ),
@@ -1196,7 +1196,7 @@ def test_dsa_cp_attention_waits_before_memcache_fence(compress_ratio: int):
             torch.ops.vllm, "maybe_all_gather_and_maybe_unpad", create=True, side_effect=lambda value, _: value
         ),
         patch.object(torch.ops._C_ascend, "inplace_partial_rotary_mul", create=True),
-        patch.object(torch.ops._C_ascend, "compressor", create=True, return_value=torch.empty(0)),
+        patch.object(bytenn_ops, "compressor_bnn", create=True, return_value=torch.empty(0)),
         patch.object(impl, "_update_indexer_cache"),
         patch.object(impl, "_indexer_select_topk", return_value=torch.zeros((1, 1, 1), dtype=torch.int32)),
         patch.object(

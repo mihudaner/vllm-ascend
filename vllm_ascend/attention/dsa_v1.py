@@ -90,7 +90,7 @@ def build_compressor_metadata_out(
         metadata.full_compress_sin.shape[0],
         metadata.full_compress_sin.shape[-1],
     )
-    bytenn_ops.compressor_metadata_out(
+    bytenn_ops.compressor_metadata_out_bnn(
         full_compress_cos,
         full_compress_sin,
         metadata.query_start_loc,
@@ -143,7 +143,7 @@ def get_or_compute_compressor_metadata(
         metadata.full_compress_sin.shape[0],
         metadata.full_compress_sin.shape[-1],
     )
-    computed_metadata = bytenn_ops.compressor_metadata(
+    computed_metadata = bytenn_ops.compressor_metadata_bnn(
         full_compress_cos,
         full_compress_sin,
         metadata.query_start_loc,
@@ -1075,7 +1075,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         def get_qli_metadata() -> torch.Tensor:
             assert qli_cu_seqlens_q is not None
             if prefill_metadata_cache.get("qli") is None:
-                prefill_metadata_cache["qli"] = bytenn_ops.npu_quant_lightning_indexer_metadata(
+                prefill_metadata_cache["qli"] = bytenn_ops.npu_quant_lightning_indexer_metadata_bnn(
                     actual_seq_lengths_query=qli_cu_seqlens_q[1:].clone(),
                     actual_seq_lengths_key=self.seq_lens[reqs_start:].clone(),
                     num_heads_q=self.model_config.hf_config.index_n_heads,  # 64
@@ -1319,7 +1319,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         def build_qli_metadata() -> None:
             assert qli_cu_seqlens_q is not None
             if decode_metadata_cache.get("qli") is None:
-                decode_metadata_cache["qli"] = bytenn_ops.npu_quant_lightning_indexer_metadata(
+                decode_metadata_cache["qli"] = bytenn_ops.npu_quant_lightning_indexer_metadata_bnn(
                     actual_seq_lengths_query=qli_cu_seqlens_q[1:].clone(),
                     actual_seq_lengths_key=self.seq_lens[: self.num_decodes].clone(),
                     num_heads_q=self.model_config.hf_config.index_n_heads,  # 64
@@ -1938,7 +1938,7 @@ class AscendDSAImpl(DSAAttentionImpl):
         compress_cos, compress_sin, compress_slot_mapping = self._compute_compressor_metadata(
             compressor_metadata,
         )
-        compressed_kv = bytenn_ops.compressor(
+        compressed_kv = bytenn_ops.compressor_bnn(
             hidden_states,
             self.compressor_wkv.weight,
             self.compressor_wgate.weight,
@@ -2559,7 +2559,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                 qli_metadata = indexer_scale_prefill_metadata.qli_metadata
                 assert qli_metadata is not None
                 wait_for_device_metadata(DeviceMetadataStage.INDEXER, id(qli_metadata))
-                compress_topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer(
+                compress_topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer_bnn(
                     query=q_quant,
                     key=indexer_k_cache,
                     weights=DeviceOperator.prepare_dsa_indexer_weights(weights),
@@ -2872,7 +2872,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                 qli_metadata = indexer_scale_decode_metadata.qli_metadata
                 assert qli_metadata is not None
                 wait_for_device_metadata(DeviceMetadataStage.INDEXER, id(qli_metadata))
-                compress_topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer(
+                compress_topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer_bnn(
                     query=q_quant,
                     key=indexer_k_cache,
                     weights=DeviceOperator.prepare_dsa_indexer_weights(weights),
@@ -3047,7 +3047,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                 indexer_scale_decode_metadata,
             )
 
-        kv = bytenn_ops.compressor(
+        kv = bytenn_ops.compressor_bnn(
             x,
             self.indexcom_wkv.weight,
             self.indexcom_wgate.weight,
@@ -3152,7 +3152,7 @@ class AscendDSAImpl(DSAAttentionImpl):
         qli_metadata = dsa_meta.qli_metadata
         assert qli_metadata is not None
         wait_for_device_metadata(DeviceMetadataStage.INDEXER, id(qli_metadata))
-        topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer(
+        topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer_bnn(
             query=q,
             key=indexer_k_cache,
             weights=DeviceOperator.prepare_dsa_indexer_weights(weights),
@@ -3277,7 +3277,7 @@ class AscendDSAImpl(DSAAttentionImpl):
                 indexer_scale_decode_metadata,
             )
 
-        kv = bytenn_ops.compressor(
+        kv = bytenn_ops.compressor_bnn(
             x,
             self.indexcom_wkv.weight,
             self.indexcom_wgate.weight,

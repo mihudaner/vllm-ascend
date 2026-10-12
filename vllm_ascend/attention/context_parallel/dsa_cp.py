@@ -1157,7 +1157,7 @@ class AscendDSACPMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
             # under async scheduling, so derive this limit from the consumer.
             seq_lens_q = query_start_loc[1 : num_reqs + 1] - query_start_loc[:num_reqs]
             max_seqlen_q = max(1, int(seq_lens_q.max().item()))
-            metadata = bytenn_ops.npu_quant_lightning_indexer_metadata(
+            metadata = bytenn_ops.npu_quant_lightning_indexer_metadata_bnn(
                 actual_seq_lengths_query=query_start_loc[1:].clone(),
                 actual_seq_lengths_key=seq_lens.clone(),
                 num_heads_q=self.model_config.hf_config.index_n_heads,
@@ -1682,7 +1682,7 @@ class AscendDSACPImpl(DSAAttentionImpl):
             compress_cos, compress_sin, compress_slot_mapping = self._compute_compressor_metadata(
                 compressor_attn_metadata.req_metadata,
             )
-            compressed_kv = bytenn_ops.compressor(
+            compressed_kv = bytenn_ops.compressor_bnn(
                 hidden_states_cache,
                 self.compressor_wkv.weight,
                 self.compressor_wgate.weight,
@@ -1841,7 +1841,7 @@ class AscendDSACPImpl(DSAAttentionImpl):
         compressed_cos, compressed_sin, indexer_slot_mapping = self._compute_compressor_metadata(
             indexer_kv_scale_metadata.req_metadata,
         )
-        kv = bytenn_ops.compressor(
+        kv = bytenn_ops.compressor_bnn(
             x,
             self.indexcom_wkv.weight,
             self.indexcom_wgate.weight,
@@ -1928,7 +1928,7 @@ class AscendDSACPImpl(DSAAttentionImpl):
         qli_metadata = dsa_meta.qli_metadata
         assert qli_metadata is not None
         wait_for_device_metadata(DeviceMetadataStage.INDEXER, id(qli_metadata))
-        topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer(
+        topk_idxs, _ = bytenn_ops.npu_quant_lightning_indexer_bnn(
             query=q,
             key=indexer_k_cache,
             weights=DeviceOperator.prepare_dsa_indexer_weights(weights),

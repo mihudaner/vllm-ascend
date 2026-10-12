@@ -306,7 +306,7 @@ def test_compressor_metadata_dsv4_flash_real_metadata(case: CompressorMetadataCa
     start_pos_npu = torch.tensor(case.start_pos, dtype=torch.int32, device="npu")
     block_table_npu = torch.tensor(case.block_table, dtype=torch.int32, device="npu")
 
-    actual_cos, actual_sin, actual_slot = bytenn_ops.compressor_metadata(
+    actual_cos, actual_sin, actual_slot = bytenn_ops.compressor_metadata_bnn(
         rope_cos_npu,
         rope_sin_npu,
         query_start_loc_npu,
@@ -321,7 +321,7 @@ def test_compressor_metadata_dsv4_flash_real_metadata(case: CompressorMetadataCa
     out_cos = torch.empty_like(actual_cos)
     out_sin = torch.empty_like(actual_sin)
     out_slot = torch.empty_like(actual_slot)
-    out_cos, out_sin, out_slot = bytenn_ops.compressor_metadata_out(
+    out_cos, out_sin, out_slot = bytenn_ops.compressor_metadata_out_bnn(
         rope_cos_npu,
         rope_sin_npu,
         query_start_loc_npu,
@@ -395,7 +395,7 @@ def test_compressor_metadata_out_cross_stream_buffer_reuse():
     for case, rope_cos, rope_sin, query_start_loc, start_pos, block_table, expected in prepared:
         num_rows = expected[2].shape[0]
         build_metadata = partial(
-            bytenn_ops.compressor_metadata_out,
+            bytenn_ops.compressor_metadata_out_bnn,
             rope_cos,
             rope_sin,
             query_start_loc,
