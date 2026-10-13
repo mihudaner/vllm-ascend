@@ -1007,7 +1007,7 @@ class DeepseekV2DecoderLayer(nn.Module):
     def rms_norm_cast(self, hidden_states: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Normalize once and provide the exact FP32 routing input."""
         if enable_custom_op():
-            return torch.ops._C_ascend.npu_rms_norm_cast(
+            return bytenn_ops.rms_norm_cast(
                 hidden_states,
                 self.post_attention_layernorm.weight,
                 self.post_attention_layernorm.variance_epsilon,
