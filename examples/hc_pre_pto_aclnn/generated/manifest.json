@@ -11,7 +11,8 @@
     {
       "name": "hc_small.pto",
       "tokens": "T <= 32",
-      "sha256": "52b786ae0f7057d00a2896347e280270c88eda7898403fb94e9ea416d87fce71"
+      "sha256": "eb664bf9d508c724aebfaecc3297daa5e1cb51f72921802ee67b496f9d6a56a8",
+      "original_sha256": "52b786ae0f7057d00a2896347e280270c88eda7898403fb94e9ea416d87fce71"
     },
     {
       "name": "hc_medium48.cpp",
@@ -21,7 +22,8 @@
     {
       "name": "hc_medium48.pto",
       "tokens": "33 <= T <= 48",
-      "sha256": "406d9db04a948887eb4bf403b2b6fa7636204b81346e206bf2c3a61c7d7395ea"
+      "sha256": "42dab8b7ff7d6bd050db6c5de916716d22df22c750e77734cf2b4ecc498feed8",
+      "original_sha256": "406d9db04a948887eb4bf403b2b6fa7636204b81346e206bf2c3a61c7d7395ea"
     },
     {
       "name": "hc_medium96.cpp",
@@ -31,7 +33,8 @@
     {
       "name": "hc_medium96.pto",
       "tokens": "49 <= T <= 95",
-      "sha256": "539f17b82307f3da444a01d773bd7fbece8623c9e9ada52f45c6f28fbaa3eb49"
+      "sha256": "5e21f77e294e91d6701a9e05121b44d86935e53fab56fd8a8ee8b614531d60ac",
+      "original_sha256": "539f17b82307f3da444a01d773bd7fbece8623c9e9ada52f45c6f28fbaa3eb49"
     },
     {
       "name": "hc_exact96.cpp",
@@ -41,7 +44,8 @@
     {
       "name": "hc_exact96.pto",
       "tokens": "T = 96",
-      "sha256": "6a4ca721e7e664d635eb6b6259b60d1d73a4a34f349235c8975ee7c00658d226"
+      "sha256": "728d53b8e166edd27804af415bc75556d93bd0258fabaee0c86359f6bb3457ae",
+      "original_sha256": "6a4ca721e7e664d635eb6b6259b60d1d73a4a34f349235c8975ee7c00658d226"
     },
     {
       "name": "hc_large144.cpp",
@@ -51,7 +55,8 @@
     {
       "name": "hc_large144.pto",
       "tokens": "97 <= T <= 144",
-      "sha256": "9fadfe469d0f8beb58c1e96e74aa5eea57529b59276404df5d375d0c09cbbdff"
+      "sha256": "96f7d18b137a650e1b96298c27038431672b787a2865242e7e1aaeb3827c63ef",
+      "original_sha256": "9fadfe469d0f8beb58c1e96e74aa5eea57529b59276404df5d375d0c09cbbdff"
     },
     {
       "name": "hc_large.cpp",
@@ -61,7 +66,9 @@
     {
       "name": "hc_large.pto",
       "tokens": "T > 144",
-      "sha256": "6ce9721645f1b9754ac935d54c41be4e9bf08695d70207654d9ed2b550e9be36"
+      "sha256": "62ad3e6c73f7f0dbf6cb22965099ca047c78670d72e5d938afc69e4558cb9fa0",
+      "original_sha256": "6ce9721645f1b9754ac935d54c41be4e9bf08695d70207654d9ed2b550e9be36"
     }
-  ]
+  ],
+  "path_normalization": "PTO loc metadata uses repository-relative hc_pre.py paths; C++ kernels are unchanged. original_sha256 records pre-normalization PTO artifacts."
 }

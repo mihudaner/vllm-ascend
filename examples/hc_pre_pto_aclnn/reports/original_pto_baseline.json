@@ -5,7 +5,6 @@
   "metric": "PTO full L1 span, median of 3 steps",
   "runs": {
     "device_baseline_0": {
-      "archive": "results/13_全分支DB真机验证/device_baseline_0/report.json",
       "report_sha256": "0668bb7883f5c66168cc3f56b6f79b59c4bf059ee2041de09ec01ecbca0e5875",
       "device": "0",
       "seed": 20261009,
@@ -25,8 +24,7 @@
             27.699999999999932
           ],
           "native_us": 35.3,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B02_S5_T010_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 2,
@@ -39,8 +37,7 @@
             26.940000000000055
           ],
           "native_us": 35.76,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B02_S6_T012_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 4,
@@ -53,8 +50,7 @@
             27.899999999999977
           ],
           "native_us": 38.18,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B04_S5_T020_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 4,
@@ -67,8 +63,7 @@
             27.100000000000023
           ],
           "native_us": 40.74,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B04_S6_T024_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 8,
@@ -81,8 +76,7 @@
             29.5
           ],
           "native_us": 49.06,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B08_S5_T040_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 8,
@@ -95,8 +89,7 @@
             27.74000000000001
           ],
           "native_us": 52.0,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B08_S6_T048_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 16,
@@ -109,8 +102,7 @@
             30.56000000000006
           ],
           "native_us": 55.78,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B16_S5_T080_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 16,
@@ -123,8 +115,7 @@
             29.120000000000005
           ],
           "native_us": 59.62,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B16_S6_T096_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 20,
@@ -137,8 +128,7 @@
             35.40000000000009
           ],
           "native_us": 61.58,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B20_S5_T100_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 20,
@@ -151,8 +141,7 @@
             33.32000000000005
           ],
           "native_us": 66.44,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B20_S6_T120_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 24,
@@ -165,8 +154,7 @@
             32.960000000000036
           ],
           "native_us": 66.36,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B24_S5_T120_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 24,
@@ -179,8 +167,7 @@
             33.41999999999996
           ],
           "native_us": 69.26,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B24_S6_T144_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 28,
@@ -193,8 +180,7 @@
             33.60000000000002
           ],
           "native_us": 69.34,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B28_S5_T140_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 28,
@@ -207,13 +193,11 @@
             33.91999999999996
           ],
           "native_us": 75.02,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_0/traces/B28_S6_T168_PTO_L1_3steps.json"
+          "status": "PASS"
         }
       ]
     },
     "device_baseline_1": {
-      "archive": "results/13_全分支DB真机验证/device_baseline_1/report.json",
       "report_sha256": "c8fb2090b2654226cb39750e90672ce48dfdf0a81ddedacbeaf7db374a7eed15",
       "device": "0",
       "seed": 20261009,
@@ -233,8 +217,7 @@
             27.279999999999973
           ],
           "native_us": 30.64,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B02_S5_T010_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 2,
@@ -247,8 +230,7 @@
             26.840000000000032
           ],
           "native_us": 31.04,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B02_S6_T012_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 4,
@@ -261,8 +243,7 @@
             27.120000000000005
           ],
           "native_us": 32.22,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B04_S5_T020_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 4,
@@ -275,8 +256,7 @@
             25.039999999999964
           ],
           "native_us": 33.78,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B04_S6_T024_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 8,
@@ -289,8 +269,7 @@
             27.940000000000055
           ],
           "native_us": 40.1,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B08_S5_T040_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 8,
@@ -303,8 +282,7 @@
             28.360000000000014
           ],
           "native_us": 41.04,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B08_S6_T048_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 16,
@@ -317,8 +295,7 @@
             29.340000000000032
           ],
           "native_us": 47.04,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B16_S5_T080_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 16,
@@ -331,8 +308,7 @@
             27.360000000000014
           ],
           "native_us": 50.02,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B16_S6_T096_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 20,
@@ -345,8 +321,7 @@
             33.120000000000005
           ],
           "native_us": 53.82,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B20_S5_T100_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 20,
@@ -359,8 +334,7 @@
             35.58000000000004
           ],
           "native_us": 57.66,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B20_S6_T120_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 24,
@@ -373,8 +347,7 @@
             34.059999999999945
           ],
           "native_us": 58.76,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B24_S5_T120_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 24,
@@ -387,8 +360,7 @@
             34.74000000000001
           ],
           "native_us": 58.2,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B24_S6_T144_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 28,
@@ -401,8 +373,7 @@
             33.940000000000055
           ],
           "native_us": 59.62,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B28_S5_T140_PTO_L1_3steps.json"
+          "status": "PASS"
         },
         {
           "B": 28,
@@ -415,8 +386,7 @@
             35.780000000000086
           ],
           "native_us": 66.54,
-          "status": "PASS",
-          "trace": "results/13_全分支DB真机验证/device_baseline_1/traces/B28_S6_T168_PTO_L1_3steps.json"
+          "status": "PASS"
         }
       ]
     }

@@ -1,94 +1,210 @@
-# HC_pre：PTO 生成代码接入 ACLNN / Torch
+# HC_pre 自定义算子开发与调用示例
 
-性能表和验证状态：[全场景性能对比](全场景性能对比.md)。完整使用说明（目录结构、构建、调用与测试）：[HC_pre 自定义算子开发与调用示例](TORCH接入记录.md)。
+本示例将 PyPTO 生成的 HC_pre C++ 核函数封装为 CANN 自定义算子，并通过 PyTorch C++ Extension 提供调用接口。可用于学习如何复用 PTO 生成代码、对接 ACLNN，以及验证独立算子的精度和性能。
 
-## 做了什么
+调用流程：
 
 ```text
-Torch：torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
-  → vLLM 仓内 ACLNN 适配
-  → aclnnHcPrePto（创建工作区、选择分档）
-  → 一个 MIX 入口（24 AIC + 48 AIV）
-  → SE 生成的 AIC / AIV 函数
+Python：torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
+  → Torch 绑定：检查输入、创建输出
+  → ACLNN：aclnnHcPrePtoGetWorkspaceSize / aclnnHcPrePto
+  → MIX 核入口：24 个 AIC + 48 个 AIV
+  → generated/ 中的 PTO C++ 核函数
 ```
 
-SE 来源：`nalinaly/vllm-ascend`，分支 `dsv4-flash-pto-v0.25.1rc1`，提交 `f04320413804103fe31bedd5a2175b5021bcd91d`。
-`generated/` 是该状态的编译产物；六档函数原样保留，SHA256 见 `generated/manifest.json`。
+当前支持独立推理调用、Meta 形状推导和 NPU Graph 重放。尚未替换 vLLM 模型中的 HC_pre 调用，不提供反向传播。
 
-|T = B × S|使用的生成文件前缀|
+## 1. 前提条件
+
+- AArch64 Linux，以及支持 `ascend910_93` 目标、可运行 24 个 MIX 核组的昇腾设备。
+- 已安装匹配的驱动、固件、CANN 开发环境和 PyTorch / TorchNPU。
+- CMake ≥ 3.20、C++ 编译工具、Ninja，以及 PTO-ISA 源码和头文件。
+- Python 测试依赖：NumPy；十四场景测试另需 safetensors。
+- 保留完整 vLLM Ascend 源码目录：Torch 绑定复用 `csrc/aclnn_torch_adapter/`，无需编译整个 vLLM。
+
+已验证的依赖版本：
+
+|依赖|版本或状态|
 |---|---|
-|1～32|hc_small|
-|33～48|hc_medium48|
-|49～95|hc_medium96|
-|96|hc_exact96|
-|97～144|hc_large144|
-|145 及以上|hc_large|
+|Python|3.12|
+|PyTorch / TorchNPU|`2.10.0+cpu` / `2.10.0.post2`|
+|CANN 编译器及运行时组件|`version.info` 为 `9.2.0 / 20260916`|
+|PTO-ISA|`hw-native-sys/pto-isa@327cd5869f3a7c4d2c6a1b945b2aed06e7665c5d`|
 
-六档已接入；已测范围及通过情况以性能文档为准。接口限制 `1 ≤ T ≤ 1048576`，不代表上限处已经实测。
+这里直接编译已有的生成代码，**构建和运行 PTO 算子均不需要 PyPTO、Simpler 或 Native 对照库**。重新从 Python 算子生成 C++ 属于另一个步骤。
 
-## 输入输出
+## 2. 示例目录
 
-全部为同一 NPU 上的连续 ND Tensor。
+```text
+hc_pre_pto_aclnn/
+├── CMakeLists.txt                 # CANN 自定义算子构建入口
+├── generated/
+│   ├── hc_*.cpp                  # 六档生成的 AIC/AIV 核函数
+│   ├── hc_*.pto                  # 对应的 PTO IR
+│   └── manifest.json             # 来源提交及文件 SHA256
+├── include/contract.h            # 分档、任务划分及工作区大小计算
+├── op_host/hc_pre_pto.cpp         # 算子定义、输入约束和 Host tiling
+├── op_kernel/hc_pre_pto.cpp       # MIX 入口和生成函数的参数适配
+├── torch/binding.cpp             # Torch 算子注册及 ACLNN 调用
+├── scripts/
+│   ├── build.sh                  # 编译并打包 CANN 算子
+│   ├── build_torch.py            # 编译 Torch 扩展库
+│   ├── run_torch.sh              # T96 功能测试，可选 Native 对照
+│   ├── run_all.sh                # 十四场景测试、采集和结果汇总
+│   ├── export_all.py             # 离线解析设备 profiler 数据
+│   ├── summarize_all.py          # 生成性能对比文档
+│   └── append_repeat.py          # 将复测值追加到已有表格
+├── tests/
+│   ├── check_outputs.py          # CPU 参考及 T96 输入生成
+│   ├── test_torch.py             # Torch 精度、非法输入及图重放检查
+│   ├── bench_all.py              # 正式权重的十四场景对照测试
+│   └── run_aclnn.cpp             # 直接调用 ACLNN 的 C++ 测试入口
+├── reports/                      # 实测数据来源记录
+├── build_all/                    # 构建后生成的 CANN 包及解压目录
+├── build/torch/                  # 构建后生成的 Torch 扩展库
+├── output/                       # 运行后生成的报告和采集数据
+├── README.md                     # 本使用说明
+└── 全场景性能对比.md              # 历史数据、复测结果及验证详情
+```
 
-|参数|类型|形状|
+`build*/`、`output/` 和 profiler 临时目录已被 Git 忽略。它们由构建或测试生成，无需作为源码提交。
+
+## 3. 算子接口
+
+```python
+mixed, post, comb = torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
+```
+
+所有输入需为同一 NPU 上的连续 ND Tensor。`T = B × S`，调用前合并 B/S 两个维度。
+
+|参数|数据类型|形状|
 |---|---|---|
-|x|BF16|[T,4,4096]|
-|weight|FP32|[24,16384]|
-|scale|FP32|[3]|
-|base|FP32|[24]|
-|mixed 输出|BF16|[T,4096]|
-|post 输出|FP32|[T,4]|
-|comb 输出|FP32|[T,4,4]|
+|x|BF16|`[T, 4, 4096]`|
+|weight（hc_fn）|FP32|`[24, 16384]`|
+|scale（hc_scale）|FP32|`[3]`|
+|base（hc_base）|FP32|`[24]`|
+|mixed 输出|BF16|`[T, 4096]`|
+|post 输出|FP32|`[T, 4]`|
+|comb 输出|FP32|`[T, 4, 4]`|
 
-B/S 先合并为 T；Native 对照保留 [B,S,4,4096] 输入。当前仅推理，不提供反向传播或模型调用链替换。
+Host 根据 T 自动选择生成代码，调用者无需指定分档：
 
-## 关键文件
-
-|文件|作用|
+|T 范围|生成文件前缀|
 |---|---|
-|op_host/hc_pre_pto.cpp|检查形状和核数，选择六档，返回工作区大小|
-|include/contract.h|按原 SE 编排计算补齐长度、任务数和缓冲区大小|
-|op_kernel/hc_pre_pto.cpp|分配 parts/RMS/FIFO 地址，调用对应的 AIC/AIV 函数|
-|torch/binding.cpp|Torch 注册、输入检查、输出创建、ACLNN 调用|
-|tests/bench_all.py|十四场景精度、图重放和 Native 性能对照|
+|1～32|`hc_small`|
+|33～48|`hc_medium48`|
+|49～95|`hc_medium96`|
+|96|`hc_exact96`|
+|97～144|`hc_large144`|
+|145 及以上|`hc_large`|
 
-FIFO 每个 MIX block 一份，两侧通过生成代码的 TPUSH/TPOP/TFREE 传递数据和同步。
-medium48 的 x/weight 参数顺序与其他档不同，exact96 少一个动态标量，入口分别适配。
+接口检查范围为 `1 ≤ T ≤ 1048576`；这不表示所有大小均已实测。已测场景见性能对比文档。
 
-## 构建
+## 4. 编译算子与 Torch 扩展
 
-需要 AArch64 Linux、CANN 开发环境、CMake ≥ 3.20、PTO-ISA、匹配的 torch/torch_npu。
-本次 CANN compiler/runtime 组件 `version.info` 为 9.2.0 / 20260916，目标 `ascend910_93`；
-PTO-ISA 为 `hw-native-sys/pto-isa@327cd5869f3a7c4d2c6a1b945b2aed06e7665c5d`。
+激活装有上述 Python 依赖的环境，将下方 `/path/to/...` 替换为实际安装或源码位置。
 
 ```bash
 source /path/to/cann/set_env.sh
 cd /path/to/vllm-ascend/examples/hc_pre_pto_aclnn
+
+# 编译 CANN 自定义算子并生成安装包
 bash scripts/build.sh /path/to/pto-isa build_all
-bash build_all/custom_opp_hce_aarch64.run --noexec --extract=build_all/private_opp
+
+# 将安装包解压到独立目录
+bash build_all/custom_opp_hce_aarch64.run \
+  --noexec --extract=build_all/private_opp
+
+# 编译 Torch 绑定
 python scripts/build_torch.py
 ```
 
-Torch 绑定复用同仓 `csrc/aclnn_torch_adapter/`，因此需要完整 vLLM 源码目录。
-不需要编译整个 vLLM。PTO 算子运行不依赖 PyPTO、Simpler 或 cann-recipes-infer。
+主要产物：
 
-## 使用
+- `build_all/private_opp/packages/vendors/hcpre_pto/`：CANN 算子包，包含 ACLNN 库和设备核。
+- `build/torch/hcpre_pto_torch.so`：Python 通过 `torch.ops.load_library` 加载的扩展库。
 
-在 Python 启动前设置算子包位置：
+## 5. 调用样例
+
+在本示例目录中，先为 Python 进程设置算子包及动态库路径：
 
 ```bash
 export ASCEND_CUSTOM_OPP_PATH="$PWD/build_all/private_opp/packages/vendors/hcpre_pto"
 export LD_LIBRARY_PATH="$ASCEND_CUSTOM_OPP_PATH/op_api/lib:${LD_LIBRARY_PATH:-}"
 ```
 
+以下代码演示 T96 调用；随机权重仅用于演示接口，性能对照使用第 7 节的正式权重。
+
 ```python
+from pathlib import Path
 import torch
 import torch_npu
-torch.ops.load_library("build/torch/hcpre_pto_torch.so")
+
+torch.npu.set_device(0)  # 当前进程可见的第 0 张卡
+torch.ops.load_library(str(Path("build/torch/hcpre_pto_torch.so").resolve()))
+
+x = torch.randn(96, 4, 4096, device="npu", dtype=torch.bfloat16)
+weight = torch.randn(24, 16384, device="npu", dtype=torch.float32) * 0.01
+scale = torch.ones(3, device="npu", dtype=torch.float32)
+base = torch.zeros(24, device="npu", dtype=torch.float32)
+
 mixed, post, comb = torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
+torch.npu.synchronize()
+print(mixed.shape, post.shape, comb.shape)
 ```
 
-共享机占卡命令必须提交到任务队列。十四场景测试在 `task-submit --device auto` 分配的任务中执行：
+预期输出形状：
+
+```text
+torch.Size([96, 4096]) torch.Size([96, 4]) torch.Size([96, 4, 4])
+```
+
+使用共享设备队列时，所有 NPU 调用均需在分配到设备的任务中运行。以下测试脚本使用 `TASK_DEVICE` 设置可见设备。
+
+## 6. 功能验证
+
+先生成 T96 测试输入，此步骤仅使用 CPU：
+
+```bash
+python tests/check_outputs.py output/input --generate
+```
+
+在已分配设备、已初始化 CANN/Python 环境的任务中执行：
+
+```bash
+bash scripts/run_torch.sh \
+  build_all/private_opp/packages/vendors/hcpre_pto \
+  output/input output/torch_check
+```
+
+使用 `task-submit` 的完整提交形式如下。任务内也需要激活 Python 环境；输出目录应为尚不存在的新目录。
+
+```bash
+task-submit --device auto --max-time 600 --run '
+  source /path/to/cann/set_env.sh
+  source /path/to/venv/bin/activate
+  cd /path/to/vllm-ascend/examples/hc_pre_pto_aclnn
+  bash scripts/run_torch.sh \
+    build_all/private_opp/packages/vendors/hcpre_pto \
+    output/input output/torch_check
+'
+```
+
+测试检查三个输出与 CPU 参考、非法输入拒绝、图重放一致性，以及修改输入后重放是否读取新数据。结果保存到指定输出目录的 `report.json`。此步骤不需要模型权重和 Native 对照库。
+
+## 7. 十四场景性能对照（可选）
+
+该测试使用 `B ∈ {2,4,8,16,20,24,28}`、`S ∈ {5,6}`，共 14 组场景。额外需要：
+
+|参数|用途|
+|---|---|
+|Native vendor 目录|安装好的 AscendC HC_pre 对照算子包，目录名通常为 `packages/vendors/customize`|
+|`hc_pre_recipes_reference.so`|Native 的 Torch 绑定库，注册 `torch.ops.custom.npu_hc_pre`|
+|DeepSeek-V4-Flash-0731-w8a8 权重目录|读取第 2 层 attn 的 fn/scale/base，无需加载整个模型|
+
+Native 为 `cann-recipes-infer@4c3d1e1258053c4d810322198a7fd1722c89897e` 的 HC_pre 实现；其算子包和 Torch 绑定需另行准备，未随本示例提供。
+
+在队列分配的任务中，初始化相同的环境后执行：
 
 ```bash
 bash scripts/run_all.sh \
@@ -99,6 +215,19 @@ bash scripts/run_all.sh \
   output/all14
 ```
 
-Native 路径仅用于对照；正式第 2 层 attn 权重由测试脚本读取，不构造模型。
-任务内需先激活相同 Python/CANN 环境。输出目录必须尚不存在。
-采集完成后，脚本用 CANN msprof 离线解析核耗时，再更新性能 MD。结果含逐场景报告、设备 trace、图重放样本。`build*/` 和 `output/` 不进入 Git。
+脚本完成设备采集后，等待执行进程退出，再调用 `msprof` 离线解析；结果写入 `output/all14/`，并重新生成 `全场景性能对比.md`。需要保留旧表时，应先保存该文档。
+
+- **核耗时**：读取 `op_summary` 中对应算子的 `Task Duration(us)`，每侧 3 次取中位数。
+- **图重放耗时**：图外 NPU Event 包住一次 replay，两侧交替各测 20 次；会受提交间隙影响，不能当作纯核耗时。
+- **精度**：BF16 的 atol/rtol 为 `0.01/0.01`，FP32 为 `1e-5/1e-4`，沿用 10-12 版本 benchmark 的回归阈值。
+
+具体数据与检查例外见 [全场景性能对比](全场景性能对比.md)。完整报告保留逐输出误差，应同时检查 CPU 对照和修改输入后的检查结果。
+
+## 8. 接入代码说明
+
+- `op_host/` 决定分档并计算工作区大小；`op_kernel/` 将工作区划分为 parts、RMS 和每个 MIX 核组独立的 FIFO。
+- MIX 入口在 AIC 侧调用生成的 `*_aic`，在 AIV 侧调用 `*_aiv`；两侧使用同组 FIFO，由生成代码中的 TPUSH/TPOP/TFREE 完成通信和同步。
+- 生成函数中的 `v1、v2…` 是编译器参数名，传参顺序依据同批生成的 kernel wrapper 对齐。medium48 的 x/weight 顺序不同，exact96 的标量参数数量不同，入口已分别适配。
+- `torch/binding.cpp` 负责输入检查、输出申请和 `EXEC_NPU_CMD(aclnnHcPrePto, ...)` 调用；配套适配实现来自仓内 `csrc/aclnn_torch_adapter/`。
+
+生成代码来源为 `nalinaly/vllm-ascend` 的 `dsv4-flash-pto-v0.25.1rc1` 分支，提交 `f04320413804103fe31bedd5a2175b5021bcd91d`。C++ 核函数保持原样；PTO IR 仅将源码定位信息中的绝对路径改为仓库相对路径。归一化前后的校验值见 [manifest.json](generated/manifest.json)。

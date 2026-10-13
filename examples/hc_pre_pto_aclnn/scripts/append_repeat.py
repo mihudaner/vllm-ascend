@@ -17,7 +17,6 @@ def main():
     parser.add_argument('old_aclnn', type=Path)
     parser.add_argument('new_aclnn', type=Path)
     parser.add_argument('new_original', type=Path)
-    parser.add_argument('--task', required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     current = json.loads(args.new_aclnn.read_text())
@@ -42,7 +41,7 @@ def main():
             line = line.replace('- 本次物理设备：', '- 左侧旧 ACLNN/Native 数据的物理设备：') + f" 右侧复测三组均为设备 `{current['physical_device']}`。"
         elif line.startswith('- 本次报告：'):
             line = line.replace('- 本次报告：', '- 左侧旧 ACLNN/Native 报告：')
-        if line.startswith('|B|S|T|SE Native|'):
+        if line.startswith('|B|S|T|10-12 版本 Native|'):
             section = 'main'
         elif line.startswith('|B|S|T|Native 图重放|'):
             section = 'replay'
@@ -79,23 +78,30 @@ def main():
                     cells[index] += ' / ' + value
                 line = '|' + '|'.join(cells) + '|'
         output.append(line)
-        if line == '## 3. 本次结果':
-            output += ['', '**表格中的 `原值 / 复测值`：左边保留此前数据，右边为同卡连续复测；SE 历史列不变。**',
+        if line == '## 3. ACLNN 接入测试结果':
+            output += ['', '**表格中的 `原值 / 复测值`：左边保留此前数据，右边为同卡连续复测；10-12 版本历史列不变。**',
                        f"复测物理设备 {current['physical_device']}，先跑原版 PyPTO/Simpler，再跑 ACLNN/Native，仍为相同的 14 组输入。"]
-    output += ['', '### 同卡复测原始记录', '', '- 随仓保存的两轮耗时样本及精度结果：[performance_samples.json](reports/performance_samples.json)。', f'- 队列任务：`{args.task}`。']
-    for label, path in [('原版 PTO', args.new_original), ('ACLNN / Native', args.new_aclnn)]:
-        relative = path.resolve().relative_to(root)
-        output.append(f'- {label} 原始报告生成位置：`{relative}`（运行产物，不随仓提交）。')
+    output += ['', '### 同卡复测原始记录', '', '- 随仓保存的两轮耗时样本及精度结果：[performance_samples.json](reports/performance_samples.json)。']
     output += ['- 表中原版 PTO 为 L1 核内跨度，ACLNN 为 CANN kernel 时长；同卡复测消除了卡号差异，但计时边界仍不同，差值不能直接当作 Python 或 ACLNN 调用开销。', '']
-    output += ['### 复测观察', '',
-               '- T96：原版 L1 为 28.72 μs，ACLNN 为 29.40 μs；T168：分别为 38.96 / 36.32 μs。不同场景的差值有正有负，未体现出固定的接入开销。',
-               '- 原版与 ACLNN/Native 是同卡先后运行，仍存在运行时状态与计时边界差异；这轮结果尚不能拆出纯包装开销。',
-               '- PTO 对 Native、PTO 对 CPU、图重放一致性均通过 14/14。修改输入为原输入的 -0.5 倍后，Native 对 CPU 的 comb 在 B8/S5、B20/S6、B24/S5 未通过当前严格阈值；旧轮与复测相同。对应最大绝对误差为 1.985e-5、3.153e-5、1.436e-5，已补入验证表，不能把全部检查概括为全通过。', '']
+    output += ['### 复测观察', '']
+    for key in [(16, 6), (28, 6)]:
+        r = rows[key]
+        l1 = original_rows[key]['incore_timing']['pto']['span_p50_us']
+        aclnn = r['device']['pto']['median_us']
+        output.append(f"- B{key[0]}/S{key[1]}，T{r['T']}：原版 L1 {l1:.2f} μs，ACLNN kernel {aclnn:.2f} μs。")
+    output += ['- 两类耗时的计时边界不同，且运行时状态存在差异，不能据此拆出纯包装开销。']
+    failures = []
+    for key, r in rows.items():
+        for name, result in r['native_updated_cpu'].items():
+            if not result['passed']:
+                failures.append(f"B{key[0]}/S{key[1]} {name}（最大绝对误差 {result['max_abs']:.3e}）")
+    if failures:
+        output.append('- 修改输入为原值的 -0.5 倍后，Native 对 CPU 未通过当前阈值的项目：' + '、'.join(failures) + '。详见验证表。')
+    output.append('')
     md.write_text('\n'.join(output))
-    provenance = {'task': args.task, 'physical_device': current['physical_device'], 'reports': {}}
+    provenance = { 'physical_device': current['physical_device'], 'reports': {}}
     for label, path in [('original_pto', args.new_original), ('aclnn', args.new_aclnn)]:
-        provenance['reports'][label] = {'path': str(path.resolve().relative_to(root)),
-                                       'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+        provenance['reports'][label] = {'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
     (root / 'reports/paired_repeat.json').write_text(json.dumps(provenance, ensure_ascii=False, indent=2) + '\n')
     print(md)
 

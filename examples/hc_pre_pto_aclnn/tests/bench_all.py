@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Compare all 14 SE cases through Torch/ACLNN, using the same formal weights."""
+"""Compare all 14 cases from the 2026-10-12 baseline through Torch/ACLNN, using the same formal weights."""
 import argparse
 import hashlib
 import json
