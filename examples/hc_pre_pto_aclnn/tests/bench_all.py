@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Compare all 14 cases from the 2026-10-12 baseline through Torch/ACLNN, using the same formal weights."""
+"""Compare all 14 cases from the 2026-10-12 baseline through Torch/ACLNN, with random weights by default."""
 import argparse
 import hashlib
 import json
@@ -9,7 +9,6 @@ from pathlib import Path
 
 import torch
 import torch_npu
-from safetensors import safe_open
 
 from check_outputs import reference
 from test_torch import compare
@@ -37,7 +36,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--binding',type=Path,required=True)
     p.add_argument('--native-library',type=Path,required=True)
-    p.add_argument('--checkpoint',type=Path,required=True)
+    p.add_argument('--checkpoint',type=Path,help='Optional model directory; omitted for seeded random weights')
+    p.add_argument('--weight-seed',type=int,default=20261009)
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--batch-size',type=int,nargs='+',default=[2,4,8,16,20,24,28])
     p.add_argument('--seqlen',type=int,nargs='+',default=[5,6])
@@ -46,17 +46,30 @@ def main():
     torch.set_num_threads(4); torch.npu.set_device(0)
     torch.ops.load_library(str(args.binding.resolve()))
     torch.ops.load_library(str(args.native_library.resolve()))
-    index=json.loads((args.checkpoint/'quant_model_weights.safetensors.index.json').read_text())['weight_map']
-    weights=[];records=[]
-    for suffix, shape in [('fn',(24,16384)),('scale',(3,)),('base',(24,))]:
-        name=f'layers.2.hc_attn_{suffix}'
-        with safe_open(args.checkpoint/index[name],framework='pt',device='cpu') as f:
-            t=f.get_tensor(name)
-        assert t.dtype==torch.float32 and tuple(t.shape)==shape
-        weights.append(t)
-        records.append({'name':name,'shape':list(shape),'sha256':hashlib.sha256(t.numpy().tobytes()).hexdigest()})
+    shapes = [('fn', (24, 16384)), ('scale', (3,)), ('base', (24,))]
+    if args.checkpoint is not None:
+        from safetensors import safe_open
+
+        index = json.loads((args.checkpoint / 'quant_model_weights.safetensors.index.json').read_text())['weight_map']
+        weights = []
+        for suffix, shape in shapes:
+            with safe_open(args.checkpoint / index[f'layers.2.hc_attn_{suffix}'], framework='pt', device='cpu') as f:
+                weights.append(f.get_tensor(f'layers.2.hc_attn_{suffix}'))
+        weight_source = {'mode': 'checkpoint', 'layer': 2, 'branch': 'attn'}
+    else:
+        generator = torch.Generator().manual_seed(args.weight_seed)
+        weights = [torch.randn((24, 16384), generator=generator) * 0.01,
+                   torch.ones(3, dtype=torch.float32),
+                   torch.randn((24,), generator=generator) * 0.1]
+        weight_source = {'mode': 'random', 'seed': args.weight_seed,
+                         'distribution': 'fn: normal(0, 0.01); scale: ones; base: normal(0, 0.1)'}
+    records = []
+    for (suffix, shape), tensor in zip(shapes, weights):
+        assert tensor.dtype == torch.float32 and tuple(tensor.shape) == shape
+        records.append({'name': f'hc_attn_{suffix}', 'shape': list(shape),
+                        'sha256': hashlib.sha256(tensor.numpy().tobytes()).hexdigest()})
     device_weights=[t.npu() for t in weights]
-    report={'physical_device':os.environ.get('TASK_DEVICE'), 'weights':records,'seed':'20261009 + B*100 + S','torch':torch.__version__,
+    report={'physical_device':os.environ.get('TASK_DEVICE'), 'weights':records,'weight_source':weight_source,'seed':'20261009 + B*100 + S','torch':torch.__version__,
             'torch_npu':torch_npu.__version__,'cases':[]}
     for b in args.batch_size:
         for s in args.seqlen:

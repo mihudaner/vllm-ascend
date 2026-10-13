@@ -19,7 +19,7 @@ Python：torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
 - AArch64 Linux，以及支持 `ascend910_93` 目标、可运行 24 个 MIX 核组的昇腾设备。
 - 已安装匹配的驱动、固件、CANN 开发环境和 PyTorch / TorchNPU。
 - CMake ≥ 3.20、C++ 编译工具、Ninja，以及 PTO-ISA 源码和头文件。
-- Python 测试依赖：NumPy；十四场景测试另需 safetensors。
+- Python 测试依赖：NumPy；从模型目录读取权重时另需 safetensors，默认随机权重模式不需要。
 - 保留完整 vLLM Ascend 源码目录：Torch 绑定复用 `csrc/aclnn_torch_adapter/`，无需编译整个 vLLM。
 
 已验证的依赖版本：
@@ -57,7 +57,7 @@ hc_pre_pto_aclnn/
 ├── tests/
 │   ├── check_outputs.py          # CPU 参考及 T96 输入生成
 │   ├── test_torch.py             # Torch 精度、非法输入及图重放检查
-│   ├── bench_all.py              # 正式权重的十四场景对照测试
+│   ├── bench_all.py              # 十四场景对照，默认随机权重
 │   └── run_aclnn.cpp             # 直接调用 ACLNN 的 C++ 测试入口
 ├── reports/                      # 实测数据来源记录
 ├── build_all/                    # 构建后生成的 CANN 包及解压目录
@@ -200,9 +200,10 @@ task-submit --device auto --max-time 600 --run '
 |---|---|
 |Native vendor 目录|安装好的 AscendC HC_pre 对照算子包，目录名通常为 `packages/vendors/customize`|
 |`hc_pre_recipes_reference.so`|Native 的 Torch 绑定库，注册 `torch.ops.custom.npu_hc_pre`|
-|DeepSeek-V4-Flash-0731-w8a8 权重目录|读取第 2 层 attn 的 fn/scale/base，无需加载整个模型|
 
 Native 为 `cann-recipes-infer@4c3d1e1258053c4d810322198a7fd1722c89897e` 的 HC_pre 实现；其算子包和 Torch 绑定需另行准备，未随本示例提供。
+
+默认生成固定种子的随机权重：fn 为标准差 0.01 的正态分布，scale 为全 1，base 为标准差 0.1 的正态分布；两侧共用同一组权重。无需准备模型目录。
 
 在队列分配的任务中，初始化相同的环境后执行：
 
@@ -211,11 +212,18 @@ bash scripts/run_all.sh \
   build_all/private_opp/packages/vendors/hcpre_pto \
   /path/to/native/packages/vendors/customize \
   /path/to/hc_pre_recipes_reference.so \
-  /path/to/DeepSeek-V4-Flash-0731-w8a8 \
   output/all14
 ```
 
-脚本完成设备采集后，等待执行进程退出，再调用 `msprof` 离线解析；结果写入 `output/all14/`，并重新生成 `全场景性能对比.md`。需要保留旧表时，应先保存该文档。
+需要复现 10-12 版本的真实权重条件时，在命令末尾追加可选参数：
+
+```bash
+  --checkpoint /path/to/DeepSeek-V4-Flash-0731-w8a8
+```
+
+该模式只读取第 2 层 attn 的 fn/scale/base，不加载模型。随机模式可通过 `--weight-seed 20261009` 指定权重种子，默认值为 20261009。输入 x 的种子仍为 `20261009+B*100+S`。
+
+脚本完成采集后，等待执行进程退出，再调用 `msprof` 离线解析。报告写入 `output/all14/report.json`，本轮表格写入 `output/all14/summary.md`，不会覆盖仓内历史性能表。报告记录权重来源、种子和 SHA256；随机权重结果不能当作真实权重基准的同条件复现。
 
 - **核耗时**：读取 `op_summary` 中对应算子的 `Task Duration(us)`，每侧 3 次取中位数。
 - **图重放耗时**：图外 NPU Event 包住一次 replay，两侧交替各测 20 次；会受提交间隙影响，不能当作纯核耗时。

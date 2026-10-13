@@ -6,7 +6,31 @@ from pathlib import Path
 
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('report',type=Path)
+p.add_argument('--output',type=Path,help='Write a standalone run summary without replacing historical comparisons')
 args=p.parse_args()
+run_report = json.loads(args.report.read_text())
+if args.output is not None or run_report.get('weight_source', {}).get('mode') == 'random':
+    target = args.output or args.report.parent / 'summary.md'
+    source = run_report.get('weight_source', {'mode': 'checkpoint', 'layer': 2, 'branch': 'attn'})
+    lines = ['# HC_pre 单轮测试结果', '',
+             f"权重来源：`{json.dumps(source, ensure_ascii=False)}`。", '',
+             '随机权重结果不能视为 10-12 版本真实权重测试的同条件复现。核耗时为设备 profiler 三次中位数，单位 μs。', '',
+             '|B|S|T|Native kernel|ACLNN PTO kernel|PTO 对 Native|PTO 对 CPU|Native 对 CPU|更新输入 PTO 对 CPU|更新输入 Native 对 CPU|',
+             '|---:|---:|---:|---:|---:|---|---|---|---|---|']
+    def verdict(group):
+        return '未完成' if not group else ('通过' if all(v['passed'] for v in group.values()) else '未通过')
+    for row in run_report['cases']:
+        timings = [row.get('device', {}).get(k, {}).get('median_us') for k in ('native', 'pto')]
+        values = [f'{v:.2f}' if v is not None else '未采集' for v in timings]
+        checks = [row.get('pto_vs_native'), row.get('cpu', {}).get('pto'), row.get('cpu', {}).get('native'),
+                  row.get('pto_updated_cpu'), row.get('native_updated_cpu')]
+        lines.append('|' + '|'.join([str(row['B']), str(row['S']), str(row['T']), *values,
+                                    *[verdict(g) for g in checks]]) + '|')
+    lines += ['', '图重放样本、逐输出误差和权重 SHA256 见同目录 report.json；阈值沿用 10-12 版本 benchmark，未因随机权重调整。', '']
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text('\n'.join(lines))
+    print(target)
+    raise SystemExit(0)
 root=Path(__file__).resolve().parents[1]
 baseline_archive=json.loads((root.parents[1]/'tests/pypto_test/hc_pre_optimization_20261012/latest14_summary.json').read_text())
 old={(r['batch_size'],r['seqlen']):r for r in baseline_archive['rows']}
