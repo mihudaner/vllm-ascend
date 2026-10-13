@@ -1,0 +1,67 @@
+{
+  "source_repository": "https://github.com/nalinaly/vllm-ascend.git",
+  "source_branch": "dsv4-flash-pto-v0.25.1rc1",
+  "source_commit": "f04320413804103fe31bedd5a2175b5021bcd91d",
+  "files": [
+    {
+      "name": "hc_small.cpp",
+      "tokens": "T <= 32",
+      "sha256": "115fa68d614211c636982efaf3cc05ebf33dcd7941e82d01c0d35a22a95ec395"
+    },
+    {
+      "name": "hc_small.pto",
+      "tokens": "T <= 32",
+      "sha256": "52b786ae0f7057d00a2896347e280270c88eda7898403fb94e9ea416d87fce71"
+    },
+    {
+      "name": "hc_medium48.cpp",
+      "tokens": "33 <= T <= 48",
+      "sha256": "87fc9ca0f65b3912ba12e4e8633c2b3de1384cddb817061ce6ca6562986293f1"
+    },
+    {
+      "name": "hc_medium48.pto",
+      "tokens": "33 <= T <= 48",
+      "sha256": "406d9db04a948887eb4bf403b2b6fa7636204b81346e206bf2c3a61c7d7395ea"
+    },
+    {
+      "name": "hc_medium96.cpp",
+      "tokens": "49 <= T <= 95",
+      "sha256": "03be853e3597ebe81ba7f0d738364de26a1d74b7e5f1bc5046faed25c8b60d08"
+    },
+    {
+      "name": "hc_medium96.pto",
+      "tokens": "49 <= T <= 95",
+      "sha256": "539f17b82307f3da444a01d773bd7fbece8623c9e9ada52f45c6f28fbaa3eb49"
+    },
+    {
+      "name": "hc_exact96.cpp",
+      "tokens": "T = 96",
+      "sha256": "2cbeeac4dc9e2a3c8f6bd6f09fc2d90b00ff9667c8d2a6548ae5f11cdf18bfaa"
+    },
+    {
+      "name": "hc_exact96.pto",
+      "tokens": "T = 96",
+      "sha256": "6a4ca721e7e664d635eb6b6259b60d1d73a4a34f349235c8975ee7c00658d226"
+    },
+    {
+      "name": "hc_large144.cpp",
+      "tokens": "97 <= T <= 144",
+      "sha256": "2a31e1f3a075ceb1aee2eb902dfefc420e659fe7a1c43e1d17a5e09b5596748f"
+    },
+    {
+      "name": "hc_large144.pto",
+      "tokens": "97 <= T <= 144",
+      "sha256": "9fadfe469d0f8beb58c1e96e74aa5eea57529b59276404df5d375d0c09cbbdff"
+    },
+    {
+      "name": "hc_large.cpp",
+      "tokens": "T > 144",
+      "sha256": "0a1081b3143d50f400997cd204cdada24b93b95fe63acd9cd28a6c1d5e9e516e"
+    },
+    {
+      "name": "hc_large.pto",
+      "tokens": "T > 144",
+      "sha256": "6ce9721645f1b9754ac935d54c41be4e9bf08695d70207654d9ed2b550e9be36"
+    }
+  ]
+}
