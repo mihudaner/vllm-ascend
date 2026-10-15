@@ -11,6 +11,7 @@ set(vendor_name hcpre_pto CACHE STRING "Isolated OPP vendor")
 find_package(ASC REQUIRED CONFIG PATHS "$ENV{ASCEND_HOME_PATH}/compiler/tikcpp/ascendc_kernel_cmake")
 set(package_name ${vendor_name})
 npu_op_package(${package_name} TYPE RUN CONFIG INSTALL_PATH ${CMAKE_BINARY_DIR}/)
+include(cmake/PreparePtoIsa.cmake)
 add_subdirectory(op_host)
 add_subdirectory(op_kernel)
 

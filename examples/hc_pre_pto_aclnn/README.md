@@ -239,3 +239,7 @@ bash scripts/run_all.sh \
 - `torch/binding.cpp` 负责输入检查、输出申请和 `EXEC_NPU_CMD(aclnnHcPrePto, ...)` 调用；配套适配实现来自仓内 `csrc/aclnn_torch_adapter/`。
 
 生成代码来源为 `nalinaly/vllm-ascend` 的 `dsv4-flash-pto-v0.25.1rc1` 分支，提交 `f04320413804103fe31bedd5a2175b5021bcd91d`。C++ 核函数保持原样；PTO IR 仅将源码定位信息中的绝对路径改为仓库相对路径。归一化前后的校验值见 [manifest.json](generated/manifest.json)。
+
+## SuperKernel 接入
+
+前后算子与 HCpre 的 SK 融合开关、适配内容和验证方式见 [SuperKernel接入说明](SuperKernel接入说明.md)。
