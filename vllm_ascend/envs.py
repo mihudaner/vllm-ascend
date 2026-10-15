@@ -31,8 +31,6 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Performance experiments only: "cann_round_robin" overrides expert routing.
     # Empty (default) or unrecognized values leave routing unchanged, as in the source implementation.
     "VLLM_ASCEND_FORCE_EPLB_POLICY": lambda: os.getenv("VLLM_ASCEND_FORCE_EPLB_POLICY", "").strip().lower(),
-    # MC2 algorithm override: "fullmesh_v2" or "hierarchy"; empty uses additional_config.
-    "VLLM_ASCEND_MC2_COMM_ALG": lambda: os.getenv("VLLM_ASCEND_MC2_COMM_ALG", "").strip(),
     # max compile thread number for package building. Usually, it is set to
     # the number of CPU cores. If not set, the default value is None, which
     # means all number of CPU cores will be used.
