@@ -94,7 +94,7 @@ def _hc_pre_variant(
     RMS_CHUNK：整块供数分支的平方和归约宽度，控制 UB 临时占用。
         小档/大档流式路径复用每个K512输入块，中档按各自供数宽度计算。
     RMS_OK：GM中平方和的分段数。T49～95与大档为8份；精确T96保留16份。
-    STREAM_K：逻辑段内供数宽度。小档/大档K512、中档K1024，经两槽交接给AIC。
+    STREAM_K：逻辑段内供数宽度。小档/T33～48/大档K512，T49～96用K1024。
         等于逻辑K段宽度时使用整块路径；精确T96走上方独立的Tile实现。
     SLOTS：组内 AIV→AIC 数据交接通道的缓冲槽数，与下面 pipeline 的
         stage 各自作用于不同位置，均不改变核组数量。
@@ -166,7 +166,7 @@ def _hc_pre_variant(
         # 【第一阶段：跨核组分配投影/RMS】每组处理 worker、worker+clusters、
         # worker+2*clusters ...，只取小于 linear_units 的任务，不要求工作量相等。
         # T49～95采用M32/K2048双槽，T80为24份任务；精确T96也为24份任务，
-        # 但显式控制L0双缓冲与同一FP32累加器，并保留原来的16份RMS部分和。
+        # 但使用K1024两级流水与同一FP32累加器，并保留原来的16份RMS部分和。
         # 大档用M48/M64增加每组token行数，减少重复读权重；小档保持原分块。
         for task in pl.range(worker, linear_units, linear_workers):
             # task 将 token 块与 K 分段展平；除法恢复 token 块，取模恢复 K 分段。
@@ -208,13 +208,12 @@ def _hc_pre_variant(
                     small_rp = partial_row + small_store_lane * (LINEAR_T_TILE // 2)
                     pl.store(pl.reshape(small_rms_total, [LINEAR_T_TILE // 2, 1]), [small_rp, 0], rms_partials)
             elif STATIC_T == 96:
-                # 24 个核组各负责一个 M32/K2048 逻辑块。沿 K 分成两次供数，
-                # 两个槽使 AIV 的下一块加载/转换与 AIC 的当前块矩阵乘重叠。
-                # RMS 复用刚转换的 FP32 子块，各子块分别落 GM，尾段统一归约。
-                # 此处使用普通 range；DB 来自外层 cross_core_slot(2) 的双槽交接，
-                # AIV 可准备下一 K1024 块，AIC 同时计算当前块，不重复申请循环流水缓冲。
+                # T96 专用：两次 K1024 使用两级流水，分离两份 BF16 输入缓冲。
+                # 编译器可提前发出第二块 MTE2，与第一块 Vector cast 重叠。
+                # cross_core_slot(2) 仍独立管理 AIV→AIC 数据交接。
+                # RMS 复用转换后的 FP32 输入；每个 K1024 各写一份平方和。
                 stream_product = pl.create_tile([LINEAR_T_TILE, MIX_PAD], dtype=pl.FP32, target_memory=pl.MemorySpace.Acc)
-                for kk in pl.range(LINEAR_K_PER_SPLIT // STAGE1_K_TILE):
+                for kk in pl.pipeline(LINEAR_K_PER_SPLIT // STAGE1_K_TILE, stage=2):
                     kc = kbase + kk * STAGE1_K_TILE
                     weight_chunk = pl.load(hc_fn, [0, kc], [MIX_PAD, STAGE1_K_TILE], valid_shape=[MIX_HC, STAGE1_K_TILE], target_memory=pl.MemorySpace.Mat)
                     weight_transposed = pl.tile.transpose_view(weight_chunk)
@@ -227,22 +226,13 @@ def _hc_pre_variant(
                         stream_sq = pl.tile.row_sum(pl.mul(stream_widened, stream_widened), stream_reduce_tmp)
                         stream_rms_row = (split * (LINEAR_K_PER_SPLIT // STAGE1_K_TILE) + kk) * t_linear + lane_row
                         pl.store(stream_sq, [stream_rms_row, 0], rms_partials)
-                    # 【显式交错L0双缓冲】K1024内四个K256块保持顺序累加。
-                    # 先准备0/1块；算完0后准备2，再算1；准备3后依次算2/3。
-                    # 两个相邻块交错存活，使MTE1能与上一块MMA并行；每组仍只需
-                    # 两份32KiB Left/Right。只有每段首块需要判断是否初始化Acc。
-                    left0 = pl.tile.extract(gathered_chunk, 0, 0, [LINEAR_T_TILE, 256], target_memory=pl.MemorySpace.Left)
-                    right0 = pl.tile.extract(weight_transposed, 0, 0, [256, MIX_PAD], target_memory=pl.MemorySpace.Right)
-                    left1 = pl.tile.extract(gathered_chunk, 0, 256, [LINEAR_T_TILE, 256], target_memory=pl.MemorySpace.Left)
-                    right1 = pl.tile.extract(weight_transposed, 256, 0, [256, MIX_PAD], target_memory=pl.MemorySpace.Right)
-                    stream_product = pl.tile.matmul_acc(stream_product, left0, right0, init_cond=(kk == 0))
-                    left2 = pl.tile.extract(gathered_chunk, 0, 512, [LINEAR_T_TILE, 256], target_memory=pl.MemorySpace.Left)
-                    right2 = pl.tile.extract(weight_transposed, 512, 0, [256, MIX_PAD], target_memory=pl.MemorySpace.Right)
-                    stream_product = pl.tile.matmul_acc(stream_product, left1, right1, init_cond=False)
-                    left3 = pl.tile.extract(gathered_chunk, 0, 768, [LINEAR_T_TILE, 256], target_memory=pl.MemorySpace.Left)
-                    right3 = pl.tile.extract(weight_transposed, 768, 0, [256, MIX_PAD], target_memory=pl.MemorySpace.Right)
-                    stream_product = pl.tile.matmul_acc(stream_product, left2, right2, init_cond=False)
-                    stream_product = pl.tile.matmul_acc(stream_product, left3, right3, init_cond=False)
+                    # K1024 内按 K256 顺序累加到同一 Acc。
+                    # 外层 pipeline 已申请缓冲分离；避免原显式四块提取再复制后
+                    # Left/Right 使用量达到 128KiB，超出各 64KiB 的平台限制。
+                    for l0_k in pl.range(0, STAGE1_K_TILE, 256):
+                        stream_left = pl.tile.extract(gathered_chunk, 0, l0_k, [LINEAR_T_TILE, 256], target_memory=pl.MemorySpace.Left)
+                        stream_right = pl.tile.extract(weight_transposed, l0_k, 0, [256, MIX_PAD], target_memory=pl.MemorySpace.Right)
+                        stream_product = pl.tile.matmul_acc(stream_product, stream_left, stream_right, init_cond=(kk == 0 and l0_k == 0))
                 pl.store(stream_product, [partial_row, 0], mixes_partials)
             elif STREAM_K < LINEAR_K_PER_SPLIT:
                 # 每个核组完成一个完整K分段，内部按STREAM_K双槽供数。
@@ -250,12 +240,12 @@ def _hc_pre_variant(
                 mid_stream_product = pl.create_tensor([LINEAR_T_TILE, MIX_PAD], dtype=pl.FP32)
                 for rms_init_lane in pl.split_aiv(2, mode=pl.SplitMode.NONE):
                     mid_stream_rms_total = pl.full([1, LINEAR_T_TILE // 2], dtype=pl.FP32, value=0.0)
-                # 【大档K段内流水】四个K512块用两级pipeline，权重L1与AIV输入
+                # 【K段内流水】T33～48用两个K512块，大档用四个；两级pipeline使权重L1与AIV输入
                 # 分别准备双缓冲；AIV→AIC仍使用独立的两槽FIFO。
                 # M48/M64的FIFO分别占192/256KiB，双权重均占128KiB，
                 # L1总计320/384KiB。编译器为相邻迭代安排搬运与计算的依赖；
                 # 这不保证完全重叠，实际收益以完整L1 incore首尾为准。
-                # RMS累加保持循环携带依赖，四次K512的FP32加法顺序不重排。
+                # RMS累加保持循环携带依赖，K512部分和的FP32加法顺序不重排。
                 if STREAM_K == 512:
                     for kk in pl.pipeline(LINEAR_K_PER_SPLIT // STREAM_K, stage=2):
                         kc = kbase + kk * STREAM_K
@@ -276,7 +266,7 @@ def _hc_pre_variant(
                         else:
                             mid_stream_product = pl.matmul_acc(mid_stream_product, mid_gathered_chunk, mid_weight_chunk, b_trans=True)
                 else:
-                    for kk in pl.range(LINEAR_K_PER_SPLIT // STREAM_K):
+                    for kk in pl.pipeline(LINEAR_K_PER_SPLIT // STREAM_K, stage=2):
                         kc = kbase + kk * STREAM_K
                         kvalid = pl.max(0, pl.min(STREAM_K, HC_DIM - kc))
                         mid_weight_chunk = pl.slice(hc_fn, [MIX_PAD, STREAM_K], [0, kc], valid_shape=[MIX_HC, kvalid], pad_value=pl.PadValue.zero)
@@ -294,6 +284,11 @@ def _hc_pre_variant(
                             mid_stream_product = pl.matmul(mid_gathered_chunk, mid_weight_chunk, b_trans=True)
                         else:
                             mid_stream_product = pl.matmul_acc(mid_stream_product, mid_gathered_chunk, mid_weight_chunk, b_trans=True)
+                if STREAM_K == 1024 or LINEAR_K_PER_SPLIT == 1024:
+                    # 中档流水展开后，Acc 的有效列数可能保留为 MIX_HC=24。
+                    # GM 部分和按 MIX_PAD=32 列存储；写回前恢复相同的有效形状。
+                    # 否则 NZ2ND 的 ndNum=24//32=0，投影结果不会写入 GM。
+                    mid_stream_product = pl.set_validshape(mid_stream_product, LINEAR_T_TILE, MIX_PAD)
                 mixes_partials[partial_row:partial_row + LINEAR_T_TILE, 0:MIX_PAD] = mid_stream_product
                 for rms_lane in pl.split_aiv(2, mode=pl.SplitMode.NONE):
                     rp = partial_row + rms_lane * (LINEAR_T_TILE // 2)
@@ -769,7 +764,8 @@ def hc_pre(
     # 只读取已有 shape 元数据，不回读任何 device tensor 内容。
     # 参数顺序：投影M块、K宽度、K段数、RMS子块、槽数、尾段行上限、任务名。
     # 小档保留M32/K1536和11份部分和，段内2/3次K512供数与RMS复用，
-    # 用同一显式Acc与K256 L0双缓冲；尾段后19轮使用设备标量。中档每段两次K1024，
+    # 用同一显式Acc与K256 L0双缓冲；尾段后19轮使用设备标量。T33～48每段两次K512，
+    # T49～96每段两次K1024；以上供数循环均启用两级pipeline。
     # 大档每段四次K512并使用两级流水。
     # T49～95及T>96局部累加RMS后写8份；精确T96仍写16份RMS、8份投影部分和。
     tokens = pl.tensor.dim(x, 0)
@@ -778,7 +774,7 @@ def hc_pre(
                                                32, 1536, 11, 512, 2, 2, "hc_small_spmd", 0, 11, False, 512)
     elif tokens <= MEDIUM48_T_MAX:
         mixed, post, comb_out = _hc_pre_variant(x, hc_fn, hc_scale, hc_base, mixed, post, comb_out,
-                                               48, 1024, 16, 512, 2, 2, "hc_medium48_spmd", 0, 16, True, 1024)
+                                               48, 1024, 16, 512, 2, 2, "hc_medium48_spmd", 0, 16, True, 512)
     elif tokens < MEDIUM96_T_MAX:
         mixed, post, comb_out = _hc_pre_variant(x, hc_fn, hc_scale, hc_base, mixed, post, comb_out,
                                                32, 2048, 8, 256, 2, 4, "hc_medium96_spmd", 0, 8, True, 1024)
