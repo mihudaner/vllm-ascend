@@ -1,4 +1,5 @@
-set(ops_srcs ${CMAKE_CURRENT_SOURCE_DIR}/hc_pre_pto.cpp)
+set(ops_srcs ${CMAKE_CURRENT_SOURCE_DIR}/hc_pre_pto.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/hc_pre_elementwise.cpp)
 npu_op_code_gen(SRC ${ops_srcs} PACKAGE ${package_name} OUT_DIR ${ASCEND_AUTOGEN_PATH} JOIN_OP_DEF True)
 file(GLOB api_src ${ASCEND_AUTOGEN_PATH}/aclnn_*.cpp)
 file(GLOB proto_src ${ASCEND_AUTOGEN_PATH}/op_proto.cc ${ASCEND_AUTOGEN_PATH}/group_op_proto/*.cc)

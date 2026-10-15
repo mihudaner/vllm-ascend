@@ -6,6 +6,6 @@ pto_isa="${1:?Usage: build.sh PTO_ISA_ROOT [BUILD_DIR]}"
 build="${2:-$root/build}"
 : "${ASCEND_HOME_PATH:?Source CANN set_env.sh first}"
 cmake -S "$root" -B "$build" -DPTO_ISA_ROOT="$pto_isa"
-cmake --build "$build" --target binary -j 4
-cmake --build "$build" -j 4
-cmake --build "$build" --target package -j 4
+cmake --build "$build" --target binary --parallel
+cmake --build "$build" --parallel
+cmake --build "$build" --target package --parallel
