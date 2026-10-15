@@ -256,7 +256,10 @@ def _hc_pre_variant(
                 # L1总计320/384KiB。编译器为相邻迭代安排搬运与计算的依赖；
                 # 这不保证完全重叠，实际收益以完整L1 incore首尾为准。
                 # RMS累加保持循环携带依赖，四次K512的FP32加法顺序不重排。
-                if STREAM_K == 512:
+                # T33～48 的 K1024 段改成两次 K512 普通循环（下方 else）：
+                # 复用转换后的输入计算 RMS，省去原整块路径的专用重读；
+                # 同循环体开 pipeline 在真机对照中更慢，故保持普通 range。
+                if STREAM_K == 512 and LINEAR_K_PER_SPLIT != 1024:
                     for kk in pl.pipeline(LINEAR_K_PER_SPLIT // STREAM_K, stage=2):
                         kc = kbase + kk * STREAM_K
                         kvalid = pl.max(0, pl.min(STREAM_K, HC_DIM - kc))
@@ -294,6 +297,9 @@ def _hc_pre_variant(
                             mid_stream_product = pl.matmul(mid_gathered_chunk, mid_weight_chunk, b_trans=True)
                         else:
                             mid_stream_product = pl.matmul_acc(mid_stream_product, mid_gathered_chunk, mid_weight_chunk, b_trans=True)
+                if LINEAR_K_PER_SPLIT == 1024:
+                    # 数学投影为24列，GM按32列存储；写回前恢复有效形状。
+                    mid_stream_product = pl.set_validshape(mid_stream_product, LINEAR_T_TILE, MIX_PAD)
                 mixes_partials[partial_row:partial_row + LINEAR_T_TILE, 0:MIX_PAD] = mid_stream_product
                 for rms_lane in pl.split_aiv(2, mode=pl.SplitMode.NONE):
                     rp = partial_row + rms_lane * (LINEAR_T_TILE // 2)
@@ -769,7 +775,8 @@ def hc_pre(
     # 只读取已有 shape 元数据，不回读任何 device tensor 内容。
     # 参数顺序：投影M块、K宽度、K段数、RMS子块、槽数、尾段行上限、任务名。
     # 小档保留M32/K1536和11份部分和，段内2/3次K512供数与RMS复用，
-    # 用同一显式Acc与K256 L0双缓冲；尾段后19轮使用设备标量。中档每段两次K1024，
+    # 用同一显式Acc与K256 L0双缓冲；尾段后19轮使用设备标量。T33～48用两次K512普通循环复用RMS；
+    # T49～96每段两次K1024，
     # 大档每段四次K512并使用两级流水。
     # T49～95及T>96局部累加RMS后写8份；精确T96仍写16份RMS、8份投影部分和。
     tokens = pl.tensor.dim(x, 0)
@@ -778,7 +785,7 @@ def hc_pre(
                                                32, 1536, 11, 512, 2, 2, "hc_small_spmd", 0, 11, False, 512)
     elif tokens <= MEDIUM48_T_MAX:
         mixed, post, comb_out = _hc_pre_variant(x, hc_fn, hc_scale, hc_base, mixed, post, comb_out,
-                                               48, 1024, 16, 512, 2, 2, "hc_medium48_spmd", 0, 16, True, 1024)
+                                               48, 1024, 16, 512, 2, 2, "hc_medium48_spmd", 0, 16, True, 512)
     elif tokens < MEDIUM96_T_MAX:
         mixed, post, comb_out = _hc_pre_variant(x, hc_fn, hc_scale, hc_base, mixed, post, comb_out,
                                                32, 2048, 8, 256, 2, 4, "hc_medium96_spmd", 0, 8, True, 1024)
