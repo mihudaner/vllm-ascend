@@ -54,7 +54,7 @@ T48 同输入仿真为 38409 → 36922 tick，下降 3.87%；流水中能看到 
 | [baseline.py](../../../../results/15_非Replay_DB验证/sources/baseline.py) | 固定的 SE1012 对照版本 |
 | [db.py](../../../../results/15_非Replay_DB验证/sources/db.py) | 此前各档位补 DB 的候选；不是最终优化版本 |
 | [k512_range.py](../../../../results/17_T48_分离DB与RMS复用/sources/k512_range.py) | 当前优先推进的普通循环候选，尚未覆盖工作仓库 |
-| [工作仓库 hc_pre.py](../../../vllm_ascend/ops/pypto/hc_pre.py) | 本地 `hc-pre-db-validation` 分支，本次提交归档此前 DB 验证改动；尚未采用 RMS 普通循环候选，未推送 |
+| [工作仓库 hc_pre.py](../../../vllm_ascend/ops/pypto/hc_pre.py) | 本地 `hc-pre-db-validation` 分支，DB 验证改动已提交归档，本次将算子恢复为 SE1012；分析文档保留，未推送 |
 
 ## 6. 下一步与完成标准
 
