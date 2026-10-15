@@ -14,6 +14,11 @@ npu_op_package(${package_name} TYPE RUN CONFIG INSTALL_PATH ${CMAKE_BINARY_DIR}/
 add_subdirectory(op_host)
 add_subdirectory(op_kernel)
 
+# npugraph_ex recompiles the installed kernel sources for SuperKernel. Keep
+# the same relative include layout as the source tree in the OPP package.
+install(DIRECTORY include generated
+  DESTINATION "packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl")
+
 add_executable(run_aclnn tests/run_aclnn.cpp)
 target_include_directories(run_aclnn PRIVATE ${ASCEND_AUTOGEN_PATH} "$ENV{ASCEND_HOME_PATH}/include")
 target_link_directories(run_aclnn PRIVATE "$ENV{ASCEND_HOME_PATH}/lib64")
