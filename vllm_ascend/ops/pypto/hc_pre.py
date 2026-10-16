@@ -404,7 +404,11 @@ def _hc_pre_variant(
                     # 投影列8～23对应每个 token 的4×4 comb logit，使用第三个 scale。
                     raw = pl.add(pl.slice(c_total, [T_TILE, 16], [0, HC_MULT * 2]), 0.0)
                     base = pl.load(hc_base_2d, [0, HC_MULT * 2], [1, 16], target_memory=pl.MemorySpace.Vec)
-                    logits = pl.add(pl.mul(pl.row_expand_mul(raw, comb_inv), scale2), pl.col_expand(raw, base))
+                    # T97及以上的两档采用广播加法；T96和更小档保持原版。
+                    if TAIL_MAX_ROWS == 8:
+                        logits = pl.col_expand_add(pl.mul(pl.row_expand_mul(raw, comb_inv), scale2), base)
+                    else:
+                        logits = pl.add(pl.mul(pl.row_expand_mul(raw, comb_inv), scale2), pl.col_expand(raw, base))
                     # 只保留本轮最多 TAIL_MAX_ROWS 个矩阵，再展平做 Sinkhorn；
                     # 这里缩小实际计算 tile，避免把8行对齐用的补零全带进20轮迭代。
                     # ri1/ri2 分别翻转矩阵内索引的低第0/1位，取同行的伙伴元素；
@@ -476,23 +480,38 @@ def _hc_pre_variant(
                         regular_logits = pl.reshape(pl.slice(logits, [TAIL_MAX_ROWS, 16], [0, 0]), [1, TAIL_MAX_ROWS * 16])
                         ids = pl.tile.arange(0, [1, TAIL_MAX_ROWS * 16], dtype=pl.INT32)
                         tmp = pl.create_tile([1, TAIL_MAX_ROWS * 16], dtype=pl.INT32)
-                        idx_float = pl.cast(ids, pl.FP32)
-                        ri1_low = pl.cast(pl.cast(pl.mul(idx_float, 1.0), pl.INT32, mode="floor"), pl.FP32)
-                        ri1_high = pl.cast(pl.cast(pl.mul(idx_float, 0.5), pl.INT32, mode="floor"), pl.FP32)
-                        ri1_bit = pl.sub(ri1_low, pl.mul(ri1_high, 2.0))
-                        ri1 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ri1_bit, 2.0)), 1.0), pl.INT32)
-                        ri2_low = pl.cast(pl.cast(pl.mul(idx_float, 0.5), pl.INT32, mode="floor"), pl.FP32)
-                        ri2_high = pl.cast(pl.cast(pl.mul(idx_float, 0.25), pl.INT32, mode="floor"), pl.FP32)
-                        ri2_bit = pl.sub(ri2_low, pl.mul(ri2_high, 2.0))
-                        ri2 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ri2_bit, 4.0)), 2.0), pl.INT32)
-                        ci1_low = pl.cast(pl.cast(pl.mul(idx_float, 0.25), pl.INT32, mode="floor"), pl.FP32)
-                        ci1_high = pl.cast(pl.cast(pl.mul(idx_float, 0.125), pl.INT32, mode="floor"), pl.FP32)
-                        ci1_bit = pl.sub(ci1_low, pl.mul(ci1_high, 2.0))
-                        ci1 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ci1_bit, 8.0)), 4.0), pl.INT32)
-                        ci2_low = pl.cast(pl.cast(pl.mul(idx_float, 0.125), pl.INT32, mode="floor"), pl.FP32)
-                        ci2_high = pl.cast(pl.cast(pl.mul(idx_float, 0.0625), pl.INT32, mode="floor"), pl.FP32)
-                        ci2_bit = pl.sub(ci2_low, pl.mul(ci2_high, 2.0))
-                        ci2 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ci2_bit, 16.0)), 8.0), pl.INT32)
+                        # T33～95和T>144使用整数索引；小档和T97～144保留原公式。
+                        if LINEAR_K_PER_SPLIT == 1024 or (LINEAR_K_PER_SPLIT == 2048 and LINEAR_T_TILE != 48):
+                            # 同行/同列伙伴分别翻转索引的第0/1/2/3位。
+                            # 用整数异或直接生成，避免浮点乘法、floor和往返转换。
+                            ids16 = pl.reinterpret_view(ids, pl.INT16)
+                            xor_tmp16 = pl.create_tile([1, TAIL_MAX_ROWS * 32], dtype=pl.INT16)
+                            ri1_mask = pl.reinterpret_view(pl.tile.full([1, TAIL_MAX_ROWS * 16], dtype=pl.INT32, value=1), pl.INT16)
+                            ri1 = pl.reinterpret_view(pl.tile.xor(ids16, ri1_mask, xor_tmp16), pl.INT32)
+                            ri2_mask = pl.reinterpret_view(pl.tile.full([1, TAIL_MAX_ROWS * 16], dtype=pl.INT32, value=2), pl.INT16)
+                            ri2 = pl.reinterpret_view(pl.tile.xor(ids16, ri2_mask, xor_tmp16), pl.INT32)
+                            ci1_mask = pl.reinterpret_view(pl.tile.full([1, TAIL_MAX_ROWS * 16], dtype=pl.INT32, value=4), pl.INT16)
+                            ci1 = pl.reinterpret_view(pl.tile.xor(ids16, ci1_mask, xor_tmp16), pl.INT32)
+                            ci2_mask = pl.reinterpret_view(pl.tile.full([1, TAIL_MAX_ROWS * 16], dtype=pl.INT32, value=8), pl.INT16)
+                            ci2 = pl.reinterpret_view(pl.tile.xor(ids16, ci2_mask, xor_tmp16), pl.INT32)
+                        else:
+                            idx_float = pl.cast(ids, pl.FP32)
+                            ri1_low = pl.cast(pl.cast(pl.mul(idx_float, 1.0), pl.INT32, mode="floor"), pl.FP32)
+                            ri1_high = pl.cast(pl.cast(pl.mul(idx_float, 0.5), pl.INT32, mode="floor"), pl.FP32)
+                            ri1_bit = pl.sub(ri1_low, pl.mul(ri1_high, 2.0))
+                            ri1 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ri1_bit, 2.0)), 1.0), pl.INT32)
+                            ri2_low = pl.cast(pl.cast(pl.mul(idx_float, 0.5), pl.INT32, mode="floor"), pl.FP32)
+                            ri2_high = pl.cast(pl.cast(pl.mul(idx_float, 0.25), pl.INT32, mode="floor"), pl.FP32)
+                            ri2_bit = pl.sub(ri2_low, pl.mul(ri2_high, 2.0))
+                            ri2 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ri2_bit, 4.0)), 2.0), pl.INT32)
+                            ci1_low = pl.cast(pl.cast(pl.mul(idx_float, 0.25), pl.INT32, mode="floor"), pl.FP32)
+                            ci1_high = pl.cast(pl.cast(pl.mul(idx_float, 0.125), pl.INT32, mode="floor"), pl.FP32)
+                            ci1_bit = pl.sub(ci1_low, pl.mul(ci1_high, 2.0))
+                            ci1 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ci1_bit, 8.0)), 4.0), pl.INT32)
+                            ci2_low = pl.cast(pl.cast(pl.mul(idx_float, 0.125), pl.INT32, mode="floor"), pl.FP32)
+                            ci2_high = pl.cast(pl.cast(pl.mul(idx_float, 0.0625), pl.INT32, mode="floor"), pl.FP32)
+                            ci2_bit = pl.sub(ci2_low, pl.mul(ci2_high, 2.0))
+                            ci2 = pl.cast(pl.add(pl.sub(idx_float, pl.mul(ci2_bit, 16.0)), 8.0), pl.INT32)
                         # 首轮先减行最大值再 exp，降低指数溢出风险；做行归一化并加 eps，
                         # 随后做列归一化。下面再执行19轮行/列归一化，共20轮 Sinkhorn。
                         max2 = pl.maximum(regular_logits, pl.tile.gather(regular_logits, ri1, tmp))
