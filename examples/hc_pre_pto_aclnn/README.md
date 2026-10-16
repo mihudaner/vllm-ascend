@@ -8,15 +8,15 @@
 Python：torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
   → Torch 绑定：检查输入、创建输出
   → ACLNN：aclnnHcPrePtoGetWorkspaceSize / aclnnHcPrePto
-  → MIX 核入口：24 个 AIC + 48 个 AIV
+  → MIX 核入口：按平台实际 AIC 核数启动，AIC:AIV = 1:2
   → generated/ 中的 PTO C++ 核函数
 ```
 
-当前支持独立推理调用、Meta 形状推导和 NPU Graph 重放。尚未替换 vLLM 模型中的 HC_pre 调用，不提供反向传播。
+当前支持独立推理调用、Meta 形状推导、NPU Graph 重放，以及通过 npugraph_ex 将前后 RMSNorm 与 HCpre 融合为 SuperKernel。尚未替换 vLLM 模型中的 HC_pre 调用，不提供反向传播。
 
 ## 1. 前提条件
 
-- AArch64 Linux，以及支持 `ascend910_93` 目标、可运行 24 个 MIX 核组的昇腾设备。
+- AArch64 Linux，以及支持 `ascend910_93` 目标、满足 AIC:AIV = 1:2 的昇腾设备（本分支真机验证设备为 24/48 核）。
 - 已安装匹配的驱动、固件、CANN 开发环境和 PyTorch / TorchNPU。
 - CMake ≥ 3.20、C++ 编译工具、Ninja，以及 PTO-ISA 源码和头文件。
 - Python 测试依赖：NumPy；从模型目录读取权重时另需 safetensors，默认随机权重模式不需要。
@@ -42,7 +42,9 @@ hc_pre_pto_aclnn/
 │   ├── hc_*.cpp                  # 六档生成的 AIC/AIV 核函数
 │   ├── hc_*.pto                  # 对应的 PTO IR
 │   └── manifest.json             # 来源提交及文件 SHA256
-├── include/contract.h            # 分档、任务划分及工作区大小计算
+├── include/
+│   ├── contract.h                # 按 T 和平台核组数计算任务与工作区
+│   └── pto_superkernel_adapter.h # 包含 ISA 时局部映射 SK 核编号接口
 ├── op_host/hc_pre_pto.cpp         # 算子定义、输入约束和 Host tiling
 ├── op_kernel/hc_pre_pto.cpp       # MIX 入口和生成函数的参数适配
 ├── torch/binding.cpp             # Torch 算子注册及 ACLNN 调用
@@ -50,12 +52,16 @@ hc_pre_pto_aclnn/
 │   ├── build.sh                  # 编译并打包 CANN 算子
 │   ├── build_torch.py            # 编译 Torch 扩展库
 │   ├── run_torch.sh              # T96 功能测试，可选 Native 对照
+│   ├── run_sk.sh                 # SK 开关对照，支持指定 T
+│   ├── summarize_sk.py           # 汇总精度与融合证据
+│   ├── cleanup_sk.py             # 清理本次残留静态核包
 │   ├── run_all.sh                # 十四场景测试、采集和结果汇总
 │   ├── export_all.py             # 离线解析设备 profiler 数据
 │   ├── summarize_all.py          # 生成性能对比文档
 │   └── append_repeat.py          # 将复测值追加到已有表格
 ├── tests/
 │   ├── check_outputs.py          # CPU 参考及 T96 输入生成
+│   ├── sk_chain.py               # RMSNorm → HCpre → RMSNorm 融合测试
 │   ├── test_torch.py             # Torch 精度、非法输入及图重放检查
 │   ├── bench_all.py              # 十四场景对照，默认随机权重
 │   └── run_aclnn.cpp             # 直接调用 ACLNN 的 C++ 测试入口
@@ -64,6 +70,7 @@ hc_pre_pto_aclnn/
 ├── build/torch/                  # 构建后生成的 Torch 扩展库
 ├── output/                       # 运行后生成的报告和采集数据
 ├── README.md                     # 本使用说明
+├── SuperKernel接入说明.md        # 核编号适配、打包、运行及验证
 └── 全场景性能对比.md              # 历史数据、复测结果及验证详情
 ```
 
@@ -242,4 +249,8 @@ bash scripts/run_all.sh \
 
 ## SuperKernel 接入
 
-前后算子与 HCpre 的 SK 融合开关、适配内容和验证方式见 [SuperKernel接入说明](SuperKernel接入说明.md)。
+Host 按平台实际核数计算任务和工作区，通过 tiling 的 `tokens`、`coreGroups` 传给 MIX 入口。`include/pto_superkernel_adapter.h` 在包含 ISA 时将原始核编号接口映射为 AscendC 逻辑核编号接口，随后撤销宏；不修改外部 ISA 源码。
+
+安装包包含 `include/` 和 `generated/`，ISA 仍使用构建时指定的外部目录。SK 在线静态重编译要求该目录可访问；换机器或移动依赖后，应在目标环境重新构建安装包。
+
+构建、SK 开关对照和各档验证结果见 [SuperKernel接入说明](SuperKernel接入说明.md)。

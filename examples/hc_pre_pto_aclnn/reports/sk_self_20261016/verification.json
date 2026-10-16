@@ -1,0 +1,176 @@
+[
+  {
+    "T": 32,
+    "passed": true,
+    "sk0": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 0,
+      "summary": "T32/sk0/profiler/PROF_000001_20261016093613950_03128337QCMJBOKM/mindstudio_profiler_output/op_summary_20261016093646.csv"
+    },
+    "sk1": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 25,
+      "summary": "T32/sk1/profiler/PROF_000001_20261016093655253_03150871ODIFQINH/mindstudio_profiler_output/op_summary_20261016093728.csv"
+    },
+    "devices": [
+      "10"
+    ]
+  },
+  {
+    "T": 48,
+    "passed": true,
+    "sk0": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 0,
+      "summary": "T48/sk0/profiler/PROF_000001_20261016093736431_03180141ODJOPRQB/mindstudio_profiler_output/op_summary_20261016093803.csv"
+    },
+    "sk1": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 25,
+      "summary": "T48/sk1/profiler/PROF_000001_20261016093811437_03200614GEQHOOMF/mindstudio_profiler_output/op_summary_20261016093844.csv"
+    },
+    "devices": [
+      "10"
+    ]
+  },
+  {
+    "T": 80,
+    "passed": true,
+    "sk0": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 0,
+      "summary": "T80/sk0/profiler/PROF_000001_20261016093852946_03222139OPLFNHLR/mindstudio_profiler_output/op_summary_20261016093918.csv"
+    },
+    "sk1": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 25,
+      "summary": "T80/sk1/profiler/PROF_000001_20261016093927422_03240690CHMNQQQO/mindstudio_profiler_output/op_summary_20261016094012.csv"
+    },
+    "devices": [
+      "10"
+    ]
+  },
+  {
+    "T": 96,
+    "passed": true,
+    "sk0": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 0,
+      "summary": "T96/sk0/profiler/PROF_000001_20261016094020727_03267406HKRGKGDB/mindstudio_profiler_output/op_summary_20261016094046.csv"
+    },
+    "sk1": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 25,
+      "summary": "T96/sk1/profiler/PROF_000001_20261016094054636_03286776BDHGBBFK/mindstudio_profiler_output/op_summary_20261016094128.csv"
+    },
+    "devices": [
+      "10"
+    ]
+  },
+  {
+    "T": 144,
+    "passed": true,
+    "sk0": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 0,
+      "summary": "T144/sk0/profiler/PROF_000001_20261016094136780_03325704PLHQBCFK/mindstudio_profiler_output/op_summary_20261016094201.csv"
+    },
+    "sk1": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 25,
+      "summary": "T144/sk1/profiler/PROF_000001_20261016094210050_03350501NNIOMNHR/mindstudio_profiler_output/op_summary_20261016094244.csv"
+    },
+    "devices": [
+      "10"
+    ]
+  },
+  {
+    "T": 168,
+    "passed": true,
+    "sk0": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 0,
+      "summary": "T168/sk0/profiler/PROF_000001_20261016094252321_03377042FJNHIRKC/mindstudio_profiler_output/op_summary_20261016094328.csv"
+    },
+    "sk1": {
+      "precision_passed": true,
+      "max_abs": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "task_check_passed": true,
+      "sk_tasks": 25,
+      "summary": "T168/sk1/profiler/PROF_000001_20261016094336510_03414522MCINEDDR/mindstudio_profiler_output/op_summary_20261016094411.csv"
+    },
+    "devices": [
+      "10"
+    ]
+  }
+]

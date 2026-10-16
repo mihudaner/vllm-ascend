@@ -11,9 +11,12 @@ set(vendor_name hcpre_pto CACHE STRING "Isolated OPP vendor")
 find_package(ASC REQUIRED CONFIG PATHS "$ENV{ASCEND_HOME_PATH}/compiler/tikcpp/ascendc_kernel_cmake")
 set(package_name ${vendor_name})
 npu_op_package(${package_name} TYPE RUN CONFIG INSTALL_PATH ${CMAKE_BINARY_DIR}/)
-include(cmake/PreparePtoIsa.cmake)
 add_subdirectory(op_host)
 add_subdirectory(op_kernel)
+
+# SK 在线静态编译读取安装包源码，保留与仓库一致的相对目录。
+install(DIRECTORY include generated
+  DESTINATION "packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl")
 
 add_executable(run_aclnn tests/run_aclnn.cpp)
 target_include_directories(run_aclnn PRIVATE ${ASCEND_AUTOGEN_PATH} "$ENV{ASCEND_HOME_PATH}/include")
