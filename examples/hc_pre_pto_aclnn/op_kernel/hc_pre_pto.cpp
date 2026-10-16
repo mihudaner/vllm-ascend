@@ -52,6 +52,9 @@ extern "C" __global__ __aicore__ void hc_pre_pto(GM_ADDR x, GM_ADDR weight, GM_A
 #define COMMON_ARGS PTR_ARGS, c.units, c.coreGroups, c.padded, c.tokens, TAIL_ARGS
 #define MED48_ARGS MED48_PTR_ARGS, c.units, c.coreGroups, c.padded, c.tokens, TAIL_ARGS
 #define EXACT_ARGS PTR_ARGS, c.units, c.coreGroups, c.padded, TAIL_ARGS
+  // Only scalar configuration precedes the wait. Generated flags, transfers
+  // and MIX SyncAll stay inside the boundary for every tiling key and core.
+  AscendC::WaitPreTaskEnd();
   if (TILING_KEY_IS(0)) {
 #if defined(__DAV_CUBE__)
     hc_small_impl::hc_small_aic(COMMON_ARGS);
@@ -94,4 +97,6 @@ extern "C" __global__ __aicore__ void hc_pre_pto(GM_ADDR x, GM_ADDR weight, GM_A
     hc_large_impl::hc_large_aiv(COMMON_ARGS, get_subblockid());
 #endif
   }
+  // Generated tails still fully drain their pipelines before returning.
+  AscendC::SetNextTaskStart();
 }
