@@ -40,6 +40,9 @@ class HcPreElementwise {
       // Reuse the FP32 scratch only after this tile's vector work ends.
       AscendC::PipeBarrier<PIPE_V>();
     }
+    // Once on every participating core, including cores with no data tile.
+    // Keep TPipe cleanup intact; this first adaptation does not remove drains.
+    AscendC::SetNextTaskStart();
   }
 
  private:
