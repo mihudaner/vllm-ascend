@@ -19,7 +19,7 @@ HCPRE_DEVICE inline Config MakeConfig(int64_t t, int64_t coreGroups = 24) {
   c.tile = c.key == 1 || c.key == 4 ? 48 : c.key == 5 ? 64 : 32;
   c.parts = c.key == 0 ? 11 : c.key == 1 ? 16 : 8;
   c.rms = c.key == 3 ? 16 : c.parts;
-  c.fifoElements = c.key == 0 ? 32768 : c.key == 1 ? 98304 : c.key == 4 ? 49152 : 65536;
+  c.fifoElements = c.key == 0 ? 32768 : (c.key == 1 || c.key == 4) ? 49152 : 65536;
   c.padded = (t + c.tile - 1) / c.tile * c.tile;
   c.units = c.padded / c.tile * c.parts;
   c.sink = t < coreGroups ? t : coreGroups;

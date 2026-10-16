@@ -41,16 +41,10 @@ extern "C" __global__ __aicore__ void hc_pre_pto(GM_ADDR x, GM_ADDR weight, GM_A
       reinterpret_cast<__gm__ float*>(scale), parts, rms, reinterpret_cast<__gm__ float*>(base), \
       reinterpret_cast<__gm__ float*>(comb), reinterpret_cast<__gm__ float*>(scale),             \
       reinterpret_cast<__gm__ float*>(post), reinterpret_cast<__gm__ bfloat16_t*>(mixed), fifo
-#define MED48_PTR_ARGS                                                                           \
-  parts, rms, reinterpret_cast<__gm__ bfloat16_t*>(x), reinterpret_cast<__gm__ float*>(weight),  \
-      reinterpret_cast<__gm__ float*>(scale), parts, rms, reinterpret_cast<__gm__ float*>(base), \
-      reinterpret_cast<__gm__ float*>(comb), reinterpret_cast<__gm__ float*>(scale),             \
-      reinterpret_cast<__gm__ float*>(post), reinterpret_cast<__gm__ bfloat16_t*>(mixed), fifo
 #define TAIL_ARGS                                                                                        \
   c.sink, c.rows, c.extraRows, c.pairsPerWorker, c.extraWorkers, c.tokens, c.pairs, c.workers, c.prefix, \
       c.workersPerPair, c.extraPairs, c.padded, c.tokens, HcPreGroupIdx(), c.coreGroups
 #define COMMON_ARGS PTR_ARGS, c.units, c.coreGroups, c.padded, c.tokens, TAIL_ARGS
-#define MED48_ARGS MED48_PTR_ARGS, c.units, c.coreGroups, c.padded, c.tokens, TAIL_ARGS
 #define EXACT_ARGS PTR_ARGS, c.units, c.coreGroups, c.padded, TAIL_ARGS
   // Only scalar configuration precedes the wait. Generated flags, transfers
   // and MIX SyncAll stay inside the boundary for every tiling key and core.
@@ -64,9 +58,9 @@ extern "C" __global__ __aicore__ void hc_pre_pto(GM_ADDR x, GM_ADDR weight, GM_A
   }
   if (TILING_KEY_IS(1)) {
 #if defined(__DAV_CUBE__)
-    hc_medium48_impl::hc_medium48_aic(MED48_ARGS);
+    hc_medium48_impl::hc_medium48_aic(COMMON_ARGS);
 #elif defined(__DAV_VEC__)
-    hc_medium48_impl::hc_medium48_aiv(MED48_ARGS, get_subblockid());
+    hc_medium48_impl::hc_medium48_aiv(COMMON_ARGS, get_subblockid());
 #endif
   }
   if (TILING_KEY_IS(2)) {
