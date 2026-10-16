@@ -253,4 +253,6 @@ Host 按平台实际核数计算任务和工作区，通过 tiling 的 `tokens`�
 
 安装包包含 `include/` 和 `generated/`，ISA 仍使用构建时指定的外部目录。SK 在线静态重编译要求该目录可访问；换机器或移动依赖后，应在目标环境重新构建安装包。
 
+HCpre 包装入口支持可选 Early-Start：标量配置后、生成核前调用 `WaitPreTaskEnd()`，生成核完整返回后调用 `SetNextTaskStart()`；不移动核内同步。需在支持该选项的 TorchNPU 中，通过 `super_kernel_optimize_options={"early_start": 0或1}` 显式关闭/开启。本机 2.10.0.post2 不接受此选项，开启验证尚未完成；不据接口接入承诺性能收益。
+
 构建、SK 开关对照和各档验证结果见 [SuperKernel接入说明](SuperKernel接入说明.md)。

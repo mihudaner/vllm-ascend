@@ -52,6 +52,8 @@ extern "C" __global__ __aicore__ void hc_pre_pto(GM_ADDR x, GM_ADDR weight, GM_A
 #define COMMON_ARGS PTR_ARGS, c.units, c.coreGroups, c.padded, c.tokens, TAIL_ARGS
 #define MED48_ARGS MED48_PTR_ARGS, c.units, c.coreGroups, c.padded, c.tokens, TAIL_ARGS
 #define EXACT_ARGS PTR_ARGS, c.units, c.coreGroups, c.padded, TAIL_ARGS
+  // 标量配置可提前执行；生成核的搬运、事件和跨核同步必须等待前驱。
+  AscendC::WaitPreTaskEnd();
   if (TILING_KEY_IS(0)) {
 #if defined(__DAV_CUBE__)
     hc_small_impl::hc_small_aic(COMMON_ARGS);
@@ -94,4 +96,6 @@ extern "C" __global__ __aicore__ void hc_pre_pto(GM_ADDR x, GM_ADDR weight, GM_A
     hc_large_impl::hc_large_aiv(COMMON_ARGS, get_subblockid());
 #endif
   }
+  // 生成核完成并排空流水后通知后继，不改变核内同步边界。
+  AscendC::SetNextTaskStart();
 }

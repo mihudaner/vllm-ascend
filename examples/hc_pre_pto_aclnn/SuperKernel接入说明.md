@@ -101,6 +101,8 @@ compiled = torch.compile(
 
 静态图的输入形状固定，不表示 HCpre 只支持 T=96。
 
+在支持此选项的 TorchNPU 中，可额外传入 `super_kernel_optimize_options={"early_start": 0或1}`，显式关闭或开启 Early-Start。HCpre 在标量配置完成后、进入生成核前等待前驱，在生成核返回且流水已排空后通知后继；六个分档共用这一边界，不改变生成核和内部同步。参考 `nalinaly` 的 `36f0a623f`，只接入 HCpre 的两个接口，不额外引入 Add/Mul 测试算子。开启后须确认实际 Early-Start 入口及 HCpre 的 Wait/Set 能力，不能仅看精度 PASS。2026-10-16 本版构建通过，但本机 TorchNPU 2.10.0.post2 拒绝 `early_start` 参数（`Invalid optimize_options param key`），尚未完成本机开启验证；同事使用的 2.12 环境与本机不同。新包在默认关闭 Early-Start 的普通 SK 下完成 T=96 回归：5 次预热＋20 次重复，三份链输出最大绝对差均为 0，三个节点完整融合，profiling 有 25 个融合任务。验证脚本与日志仅本地保留，不随本次提交上传。
+
 ## 4. 验证参数与判定
 
 | 项目 | 配置 |
