@@ -77,7 +77,7 @@ def compare(outputs, expected):
     return report
 
 
-def audit_fusion():
+def audit_fusion(early_start=0):
     """Fail when compilation or fusion silently falls back to ordinary tasks."""
     models = list((Path.cwd() / "sk_meta" / str(os.getpid())).glob("model_*"))
     assert len(models) == 1, f"Expected one SK model, found: {models}"
@@ -91,12 +91,37 @@ def audit_fusion():
     assert members == ["HcPreAdd", "HcPrePto", "HcPreMul"], fused
     assert fused.count("SK Function:") == 1 and "Node Count: 3" in fused, fused
     updated = json.loads((model / "sk_mdl_updated.json").read_text())
-    assert len(updated) == 1 and updated[0]["name"] == "sk_entry_mix12", updated
+    expected_entry = "sk_entry_mix12_early_start" if early_start else "sk_entry_mix12"
+    assert len(updated) == 1 and updated[0]["name"] == expected_entry, updated
     queue = json.loads((model / "sk_task_queue.json").read_text())
     assert queue["scopeCount"] == 1, queue
     queues = queue["scopes"][0]["taskQueues"]
     assert queues["aic"]["funcCnt"] == 1 and queues["aiv"]["funcCnt"] == 3, queues
-    return {"passed": True, "members": members, "device_task": updated[0]["name"], "evidence": str(model)}
+    log = (model / "super_kernel.log").read_text()
+    capabilities = [
+        line for line in log.splitlines() if "[InitKernelResolvedFuncs]" in line and "bindMap size=" in line
+    ]
+    assert len(capabilities) == len(members), capabilities
+    for line in capabilities:
+        assert f"earlyStartWaitFlag={early_start}," in line, line
+        assert f"earlyStartSetFlag={early_start}," in line, line
+    entries = [line for line in log.splitlines() if "[GenEntryInfo]" in line and "enableEarlyStart=" in line]
+    assert entries and all(f"enableEarlyStart={early_start}," in line for line in entries), entries
+    states = [line for line in log.splitlines() if "[LogEarlyStartFinalState]" in line]
+    assert len(states) == (len(members) if early_start else 0), states
+    configs = [int(line.split("funcConfig=", 1)[1].split(",", 1)[0], 0) for line in states]
+    assert all(configs), states
+    return {
+        "passed": True,
+        "members": members,
+        "device_task": updated[0]["name"],
+        "early_start": early_start,
+        "early_start_capabilities": capabilities,
+        "early_start_entries": entries,
+        "early_start_func_configs": configs,
+        "early_start_states": states,
+        "evidence": str(model),
+    }
 
 
 def guarded_inputs(host):
@@ -144,7 +169,10 @@ def main():
     parser.add_argument("--calls", type=int, default=8)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--neighbours", choices=("ascendc", "torch"), default="ascendc")
+    parser.add_argument("--early-start", type=int, choices=(0, 1), default=0)
     args = parser.parse_args()
+    if args.early_start and args.mode != "superkernel":
+        parser.error("--early-start=1 requires --mode=superkernel")
     args.output.mkdir(parents=True, exist_ok=False)
     torch.set_num_threads(4)
     torch.npu.set_device(0)
@@ -152,6 +180,8 @@ def main():
     # Addresses and storage offsets stay fixed; replay changes values in place.
     # Cloning views would change their offsets after static-kernel specialization.
     options = {"static_kernel_compile": True, "super_kernel_optimize": args.mode == "superkernel", "clone_input": False}
+    if args.mode == "superkernel":
+        options["super_kernel_optimize_options"] = {"early_start": args.early_start}
     model = HcPreChain(mark_scope=args.mode == "superkernel", neighbours=args.neighbours).eval()
     run = (
         model
@@ -204,7 +234,7 @@ def main():
                     {name: t.cpu() for name, t in zip(OUTPUT_NAMES, outputs)}, args.output / f"replay-{replay}.pt"
                 )
             if args.mode == "superkernel":
-                report["fusion"] = audit_fusion()
+                report["fusion"] = audit_fusion(args.early_start)
             report["timing"] = benchmark(run, inputs, args.samples, args.calls)
             if args.profile:
                 with torch_npu.profiler.profile(

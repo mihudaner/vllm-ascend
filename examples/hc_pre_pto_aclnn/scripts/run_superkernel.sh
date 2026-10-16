@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
-build="$(realpath "${1:?Usage: run_superkernel.sh BUILD_DIR NEW_OUTPUT_DIR [graph|superkernel]}")"
+build="$(realpath "${1:?Usage: run_superkernel.sh BUILD_DIR NEW_OUTPUT_DIR [graph|superkernel] [EARLY_START=0|1]}")"
 output="$(realpath -m "${2:?Pass a new output directory}")"
 mode="${3:-superkernel}"
+early_start="${4:-0}"
 : "${ASCEND_HOME_PATH:?Source CANN set_env.sh first}"
 [[ "$mode" == graph || "$mode" == superkernel ]] || exit 2
+[[ "$early_start" == 0 || ( "$early_start" == 1 && "$mode" == superkernel ) ]] || exit 2
 [[ ! -e "$output" ]] || { echo "Output already exists: $output" >&2; exit 2; }
 [[ -f "$root/build/torch/hcpre_pto_torch.so" ]] || { echo "Build the Torch binding first" >&2; exit 2; }
 packages=("$build"/custom_opp_*.run)
@@ -44,4 +46,4 @@ cleanup() {
 trap cleanup EXIT
 cd "$output"
 python "$root/tests/test_superkernel.py" --mode "$mode" \
-    --binding "$root/build/torch/hcpre_pto_torch.so" --output result --profile
+    --binding "$root/build/torch/hcpre_pto_torch.so" --output result --profile --early-start "$early_start"

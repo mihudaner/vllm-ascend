@@ -337,5 +337,81 @@ Profiler 阶段包含 240 次完整链，独立于未开启 profiler 的 Event �
 结果与精简的融合证据保存在 `reports/superkernel_20261015/`；复现后原始 profile、静态编译日志、
 输出张量和完整 `sk_meta` 都在指定输出目录。
 
-本次没有加入 `WaitPreTaskEnd/SetNextTaskStart`，Early-Start 为默认关闭状态。
+上述 2026-10-15 验收没有加入 `WaitPreTaskEnd/SetNextTaskStart`，Early-Start 为关闭状态。
 上表收益来自 SuperKernel 融合，不能作为 Scalar 与计算流水提前重叠的证据。
+
+## 10. 可选 Early-Start 接入与三组对照
+
+2026-10-16 在同一台机器、同一依赖环境上增加了 CANN 原生 Early-Start 的局部适配。
+这是对第 9 节已经融合的三个算子再做开关对照，仍只验收 T96。默认 `early_start=0`。
+
+### 接口位置和适配边界
+
+- HC_pre 在工作区与标量配置完成后、进入生成函数前调用 `AscendC::WaitPreTaskEnd()`，
+  所有生成函数返回后调用 `AscendC::SetNextTaskStart()`。六个 tiling key 的每个参与核均调用一次。
+- Add/Mul 的 Wait 位于 `TPipe` 对象构造之前，避免提前初始化设备状态；Set 位于整个计算循环之后，
+  包括没有 tile 的核也会执行。原有队列释放、TPipe 析构和同步保持完整。
+- 不使用 `FORCE=true`，由 CANN 在线编译和
+  `super_kernel_optimize_options={"early_start": 0或1}` 控制。计算量、依赖、核数和计时范围保持一致。
+- PTO 内部 MIX `SYNCALL` 使用的同步标记生命周期位于 Wait/Set 之间；未移动内部屏障或修改六份生成核。
+
+接口边界参考 [WaitPreTaskEnd](https://asc.gitcode.com/api/SIMD-API/basic_api/sync_control/inter_task_sync/WaitPreTaskEnd.html)、
+[SetNextTaskStart](https://asc.gitcode.com/api/SIMD-API/basic_api/sync_control/inter_task_sync/SetNextTaskStart.html)
+及 [同步标记占用说明](https://asc.gitcode.com/api/SIMD-API/basic_api/sync_control/inter_core_sync/key_features.html)，
+并核对本机 CANN 9.2.0 的实际头文件实现。
+
+### 复现三组对照
+
+第一组必须使用提交 `eee187d0c` 构建的不含 Wait/Set 的包，不能拿当前源码再次构建冒充原代码。
+可在独立 worktree 构建该包；三组共用当前测试脚本与相同 Torch binding，绑定 ABI 未变。
+
+```bash
+# 在仓库内创建原代码的独立目录，再用已经配置的 CANN/Python 环境构建。
+git worktree add --detach /path/to/hcpre-before eee187d0c
+bash /path/to/hcpre-before/examples/hc_pre_pto_aclnn/scripts/build.sh \
+  /path/to/pto-isa /path/to/build_no_hooks
+
+# 以下命令在当前 examples/hc_pre_pto_aclnn 目录运行。
+bash scripts/build.sh /path/to/pto-isa build_early_start
+python scripts/build_torch.py
+bash scripts/run_superkernel.sh /path/to/build_no_hooks output/early_no_hooks superkernel 0
+bash scripts/run_superkernel.sh build_early_start output/early_off superkernel 0
+bash scripts/run_superkernel.sh build_early_start output/early_on superkernel 1
+python scripts/compare_early_start.py output/early_no_hooks output/early_off output/early_on \
+  --output output/early_comparison.json
+```
+
+三组串行运行，输出目录各不相同，均为 30 样本 × 每样本 8 次。
+设备耗时来自独立 profiler 阶段的 240 个完整 SK 任务；Event 窗口另行采样，含框架复制与下发空隙。
+
+|代码与开关|设备 SK min / mean / max（μs）|完整调用 Event min / mean / max（μs）|
+|---|---|---|
+|原代码，无 Wait/Set，关闭 Early-Start|44.428 / 44.657 / 44.991|340.183 / 366.465 / 412.900|
+|加入 Wait/Set，关闭 Early-Start|42.833 / 43.050 / 43.228|321.137 / 325.645 / 332.285|
+|加入 Wait/Set，开启 Early-Start|43.059 / 43.235 / 43.523|341.145 / 349.642 / 359.572|
+
+同一新包开启相对关闭，设备均值增加 **0.43%**，完整调用窗口增加 **7.37%**；均在 30% 浮动范围内。
+本轮没有观察到净性能收益，也不据这一轮的小差异断言稳定回退。
+第一、二组之间的差异不能归因于 Early-Start 收益：两组运行时均未开启它，本次没有加入公共运行时优化。
+
+### 功能证据和收益限制
+
+三个模式的两个输入种子、三个输出、输入保持及保护区检查全部通过；各模式输出逐元素完全一致。
+开启时三个子算子的 `earlyStartWaitFlag/earlyStartSetFlag` 均为 1，实际入口为
+`sk_entry_mix12_early_start`。运行时执行了 Early-Start 同步改写，三个任务的 `funcConfig`
+分别为 `0x10 / 0x71 / 0xa0`；关闭时使用普通入口且能力标记均为 0。
+测试还拒绝“请求开启但元数据仍关闭”及相反的情况。
+
+这些证据确认原生 Early-Start 已接通，但不等于已经测到 Scalar 与计算流水重叠：
+
+- `generated/hc_exact96.cpp` 的 AIC/AIV 尾部都调用 `ptoas_auto_sync_tail(kBarrierAll)`，
+  其中执行 `pipe_barrier(PIPE_ALL)`；本版 HC_pre 的 Set 在这些排空操作之后。
+- Add/Mul 保留原有 `TPipe::DestroyWithoutPipeAll()` 对空闲队列事件的等待；即使 SK 析构不再额外
+  插入 `PIPE_ALL`，这些等待仍会限制退出时未完成的搬运。Wait 前也只保留了很短的入口配置。
+
+因此本版作为默认关闭的功能示例保留，没有把它作为性能优化默认开启。若继续追求重叠收益，
+需要先逐条分析生成核末次搬运、事件回收及跨核同步的生命周期，再决定接口是否能内移；本轮没有叠加候选。
+
+完整样本、运行时同步改写、任务队列和尝试记录见 `reports/early_start_20261016/`。
+首轮原代码与开启组均因新增审计脚本的日志匹配问题在计时前退出，修正后分别重跑；
+这些尝试的输出检查通过，但未作为性能样本使用。最终增强的同步配置审计又对三组原始日志做了离线验证。
