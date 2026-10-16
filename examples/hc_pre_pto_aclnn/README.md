@@ -8,15 +8,15 @@
 Python：torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
   → Torch 绑定：检查输入、创建输出
   → ACLNN：aclnnHcPrePtoGetWorkspaceSize / aclnnHcPrePto
-  → MIX 核入口：24 个 AIC + 48 个 AIV
+  → MIX 核入口：按平台 AIC 核数启动，AIC:AIV = 1:2
   → generated/ 中的 PTO C++ 核函数
 ```
 
-当前支持独立推理调用、Meta 形状推导和 NPU Graph 重放。尚未替换 vLLM 模型中的 HC_pre 调用，不提供反向传播。
+当前支持独立推理调用、Meta 形状推导、NPU Graph 重放，以及下文的 `npugraph_ex` SuperKernel 示例。尚未替换 vLLM 模型中的 HC_pre 调用，不提供反向传播。
 
 ## 1. 前提条件
 
-- AArch64 Linux，以及支持 `ascend910_93` 目标、可运行 24 个 MIX 核组的昇腾设备。
+- AArch64 Linux，以及支持 `ascend910_93` 目标、AIC:AIV 核数比为 1:2 的昇腾设备。
 - 已安装匹配的驱动、固件、CANN 开发环境和 PyTorch / TorchNPU。
 - CMake ≥ 3.20、C++ 编译工具、Ninja，以及 PTO-ISA 源码和头文件。
 - Python 测试依赖：NumPy；从模型目录读取权重时另需 safetensors，默认随机权重模式不需要。
@@ -239,3 +239,103 @@ bash scripts/run_all.sh \
 - `torch/binding.cpp` 负责输入检查、输出申请和 `EXEC_NPU_CMD(aclnnHcPrePto, ...)` 调用；配套适配实现来自仓内 `csrc/aclnn_torch_adapter/`。
 
 生成代码来源为 `nalinaly/vllm-ascend` 的 `dsv4-flash-pto-v0.25.1rc1` 分支，提交 `f04320413804103fe31bedd5a2175b5021bcd91d`。C++ 核函数保持原样；PTO IR 仅将源码定位信息中的绝对路径改为仓库相对路径。归一化前后的校验值见 [manifest.json](generated/manifest.json)。
+
+## 9. 通过 npugraph_ex 融合三个算子
+
+2026-10-15 在 Ascend910_9362（20 AIC / 40 AIV）、Python 3.11.4、
+Torch `2.12.0+cpu`、TorchNPU `2.12.0+git5462a1b`、CANN 9.2.0 上验证了一个 T96 场景：
+
+```python
+class Chain(torch.nn.Module):
+    def forward(self, x, weight, scale, base, addend, multiplier):
+        torch.npu.super_kernel_scope_begin("hcpre_add_mul")
+        shifted = torch.ops.hcpre_pto.ascendc_add(x, addend)
+        mixed, post, comb = torch.ops.hcpre_pto.hc_pre(shifted, weight, scale, base)
+        scaled = torch.ops.hcpre_pto.ascendc_mul(mixed, multiplier)
+        torch.npu.super_kernel_scope_end("hcpre_add_mul")
+        return scaled, post, comb
+
+compiled = torch.compile(
+    Chain(), backend="npugraph_ex", dynamic=False, fullgraph=True,
+    options={"static_kernel_compile": True, "super_kernel_optimize": True,
+             "clone_input": False},
+)
+```
+
+这里前后两个算子是独立的 AscendC Add/Mul，HC_pre 保持原来的 Torch → ACLNN → PTO 调用路径。
+本机内置 BF16 `torch.add/torch.mul` 的静态编译选择了 legacy TBE 实现，没有 SuperKernel bind map，
+因此仅标记 scope 不能把它们融合进去。`--neighbours torch` 保留这条诊断路径；正式验收默认使用
+`ascendc_add/ascendc_mul`，没有覆盖 PyTorch 全局分发，也没有修改系统 CANN。
+这两个示例算子仅接受同形状、连续 BF16 输入，元素数为正的 16 倍数，不提供广播和类型提升。
+
+### 接入修改的作用
+
+- **源码完整打包**：在线静态编译读取已安装的源码，需要一起安装 `include/` 和 `generated/`。
+  只带入口 CPP 的旧安装包能运行预编译核，但重编译会因缺少 `../include/contract.h` 失败。
+- **逻辑核号适配**：`include/pto_superkernel_adapter.h` 将固定 PTO 版本头文件中的原始核号接口
+  局部映射到 AscendC 接口。PTO MIX 代码需要核组编号，因此使用
+  `AscendC::GetBlockIdx() / AscendC::GetTaskRatio()`；不能直接把线性 AIV 编号当核组编号。
+  适配宏在 include 后撤销，不改外部 PTO 源码，也不绕过编译器检查。
+- **核数与工作区一致**：Host tiling 传入实际核组数，设备任务步长、sink/worker 分配与 FIFO
+  工作区都使用同一个值。生成的六档 CPP/IR 和计算公式保持原样；本次设备验收仅覆盖 T96。
+- **可融合的编译产物**：`static_kernel_compile` 与 `super_kernel_optimize` 同时开启，
+  CANN 为 AscendC 包装的 PTO 核生成子核信息，再由 SuperKernel 更新捕获图。
+  本例保留 PTO 内部同步，融合后仍为完整的 20 AIC / 40 AIV MIX 执行。
+
+### 构建与复现
+
+沿用第 4 节构建方式；编译并行度由 CMake 环境变量控制。本机使用 40：
+
+```bash
+export CMAKE_BUILD_PARALLEL_LEVEL=40 MAX_JOBS=40
+bash scripts/build.sh /path/to/pto-isa build_chain
+python scripts/build_torch.py
+
+# 两组使用同一安装包和 Torch binding，各自在独立进程、独立 OPP 目录运行。
+bash scripts/run_superkernel.sh build_chain output/sk_graph graph
+bash scripts/run_superkernel.sh build_chain output/sk_fused superkernel
+python scripts/compare_superkernel.py output/sk_graph output/sk_fused \
+  --output output/sk_comparison.json
+```
+
+需要 Python `tqdm` 供 CANN 静态编译工具使用。Profiler 的解析器需要可加载的 `libsqlite3.so`；
+本机只有 `libsqlite3.so.0`，在私有库目录增加链接并加入 `LD_LIBRARY_PATH` 后可用。
+不需要复制或修改系统 Python 环境。
+
+`run_superkernel.sh` 自动解压指定构建包，建立私有 OPP 视图，在退出时卸载本次生成的静态核包。
+CANN 的目录识别要求 `built-in` 本身是实际目录；其下内容使用指向原安装的只读链接。
+`op_compiler` 还需要 OPP 旁的 `aarch64-linux/data/platform_config`，脚本也建立对应链接。
+输出目录必须不存在，避免复用不匹配的静态编译缓存。
+
+输入固定地址，第二次调用原地更换所有输入；每个输入前后各保留 64 个元素保护区。
+`clone_input=False` 保证静态编译和图捕获看到一致的 storage offset。
+本机默认克隆会把偏移 64 变成 0，使静态核匹配失败，最终回退到不可融合的普通核。
+这不代表框架没有其他数据复制：设备 profile 中仍可见 scope 外的 `ForeachCopy`。
+
+### 验收证据与性能口径
+
+测试同时检查三个输出、有限值、换输入重放、输入未被改写和前后保护区。
+数值容差与已有 CPU 参考一致：mixed 使用 `atol=0.01, rtol=0.01`，post/comb 使用
+`atol=1e-5, rtol=1e-4`。两组的两个输入种子均通过。
+
+`test_superkernel.py` 还强制检查实际融合证据，静默回退会使测试失败：
+
+- `sk_fused_nodes.log` 只有一个 SK，成员依次为 HcPreAdd、HcPrePto、HcPreMul，共 3 个。
+- `sk_mdl_updated.json` 只有一个 `sk_entry_mix12` 设备任务。
+- `sk_task_queue.json` 只有一个 scope，AIC 函数数为 1，AIV 函数数为 3。
+
+30 个样本，每样本 8 次调用；下表 min/mean/max 均为每组 8 次的平均单次耗时，单位 μs。
+Profiler 阶段包含 240 次完整链，独立于未开启 profiler 的 Event 计时阶段。
+
+|计时范围|未融合 min / mean / max|SuperKernel min / mean / max|均值变化|
+|---|---|---|---|
+|设备 scope：Add 开始至 Mul 结束，含三核间隔|58.926 / 59.114 / 59.291|41.841 / 42.062 / 42.271|-28.85%|
+|设备核耗时之和，不含三核间隔|56.896 / 56.995 / 57.169|41.841 / 42.062 / 42.271|-26.20%|
+|完整编译调用 Event 窗口，含框架处理与下发空隙|323.118 / 329.504 / 334.555|329.905 / 336.278 / 346.770|+2.06%|
+
+本次满足 30% 浮动范围。设备 scope 的收益不能直接解释为完整调用加速，完整调用仍受框架开销影响。
+结果与精简的融合证据保存在 `reports/superkernel_20261015/`；复现后原始 profile、静态编译日志、
+输出张量和完整 `sk_meta` 都在指定输出目录。
+
+本次没有加入 `WaitPreTaskEnd/SetNextTaskStart`，Early-Start 为默认关闭状态。
+上表收益来自 SuperKernel 融合，不能作为 Scalar 与计算流水提前重叠的证据。
