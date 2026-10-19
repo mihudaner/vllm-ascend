@@ -30,10 +30,10 @@ class HcPreChain(torch.nn.Module):
     def forward(self, x, weight, scale, base, addend, multiplier):
         if self.mark_scope:
             torch.npu.super_kernel_scope_begin("hcpre_add_mul")
-        shifted = torch.ops.hcpre_pto.ascendc_add(x, addend) if self.neighbours == "ascendc" else torch.add(x, addend)
-        mixed, post, comb = torch.ops.hcpre_pto.hc_pre(shifted, weight, scale, base)
+        shifted = torch.ops.bytenn_pto_ops.ascendc_add(x, addend) if self.neighbours == "ascendc" else torch.add(x, addend)
+        mixed, post, comb = torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(shifted, weight, scale, base)
         scaled = (
-            torch.ops.hcpre_pto.ascendc_mul(mixed, multiplier)
+            torch.ops.bytenn_pto_ops.ascendc_mul(mixed, multiplier)
             if self.neighbours == "ascendc"
             else torch.mul(mixed, multiplier)
         )
@@ -88,11 +88,12 @@ def audit_fusion(early_start=0):
         for line in fused.splitlines()
         if "funcName:static_kernel_" in line
     ]
-    assert members == ["HcPreAdd", "HcPrePto", "HcPreMul"], fused
+    assert members == ["HcPreAdd", "HcPrePtoBnn", "HcPreMul"], fused
     assert fused.count("SK Function:") == 1 and "Node Count: 3" in fused, fused
     updated = json.loads((model / "sk_mdl_updated.json").read_text())
     expected_entry = "sk_entry_mix12_early_start" if early_start else "sk_entry_mix12"
-    assert len(updated) == 1 and updated[0]["name"] == expected_entry, updated
+    kernels = [task for task in updated if task.get("args", {}).get("Task Type", "").startswith("KERNEL")]
+    assert len(kernels) == 1 and kernels[0]["name"] == expected_entry, updated
     queue = json.loads((model / "sk_task_queue.json").read_text())
     assert queue["scopeCount"] == 1, queue
     queues = queue["scopes"][0]["taskQueues"]
@@ -114,7 +115,7 @@ def audit_fusion(early_start=0):
     return {
         "passed": True,
         "members": members,
-        "device_task": updated[0]["name"],
+        "device_task": kernels[0]["name"],
         "early_start": early_start,
         "early_start_capabilities": capabilities,
         "early_start_entries": entries,
@@ -192,7 +193,7 @@ def main():
         "mode": args.mode,
         "tokens": TOKENS,
         "neighbours": args.neighbours,
-        "chain": "Add(x, addend) -> torch.ops.hcpre_pto.hc_pre -> Mul(mixed, multiplier)",
+        "chain": "Add(x, addend) -> torch.ops.bytenn_pto_ops.hc_pre_pto_bnn -> Mul(mixed, multiplier)",
         "torch": torch.__version__,
         "torch_npu": torch_npu.__version__,
         "device": str(torch.npu.get_device_properties(0)),

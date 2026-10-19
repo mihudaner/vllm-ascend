@@ -5,14 +5,35 @@
 调用流程：
 
 ```text
-Python：torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
+Python：torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(x, weight, scale, base)
   → Torch 绑定：检查输入、创建输出
-  → ACLNN：aclnnHcPrePtoGetWorkspaceSize / aclnnHcPrePto
+  → ACLNN：aclnnHcPrePtoBnnGetWorkspaceSize / aclnnHcPrePtoBnn
   → MIX 核入口：按平台 AIC 核数启动，AIC:AIV = 1:2
   → generated/ 中的 PTO C++ 核函数
 ```
 
 当前支持独立推理调用、Meta 形状推导、NPU Graph 重放，以及下文的 `npugraph_ex` SuperKernel 示例。尚未替换 vLLM 模型中的 HC_pre 调用，不提供反向传播。
+
+
+当前对外命名如下：CANN 算子为 `HcPrePtoBnn`，ACLNN 接口为
+`aclnnHcPrePtoBnn`，OPP vendor 和安装包为 `hc_pre_pto_bnn` / `hc_pre_pto_bnn.run`，
+Python 包和 Torch 命名空间为 `bytenn_pto_ops`。历史报告保留当时的名称。
+六档生成核、RMS/Sinkhorn 优化、核组编号及 Early-Start Wait/Set 均保留。
+
+### 2026-10-19 命名同步验证
+
+本次基于 `e3ace7cb` 只调整对外命名及调用配套，六档 `generated/`、分档配置和核内计算不变。
+
+| 检查 | 结果 |
+|---|---|
+| CANN `.run`、Torch 扩展、Python wheel | 构建通过；ACLNN 导出新名称 |
+| T1、T48、T96、T168 | 从 wheel 导入 `bytenn_pto_ops`，调用精度与 Meta 形状/类型检查均通过 |
+| T96 普通 SK | Add→HcPrePtoBnn→Mul 三节点融合为 `sk_entry_mix12`；两组输入重放、精度和输入边界保护检查通过 |
+| T96 Early-Start | 本机 TorchNPU 2.10.0.post4 / CANN 9.2.0 组件环境中，改名前后均识别 Wait/Set=1，但均在调度构建时报 `DispatchSyncTasks failed: related node is null`；不计作通过 |
+
+Early-Start 对照使用未改名的 `e3ace7cb` 独立重编译，复现相同错误，说明本次改名未引入该报错；不将历史其他环境的通过结果作为本次通过证明。没有进行全量或性能验收。
+
+`test_named_entry.py` 覆盖上述四个代表点。SK 测试仅过滤非核通知任务，仍强制要求三个算子融合为唯一的 SK 核任务。Python/Shell 语法与 `git diff --check` 通过；仓库 `format.sh ci` 因环境缺少 `pre-commit` 未运行成功。
 
 ## 1. 前提条件
 
@@ -43,8 +64,8 @@ hc_pre_pto_aclnn/
 │   ├── hc_*.pto                  # 对应的 PTO IR
 │   └── manifest.json             # 来源提交及文件 SHA256
 ├── include/contract.h            # 分档、任务划分及工作区大小计算
-├── op_host/hc_pre_pto.cpp         # 算子定义、输入约束和 Host tiling
-├── op_kernel/hc_pre_pto.cpp       # MIX 入口和生成函数的参数适配
+├── op_host/hc_pre_pto_bnn.cpp         # 算子定义、输入约束和 Host tiling
+├── op_kernel/hc_pre_pto_bnn.cpp       # MIX 入口和生成函数的参数适配
 ├── torch/binding.cpp             # Torch 算子注册及 ACLNN 调用
 ├── scripts/
 │   ├── build.sh                  # 编译并打包 CANN 算子
@@ -72,7 +93,7 @@ hc_pre_pto_aclnn/
 ## 3. 算子接口
 
 ```python
-mixed, post, comb = torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
+mixed, post, comb = torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(x, weight, scale, base)
 ```
 
 所有输入需为同一 NPU 上的连续 ND Tensor。`T = B × S`，调用前合并 B/S 两个维度。
@@ -112,7 +133,7 @@ cd /path/to/vllm-ascend/examples/hc_pre_pto_aclnn
 bash scripts/build.sh /path/to/pto-isa build_all
 
 # 将安装包解压到独立目录
-bash build_all/custom_opp_hce_aarch64.run \
+bash build_all/hc_pre_pto_bnn.run \
   --noexec --extract=build_all/private_opp
 
 # 编译 Torch 绑定
@@ -121,15 +142,31 @@ python scripts/build_torch.py
 
 主要产物：
 
-- `build_all/private_opp/packages/vendors/hcpre_pto/`：CANN 算子包，包含 ACLNN 库和设备核。
-- `build/torch/hcpre_pto_torch.so`：Python 通过 `torch.ops.load_library` 加载的扩展库。
+- `build_all/private_opp/packages/vendors/hc_pre_pto_bnn/`：CANN 算子包，包含 ACLNN 库和设备核。
+- `build/torch/bytenn_pto_ops_npu.so`：Python 通过 `torch.ops.load_library` 加载的扩展库。
+
+编译绑定后也可使用配套 Python 包（仍需配置下文的 OPP 路径）：
+
+```bash
+export PYTHONPATH="$PWD/python:${PYTHONPATH:-}"
+# 可选：打 wheel 安装；必须先运行 scripts/build_torch.py。
+(cd python && python setup.py bdist_wheel)
+```
+
+```python
+import bytenn_pto_ops
+mixed, post, comb = bytenn_pto_ops.hc_pre_pto_bnn(x, weight, scale, base)
+```
+
+本包只统一入口命名，仍保留原工程 `[T, 4, 4096]` 连续输入要求；不支持 rank4 输入或自动安装 OPP。底层调用也可直接使用
+`torch.ops.bytenn_pto_ops.hc_pre_pto_bnn`。
 
 ## 5. 调用样例
 
 在本示例目录中，先为 Python 进程设置算子包及动态库路径：
 
 ```bash
-export ASCEND_CUSTOM_OPP_PATH="$PWD/build_all/private_opp/packages/vendors/hcpre_pto"
+export ASCEND_CUSTOM_OPP_PATH="$PWD/build_all/private_opp/packages/vendors/hc_pre_pto_bnn"
 export LD_LIBRARY_PATH="$ASCEND_CUSTOM_OPP_PATH/op_api/lib:${LD_LIBRARY_PATH:-}"
 ```
 
@@ -141,14 +178,14 @@ import torch
 import torch_npu
 
 torch.npu.set_device(0)  # 当前进程可见的第 0 张卡
-torch.ops.load_library(str(Path("build/torch/hcpre_pto_torch.so").resolve()))
+torch.ops.load_library(str(Path("build/torch/bytenn_pto_ops_npu.so").resolve()))
 
 x = torch.randn(96, 4, 4096, device="npu", dtype=torch.bfloat16)
 weight = torch.randn(24, 16384, device="npu", dtype=torch.float32) * 0.01
 scale = torch.ones(3, device="npu", dtype=torch.float32)
 base = torch.zeros(24, device="npu", dtype=torch.float32)
 
-mixed, post, comb = torch.ops.hcpre_pto.hc_pre(x, weight, scale, base)
+mixed, post, comb = torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(x, weight, scale, base)
 torch.npu.synchronize()
 print(mixed.shape, post.shape, comb.shape)
 ```
@@ -173,7 +210,7 @@ python tests/check_outputs.py output/input --generate
 
 ```bash
 bash scripts/run_torch.sh \
-  build_all/private_opp/packages/vendors/hcpre_pto \
+  build_all/private_opp/packages/vendors/hc_pre_pto_bnn \
   output/input output/torch_check
 ```
 
@@ -185,7 +222,7 @@ task-submit --device auto --max-time 600 --run '
   source /path/to/venv/bin/activate
   cd /path/to/vllm-ascend/examples/hc_pre_pto_aclnn
   bash scripts/run_torch.sh \
-    build_all/private_opp/packages/vendors/hcpre_pto \
+    build_all/private_opp/packages/vendors/hc_pre_pto_bnn \
     output/input output/torch_check
 '
 ```
@@ -209,7 +246,7 @@ Native 为 `cann-recipes-infer@4c3d1e1258053c4d810322198a7fd1722c89897e` 的 HC_
 
 ```bash
 bash scripts/run_all.sh \
-  build_all/private_opp/packages/vendors/hcpre_pto \
+  build_all/private_opp/packages/vendors/hc_pre_pto_bnn \
   /path/to/native/packages/vendors/customize \
   /path/to/hc_pre_recipes_reference.so \
   output/all14
@@ -236,7 +273,7 @@ bash scripts/run_all.sh \
 - `op_host/` 决定分档并计算工作区大小；`op_kernel/` 将工作区划分为 parts、RMS 和每个 MIX 核组独立的 FIFO。
 - MIX 入口在 AIC 侧调用生成的 `*_aic`，在 AIV 侧调用 `*_aiv`；两侧使用同组 FIFO，由生成代码中的 TPUSH/TPOP/TFREE 完成通信和同步。
 - 生成函数中的 `v1、v2…` 是编译器参数名，传参顺序依据同批生成的 kernel wrapper 对齐。更新后的 medium48 与其他动态档均为 weight/x 顺序；exact96 的标量参数数量不同，入口单独适配。
-- `torch/binding.cpp` 负责输入检查、输出申请和 `EXEC_NPU_CMD(aclnnHcPrePto, ...)` 调用；配套适配实现来自仓内 `csrc/aclnn_torch_adapter/`。
+- `torch/binding.cpp` 负责输入检查、输出申请和 `EXEC_NPU_CMD(aclnnHcPrePtoBnn, ...)` 调用；配套适配实现来自仓内 `csrc/aclnn_torch_adapter/`。
 
 优化接入基于 ACLNN 分支提交 `cf0ca6ef0d8202bc1ed2ab0656af9e108451e93e`，生成文件对应 Python 优化提交 `8e875aa32be3546dd487057ec9d0ebfdd9a6f48b`。各文件来源与校验值见 [manifest.json](generated/manifest.json)。C++ 生成内容不手改；PTO IR 仅将源码定位路径归一化。
 
@@ -251,7 +288,7 @@ bash scripts/run_all.sh \
 
 T33～48 新生成接口的第三、四个指针为 weight、x，因此入口改用 `COMMON_ARGS`；每核组 FIFO 从 98304 降为 49152 个 FP32 元素，`contract.h` 同步调整。其余参数映射与原入口一致，Early-Start 的 Wait/Set 接入保持原状。
 
-2026-10-16 已分别重新构建、安装原版与优化版，在同一张 Ascend910_9392（24 AIC / 48 AIV）上，通过 C++ 直接调用 `aclnnHcPrePtoGetWorkspaceSize` → `aclnnHcPrePto` 完成验证。18 个兼容用例覆盖六档和 PR 的全部 14 个 B/S 场景，两版各四轮均通过；每轮预热 5 次、统计 20 次，优化版 y/post/comb 的超差元素数均为 0。单元素容差为 `0.005 + 0.005 × |golden|`，y/post、comb 的允许超差比例分别为 0.5%、2%。
+2026-10-16 已分别重新构建、安装原版与优化版，在同一张 Ascend910_9392（24 AIC / 48 AIV）上，通过 C++ 直接调用当时的 `aclnnHcPrePtoGetWorkspaceSize` → `aclnnHcPrePto` 完成验证。18 个兼容用例覆盖六档和 PR 的全部 14 个 B/S 场景，两版各四轮均通过；每轮预热 5 次、统计 20 次，优化版 y/post/comb 的超差元素数均为 0。单元素容差为 `0.005 + 0.005 × |golden|`，y/post、comb 的允许超差比例分别为 0.5%、2%。
 
 按设备 Task Duration 的 80 个稳态样本中位数比较，medium48 的 T=33/40/48 耗时降低约 7.4%/5.1%/5.2%，四组配对均更快。其余改动档位尚未确认稳定收益；未改分档也存在轮间波动。本次是直接 ACLNN 验证，不代表优化生成核已重新完成 Torch、SK 或 Early-Start 验收。使用更新后的生成文件需重新构建安装包，不能复用旧二进制。
 
@@ -298,9 +335,9 @@ Torch `2.12.0+cpu`、TorchNPU `2.12.0+git5462a1b`、CANN 9.2.0 上验证了一�
 class Chain(torch.nn.Module):
     def forward(self, x, weight, scale, base, addend, multiplier):
         torch.npu.super_kernel_scope_begin("hcpre_add_mul")
-        shifted = torch.ops.hcpre_pto.ascendc_add(x, addend)
-        mixed, post, comb = torch.ops.hcpre_pto.hc_pre(shifted, weight, scale, base)
-        scaled = torch.ops.hcpre_pto.ascendc_mul(mixed, multiplier)
+        shifted = torch.ops.bytenn_pto_ops.ascendc_add(x, addend)
+        mixed, post, comb = torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(shifted, weight, scale, base)
+        scaled = torch.ops.bytenn_pto_ops.ascendc_mul(mixed, multiplier)
         torch.npu.super_kernel_scope_end("hcpre_add_mul")
         return scaled, post, comb
 
@@ -369,7 +406,7 @@ CANN 的目录识别要求 `built-in` 本身是实际目录；其下内容使用
 
 `test_superkernel.py` 还强制检查实际融合证据，静默回退会使测试失败：
 
-- `sk_fused_nodes.log` 只有一个 SK，成员依次为 HcPreAdd、HcPrePto、HcPreMul，共 3 个。
+- `sk_fused_nodes.log` 只有一个 SK，成员依次为 HcPreAdd、HcPrePtoBnn、HcPreMul，共 3 个。
 - `sk_mdl_updated.json` 只有一个 `sk_entry_mix12` 设备任务。
 - `sk_task_queue.json` 只有一个 scope，AIC 函数数为 1，AIV 函数数为 3。
 

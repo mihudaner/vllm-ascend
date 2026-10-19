@@ -10,8 +10,8 @@ early_start="${4:-0}"
 [[ "$mode" == graph || "$mode" == superkernel ]] || exit 2
 [[ "$early_start" == 0 || ( "$early_start" == 1 && "$mode" == superkernel ) ]] || exit 2
 [[ ! -e "$output" ]] || { echo "Output already exists: $output" >&2; exit 2; }
-[[ -f "$root/build/torch/hcpre_pto_torch.so" ]] || { echo "Build the Torch binding first" >&2; exit 2; }
-packages=("$build"/custom_opp_*.run)
+[[ -f "$root/build/torch/bytenn_pto_ops_npu.so" ]] || { echo "Build the Torch binding first" >&2; exit 2; }
+packages=("$build"/hc_pre_pto_bnn.run)
 [[ ${#packages[@]} -eq 1 && -f "${packages[0]}" ]] || exit 2
 mkdir -p "$output/environment/opp/built-in" "$output/environment/opp/static_kernel"
 
@@ -29,7 +29,7 @@ done
 ln -s "$(realpath "$ASCEND_HOME_PATH/$(uname -m)-linux")" "$output/environment/$(uname -m)-linux"
 bash "${packages[0]}" --noexec --extract="$output/custom_opp" > "$output/extract.log" 2>&1
 export ASCEND_OPP_PATH="$output/environment/opp"
-export ASCEND_CUSTOM_OPP_PATH="$output/custom_opp/packages/vendors/hcpre_pto"
+export ASCEND_CUSTOM_OPP_PATH="$output/custom_opp/packages/vendors/hc_pre_pto_bnn"
 export LD_LIBRARY_PATH="$ASCEND_CUSTOM_OPP_PATH/op_api/lib:${LD_LIBRARY_PATH:-}"
 export ASCEND_OP_COMPILE_SAVE_KERNEL_META=1
 export ASCEND_PROCESS_LOG_PATH="$output/cann_logs"
@@ -46,4 +46,4 @@ cleanup() {
 trap cleanup EXIT
 cd "$output"
 python "$root/tests/test_superkernel.py" --mode "$mode" \
-    --binding "$root/build/torch/hcpre_pto_torch.so" --output result --profile --early-start "$early_start"
+    --binding "$root/build/torch/bytenn_pto_ops_npu.so" --output result --profile --early-start "$early_start"

@@ -41,12 +41,12 @@ def main():
         t = torch.from_numpy(np.fromfile(args.input/f"{name}.bin", dtype=np.uint16 if bf16 else np.float32))
         host.append((t.view(torch.bfloat16) if bf16 else t).reshape(shape))
     inputs = [t.npu() for t in host]
-    pto = lambda: torch.ops.hcpre_pto.hc_pre(*inputs)
+    pto = lambda: torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(*inputs)
     report = {"case": "B16/S6/T96", "eager": compare(pto(), reference(*host))}
     invalid = []
     for bad_x in [inputs[0][:, :, :4095], inputs[0].float(), inputs[0].transpose(1,2).contiguous().transpose(1,2)]:
         try:
-            torch.ops.hcpre_pto.hc_pre(bad_x, *inputs[1:])
+            torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(bad_x, *inputs[1:])
         except RuntimeError:
             invalid.append("rejected")
         else:

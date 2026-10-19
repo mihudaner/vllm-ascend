@@ -6,11 +6,11 @@
 #include <initializer_list>
 
 namespace optiling {
-BEGIN_TILING_DATA_DEF(HcPrePtoTilingData)
+BEGIN_TILING_DATA_DEF(HcPrePtoBnnTilingData)
 TILING_DATA_FIELD_DEF(uint32_t, tokens);
 TILING_DATA_FIELD_DEF(uint32_t, coreGroups);
 END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(HcPrePto, HcPrePtoTilingData)
+REGISTER_TILING_DATA_CLASS(HcPrePtoBnn, HcPrePtoBnnTilingData)
 }  // namespace optiling
 
 namespace {
@@ -38,7 +38,7 @@ ge::graphStatus Tiling(gert::TilingContext* c) {
   c->SetBlockDim(coreGroups);
   c->SetTilingKey(cfg.key);
   c->GetWorkspaceSizes(1)[0] = cfg.workspaceBytes + platform.GetLibApiWorkSpaceSize();
-  optiling::HcPrePtoTilingData data;
+  optiling::HcPrePtoBnnTilingData data;
   data.set_tokens(t);
   data.set_coreGroups(coreGroups);
   data.SaveToBuffer(c->GetRawTilingData()->GetData(), c->GetRawTilingData()->GetCapacity());
@@ -62,9 +62,9 @@ ge::graphStatus InferType(gert::InferDataTypeContext* c) {
 }
 }  // namespace
 namespace ops {
-class HcPrePto : public OpDef {
+class HcPrePtoBnn : public OpDef {
  public:
-  explicit HcPrePto(const char* name) : OpDef(name) {
+  explicit HcPrePtoBnn(const char* name) : OpDef(name) {
     Input("x").ParamType(REQUIRED).DataType({ge::DT_BF16}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
     for (const char* key : {"weight", "scale", "base"})
       Input(key)
@@ -87,5 +87,5 @@ class HcPrePto : public OpDef {
     AICore().SetTiling(Tiling).AddConfig("ascend910_93");
   }
 };
-OP_ADD(HcPrePto);
+OP_ADD(HcPrePtoBnn);
 }  // namespace ops

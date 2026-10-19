@@ -25,7 +25,7 @@ Outputs Allocate(const at::Tensor& x, const at::Tensor& w, const at::Tensor& sca
 Outputs Run(const at::Tensor& x, const at::Tensor& w, const at::Tensor& scale, const at::Tensor& base) {
   const c10_npu::OptionalNPUGuard guard(x.device());
   auto [mixed, post, comb] = Allocate(x, w, scale, base);
-  EXEC_NPU_CMD(aclnnHcPrePto, x, w, scale, base, mixed, post, comb);
+  EXEC_NPU_CMD(aclnnHcPrePtoBnn, x, w, scale, base, mixed, post, comb);
   return {mixed, post, comb};
 }
 at::Tensor AllocateElementwise(const at::Tensor& x, const at::Tensor& y) {
@@ -48,18 +48,18 @@ at::Tensor RunMul(const at::Tensor& x, const at::Tensor& y) {
   return z;
 }
 }  // namespace
-TORCH_LIBRARY(hcpre_pto, m) {
-  m.def("hc_pre(Tensor x, Tensor weight, Tensor scale, Tensor base) -> (Tensor, Tensor, Tensor)");
+TORCH_LIBRARY(bytenn_pto_ops, m) {
+  m.def("hc_pre_pto_bnn(Tensor x, Tensor weight, Tensor scale, Tensor base) -> (Tensor, Tensor, Tensor)");
   m.def("ascendc_add(Tensor x, Tensor y) -> Tensor");
   m.def("ascendc_mul(Tensor x, Tensor y) -> Tensor");
 }
-TORCH_LIBRARY_IMPL(hcpre_pto, PrivateUse1, m) {
-  m.impl("hc_pre", &Run);
+TORCH_LIBRARY_IMPL(bytenn_pto_ops, PrivateUse1, m) {
+  m.impl("hc_pre_pto_bnn", &Run);
   m.impl("ascendc_add", &RunAdd);
   m.impl("ascendc_mul", &RunMul);
 }
-TORCH_LIBRARY_IMPL(hcpre_pto, Meta, m) {
-  m.impl("hc_pre", &Allocate);
+TORCH_LIBRARY_IMPL(bytenn_pto_ops, Meta, m) {
+  m.impl("hc_pre_pto_bnn", &Allocate);
   m.impl("ascendc_add", &AllocateElementwise);
   m.impl("ascendc_mul", &AllocateElementwise);
 }

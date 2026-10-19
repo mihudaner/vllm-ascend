@@ -79,7 +79,7 @@ def main():
             runners={
                 'native':lambda:torch.ops.custom.npu_hc_pre(x.view(b,s,4,4096),*device_weights,
                     hc_mult=4,hc_sinkhorn_iters=20,norm_eps=1e-6,hc_eps=1e-6),
-                'pto':lambda:torch.ops.hcpre_pto.hc_pre(x,*device_weights)}
+                'pto':lambda:torch.ops.bytenn_pto_ops.hc_pre_pto_bnn(x,*device_weights)}
             row={'B':b,'S':s,'T':t,'name':name};report['cases'].append(row)
             expected=reference(host,*weights)
             eager={k:fn() for k,fn in runners.items()}
@@ -117,7 +117,7 @@ def main():
             row['replay']={k:{'median_us':statistics.median(v),'samples_us':v} for k,v in samples.items()}
             row['device']={}
             (args.output/'report.json').write_text(json.dumps(report,indent=2)+'\n')
-            for k,kernel in [('native','HcPre'),('pto','HcPrePto')]:
+            for k,kernel in [('native','HcPre'),('pto','HcPrePtoBnn')]:
                 for _ in range(5):graphs[k].replay()
                 torch.npu.synchronize()
                 row['device'][k]=profile(graphs[k],args.output/name/k,kernel)

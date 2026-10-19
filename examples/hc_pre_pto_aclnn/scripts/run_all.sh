@@ -12,7 +12,7 @@ library="${3:?NATIVE_LIBRARY}"
 output="${4:?OUTPUT}"
 shift 4
 status=0
-python "$root/tests/bench_all.py" --binding "$root/build/torch/hcpre_pto_torch.so" \
+python "$root/tests/bench_all.py" --binding "$root/build/torch/bytenn_pto_ops_npu.so" \
     --native-library "$library" --output "$output" "$@" || status=$?
 if [[ -f "$output/report.json" ]]; then
     python "$root/scripts/export_all.py" "$output/report.json"

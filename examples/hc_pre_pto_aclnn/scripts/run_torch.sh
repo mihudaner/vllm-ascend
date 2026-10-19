@@ -14,5 +14,5 @@ if [[ $# == 5 ]]; then
 fi
 export LD_LIBRARY_PATH="$vendor/op_api/lib:${LD_LIBRARY_PATH:-}"
 export ASCEND_RT_VISIBLE_DEVICES="$TASK_DEVICE"
-exec python "$root/tests/test_torch.py" --binding "$root/build/torch/hcpre_pto_torch.so" \
+exec python "$root/tests/test_torch.py" --binding "$root/build/torch/bytenn_pto_ops_npu.so" \
     --input "$input" --output "$output" "${args[@]}"

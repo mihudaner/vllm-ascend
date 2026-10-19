@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "acl/acl.h"
-#include "aclnn_hc_pre_pto.h"
+#include "aclnn_hc_pre_pto_bnn.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
             for (int iteration = 0; iteration < 8; ++iteration) {
                 mixed.Poison(); post.Poison(); comb.Poison();
                 uint64_t size = 0; aclOpExecutor* executor = nullptr;
-                Check(aclnnHcPrePtoGetWorkspaceSize(x.tensor, weight.tensor, scale.tensor, base.tensor,
+                Check(aclnnHcPrePtoBnnGetWorkspaceSize(x.tensor, weight.tensor, scale.tensor, base.tensor,
                     mixed.tensor, post.tensor, comb.tensor, &size, &executor), "workspace query");
                 void* workspace = nullptr;
                 if (size) Check(aclrtMalloc(&workspace, size, ACL_MEM_MALLOC_NORMAL_ONLY), "workspace malloc");
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
                 Check(aclrtCreateEvent(&begin), "create event");
                 Check(aclrtCreateEvent(&end), "create event");
                 Check(aclrtRecordEvent(begin, stream), "start");
-                Check(aclnnHcPrePto(workspace, size, executor, stream), "ACLNN launch");
+                Check(aclnnHcPrePtoBnn(workspace, size, executor, stream), "ACLNN launch");
                 Check(aclrtRecordEvent(end, stream), "end");
                 Check(aclrtSynchronizeStream(stream), "synchronize");
                 float ms = 0;

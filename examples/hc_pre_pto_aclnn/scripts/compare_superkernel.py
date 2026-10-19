@@ -32,7 +32,7 @@ def read_run(path, fused):
     assert len(profiles) == 1, profiles
     with profiles[0].open() as stream:
         rows = list(csv.DictReader(stream))
-    names = ("HcPreAdd", "HcPrePto", "HcPreMul")
+    names = ("HcPreAdd", "HcPrePtoBnn", "HcPrePto", "HcPreMul")  # Also read historical reports.
     kernels = [r for r in rows if r["Name"].startswith("sk_0_hcpre_add_mul") or r["Name"] in names]
     per_call = 1 if fused else 3
     calls = report["timing"]["calls_per_sample"]
