@@ -18,7 +18,6 @@ from enum import Enum
 
 import torch.distributed as dist
 from vllm.logger import logger
-from vllm.v1.utils import record_function_or_nullcontext
 
 from vllm_ascend.distributed.parallel_state import get_dynamic_eplb_group
 
@@ -94,17 +93,12 @@ class D2DExpertWeightLoader:
 
         self.state = ExpertWeightUpdateState.TRANSFERRING
 
-    def update_expert_map_and_weight(self, reqs):
+    def update_expert_map_and_weight(self):
         # Only after send/recv tasks have been launched, expert_map and weight can be updated
         if self.state != ExpertWeightUpdateState.TRANSFERRING:
             return
 
-        # Waiting for send/recv tasks finish
-        if reqs:
-            with record_function_or_nullcontext("EPLB weight D2D wait"):
-                for req in reqs:
-                    req.wait()
-
+        # Enqueue map and weight updates without waiting on the P2P requests.
         if self.comm_op_list is not None:
             self.comm_op_list = None
 

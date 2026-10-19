@@ -205,5 +205,59 @@ class TestVllmAdaptor(unittest.TestCase):
         VllmEplbAdaptor._registered_moe_layers = []
 
 
+class TestVllmAdaptorMapUpdate(unittest.TestCase):
+    def setUp(self):
+        self.adaptor = object.__new__(VllmEplbAdaptor)
+        self.target = MagicMock()
+        self.target.dtype = torch.int32
+        self.source = MagicMock()
+        self.source.device.type = "cpu"
+        self.adaptor.log2phy_map_per_layer = [self.target]
+        self.adaptor._log2phy_staging = {}
+        self.adaptor.rank_id = 0
+
+    @patch("vllm_ascend.eplb.adaptor.vllm_adaptor.PinnedMapStaging")
+    def test_cpu_source_initializes_existing_staging(self, staging_factory):
+        self.adaptor.do_update_log2phy_map(0, self.source)
+
+        staging_factory.assert_called_once_with(self.target)
+        staging = staging_factory.return_value
+        self.assertIs(self.adaptor._log2phy_staging[0], staging)
+        staging.copy_to.assert_called_once_with(self.target, self.source)
+        self.source.to.assert_not_called()
+        self.target.copy_.assert_not_called()
+
+    @patch("vllm_ascend.eplb.adaptor.vllm_adaptor.PinnedMapStaging")
+    def test_cpu_source_reuses_existing_staging(self, staging_factory):
+        staging = MagicMock()
+        self.adaptor._log2phy_staging[0] = staging
+
+        self.adaptor.do_update_log2phy_map(0, self.source)
+
+        staging_factory.assert_not_called()
+        staging.copy_to.assert_called_once_with(self.target, self.source)
+
+    @patch("vllm_ascend.eplb.adaptor.vllm_adaptor.PinnedMapStaging")
+    def test_device_source_copies_directly(self, staging_factory):
+        self.source.device.type = "npu"
+
+        self.adaptor.do_update_log2phy_map(0, self.source)
+
+        self.target.copy_.assert_called_once_with(self.source, non_blocking=True)
+        self.source.to.assert_not_called()
+        staging_factory.assert_not_called()
+        self.assertEqual(self.adaptor._log2phy_staging, {})
+
+    @patch("vllm_ascend.eplb.adaptor.vllm_adaptor.PinnedMapStaging")
+    def test_missing_target_skips_update(self, staging_factory):
+        self.adaptor.log2phy_map_per_layer = [None]
+
+        self.adaptor.do_update_log2phy_map(0, self.source)
+
+        self.source.to.assert_not_called()
+        self.target.copy_.assert_not_called()
+        staging_factory.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

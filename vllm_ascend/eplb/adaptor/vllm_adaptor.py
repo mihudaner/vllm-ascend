@@ -214,6 +214,9 @@ class VllmEplbAdaptor:
         destination = self.log2phy_map_per_layer[layer_id]
         if destination is None:
             return
+        if updated_log2phy_map.device.type != "cpu":
+            destination.copy_(updated_log2phy_map, non_blocking=True)
+            return
         if layer_id not in self._log2phy_staging:
             self._log2phy_staging[layer_id] = PinnedMapStaging(destination)
             logger.info(
