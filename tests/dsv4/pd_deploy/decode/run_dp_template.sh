@@ -40,7 +40,7 @@ export VLLM_ASCEND_ENABLE_NZ=2
 export VLLM_BATCH_INVARIANT=0
 export ASCEND_RT_VISIBLE_DEVICES="${visible_devices}"
 
-kv_transfer_config="{\"kv_connector\":\"MooncakeHybridConnector\",\"kv_role\":\"kv_consumer\",\"kv_port\":\"30100\",\"engine_id\":\"1\",\"kv_connector_extra_config\":{\"prefill\":{\"dp_size\":${PREFILL_DP_SIZE},\"tp_size\":4,\"pp_size\":${PREFILL_PP_SIZE}},\"decode\":{\"dp_size\":${dp_size},\"tp_size\":1}}}"
+kv_transfer_config="{\"kv_connector\":\"MooncakeHybridConnector\",\"kv_role\":\"kv_consumer\",\"kv_port\":\"30100\",\"engine_id\":\"${dp_address}\",\"kv_connector_extra_config\":{\"prefill\":{\"dp_size\":${PREFILL_DP_SIZE},\"tp_size\":4,\"pp_size\":${PREFILL_PP_SIZE}},\"decode\":{\"dp_size\":${dp_size},\"tp_size\":1}}}"
 speculative_config="{\"num_speculative_tokens\": ${SPECULATIVE_TOKENS}, \"method\": \"${SPECULATIVE_METHOD}\", \"enforce_eager\": false}"
 
 profile_dir="${PROFILE_ROOT:-${SCRIPT_DIR}/profiling}/${local_ip//./_}_${vllm_engine_port}"

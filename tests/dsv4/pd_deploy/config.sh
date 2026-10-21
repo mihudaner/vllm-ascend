@@ -2,14 +2,16 @@
 
 PREFILL_MODEL_PATH="${PREFILL_MODEL_PATH:-/data02/public/downloads/DeepSeek-V4-Flash-0731-w8a8-dspark-0914}"
 DECODE_MODEL_PATH="${DECODE_MODEL_PATH:-/data02/public/downloads/DeepSeek-V4-Flash-0731-w4a8-0915-dspark-0914}"
-# Required: set the actual Prefill IP.
-PREFILL_IP="${PREFILL_IP:-}"
+# Space-separated Prefill replica IPs; PREFILL_IP remains a single-node fallback.
+PREFILL_IPS="${PREFILL_IPS:-${PREFILL_IP:-}}"
+read -r -a PREFILL_IP_ARRAY <<< "${PREFILL_IPS}"
+PREFILL_IP="${PREFILL_IP_ARRAY[0]:-}"
 # 1: DP4/TP4; 4: DP1/TP4/PP4. Keep the same value on P, D and proxy.
 PREFILL_PP_SIZE="${PREFILL_PP_SIZE:-4}"
 PREFILL_DP_SIZE=$((4 / PREFILL_PP_SIZE))
-# Decode DP size: 16/32/64 across 1/2/4 nodes.
-KV_DECODE_DP_SIZE="${KV_DECODE_DP_SIZE:-16}"
-# Required: Space-separated IPs in rank order; the first node is the DP master.
+# DP size per Decode instance: 16/32/64 across 1/2/4 nodes.
+KV_DECODE_DP_SIZE="${KV_DECODE_DP_SIZE:-32}"
+# Consecutive groups of KV_DECODE_DP_SIZE / 16 nodes form independent instances.
 DECODE_IPS="${DECODE_IPS:-}"
 read -r -a DECODE_IP_ARRAY <<< "${DECODE_IPS}"
 

@@ -6,8 +6,8 @@ source "${SCRIPT_DIR}/../config.sh"
 cd "${SCRIPT_DIR}"
 
 local_ip="$(detect_local_ip)"
-if [[ "${local_ip}" != "${PREFILL_IP}" ]]; then
-  printf 'Prefill must run on %s, got %s\n' "${PREFILL_IP}" "${local_ip}" >&2
+if [[ " ${PREFILL_IPS} " != *" ${local_ip} "* ]]; then
+  printf 'Prefill must run on %s, got %s\n' "${PREFILL_IPS}" "${local_ip}" >&2
   exit 2
 fi
 export KV_DECODE_DP_SIZE

@@ -7,9 +7,11 @@ cd "${SCRIPT_DIR}"
 
 local_ip="$(detect_local_ip)"
 dp_rank_start=""
+nodes_per_instance=$((KV_DECODE_DP_SIZE / 16))
 for ((node=0; node<${#DECODE_IP_ARRAY[@]}; node++)); do
   if [[ "${local_ip}" == "${DECODE_IP_ARRAY[node]}" ]]; then
-    dp_rank_start=$((node * 16))
+    dp_rank_start=$((node % nodes_per_instance * 16))
+    dp_address="${DECODE_IP_ARRAY[node - node % nodes_per_instance]}"
     break
   fi
 done
@@ -19,7 +21,6 @@ if [[ -z "${dp_rank_start}" ]]; then
 fi
 
 dp_size="${KV_DECODE_DP_SIZE}"
-dp_address="${DECODE_IP_ARRAY[0]}"
 
 log_dir="${SERVICE_LOG_DIR:-../logs}"
 mkdir -p "${log_dir}"

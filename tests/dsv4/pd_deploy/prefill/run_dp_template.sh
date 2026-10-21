@@ -42,7 +42,7 @@ export VLLM_ASCEND_ENABLE_FUSED_MC2=1
 export VLLM_PREFIX_CACHE_RETENTION_INTERVAL=4096
 export ASCEND_RT_VISIBLE_DEVICES="${visible_devices}"
 
-kv_transfer_config="{\"kv_connector\":\"MooncakeHybridConnector\",\"kv_role\":\"kv_producer\",\"kv_port\":\"30000\",\"engine_id\":\"0\",\"kv_connector_extra_config\":{\"prefill\":{\"dp_size\":${PREFILL_DP_SIZE},\"tp_size\":4,\"pp_size\":${PREFILL_PP_SIZE}},\"decode\":{\"dp_size\":${KV_DECODE_DP_SIZE},\"tp_size\":1}}}"
+kv_transfer_config="{\"kv_connector\":\"MooncakeHybridConnector\",\"kv_role\":\"kv_producer\",\"kv_port\":\"30000\",\"engine_id\":\"${local_ip}\",\"kv_connector_extra_config\":{\"prefill\":{\"dp_size\":${PREFILL_DP_SIZE},\"tp_size\":4,\"pp_size\":${PREFILL_PP_SIZE}},\"decode\":{\"dp_size\":${KV_DECODE_DP_SIZE},\"tp_size\":1}}}"
 speculative_config="{\"num_speculative_tokens\": ${SPECULATIVE_TOKENS}, \"method\": \"${SPECULATIVE_METHOD}\", \"enforce_eager\": true}"
 
 profile_dir="${PROFILE_ROOT:-${SCRIPT_DIR}/profiling}/${local_ip//./_}_${vllm_engine_port}"

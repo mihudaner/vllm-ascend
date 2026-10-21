@@ -25,9 +25,11 @@ LOG_FILE="${log_dir}/proxy_$(date +%Y%m%d_%H%M%S).log"
 
 prefiller_hosts=()
 prefiller_ports=()
-for ((port=VLLM_START_PORT; port<VLLM_START_PORT+PREFILL_DP_SIZE; port++)); do
-  prefiller_hosts+=("${PREFILL_IP}")
-  prefiller_ports+=("${port}")
+for prefiller_host in "${PREFILL_IP_ARRAY[@]}"; do
+  for ((port=VLLM_START_PORT; port<VLLM_START_PORT+PREFILL_DP_SIZE; port++)); do
+    prefiller_hosts+=("${prefiller_host}")
+    prefiller_ports+=("${port}")
+  done
 done
 
 decoder_hosts=()
