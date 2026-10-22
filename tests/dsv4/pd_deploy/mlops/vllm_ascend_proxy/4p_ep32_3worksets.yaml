@@ -1,0 +1,191 @@
+# Prefill and Decode must use the same image. ACC uses its own independently versioned image.
+# Three WorkerSets: decode x2 (EP32), prefill x4 (TP4/PP4), acc x1.
+FoundationModelName: deepseek-v4-flash-ga
+FoundationModelVersion: '260731'
+TemplateName: Test-dsv4-flash-pure-vllm-4p-ep32-3ws-vllm-proxy-1022
+Application:
+  Protocol: http-acc
+  WorkerSets:
+  - Name: decode
+    Expose: false
+    DisablePublishInternalNotReadyEndpoint: false
+    ExposeAllRank: true
+    BatchSchedulingPolicyClaim: {}
+    WorkerBatchSchedulingPolicyClaim:
+      Name: scaleupdomain
+    Roles:
+    - Name: decode
+      BatchSchedulingPolicyClaim: {}
+      Expose: true
+      DisableCpuPinning: true
+      MountTosSFCS: true
+      TerminationGracePeriodSeconds: 120
+      FlavorType: ark.ebmhpcphk3.60xlarge.vrdma
+      RestartPolicy: Always
+      Replicas: 2
+      SupportCustomModel: false
+      Containers:
+      - Name: decode
+        Image: REPLACE_WITH_PD_IMAGE
+        EntryPoint: |
+          #!/bin/bash
+          set -euo pipefail
+          cd /vllm-workspace/vllm-ascend/tests/dsv4/pd_deploy
+
+          bash mlops/vllm_ascend_proxy/generate_hccn_conf.sh
+          export DECODE_MODEL_PATH="$MAAS_MODEL_DIR"
+          export PREFILL_PP_SIZE=4 KV_DECODE_DP_SIZE=32
+          export PYTHONUNBUFFERED=1
+
+          DP_HEAD_IP=$(python3 -c 'import os,socket; print(socket.gethostbyname(os.environ["MLP_ROLE_HEAD"]))')
+          DP_RANK_START=$((MLP_ROLE_INDEX * 16))
+          echo "Decode master=$DP_HEAD_IP rank_start=$DP_RANK_START"
+
+          cd decode
+          exec python3 ../common/launch_online_dp.py \
+            --dp-size 32 \
+            --tp-size 1 \
+            --dp-size-local 16 \
+            --dp-rank-start "$DP_RANK_START" \
+            --dp-address "$DP_HEAD_IP" \
+            --dp-rpc-port 12321 \
+            --vllm-start-port 7100
+        Ports:
+        - Type: Other
+          ListenPort: '7100'
+        - Type: Other
+          ListenPort: '12321'
+        ServiceDiscoveryPath: /etc/config/discovery/
+        PreStopHookSleepSeconds: 90
+        LifeCycle:
+          PreStopHook: {}
+        Env:
+        - Name: MAAS_MODEL_DIR
+          Value: /maas_models/ark-dev-temp/hefei.888/models/DeepSeek-V4-Flash-0731-w4a8-0915-dspark-0914
+        - Name: SFCS_NS_ID
+          Value: '{"maas_models":"","custom_model":"","session_cache":"", "guaranteed_prefix_cache":""}'
+        - Name: SFCS_UFS_PATH
+          Value: '{"maas_models":"","custom_model":"","session_cache":"", "guaranteed_prefix_cache":""}'
+        - Name: SFCS_FSNAME
+          Value: '{"maas_models":"","custom_model":"","session_cache":"", "guaranteed_prefix_cache":""}'
+        LivenessProbe:
+          Enable: false
+        ReadinessProbe:
+          Enable: false
+        StartupProbe:
+          Enable: false
+        Resource:
+          Enable: false
+  - Name: prefill
+    Expose: false
+    DisablePublishInternalNotReadyEndpoint: false
+    ExposeAllRank: true
+    Roles:
+    - Name: prefill
+      Expose: true
+      DisableCpuPinning: true
+      MountTosSFCS: true
+      TerminationGracePeriodSeconds: 120
+      FlavorType: ark.ebmhpcphk3.60xlarge.vrdma
+      RestartPolicy: Always
+      Replicas: 4
+      SupportCustomModel: false
+      Containers:
+      - Name: prefill
+        Image: REPLACE_WITH_PD_IMAGE
+        EntryPoint: |
+          #!/bin/bash
+          set -euo pipefail
+          cd /vllm-workspace/vllm-ascend/tests/dsv4/pd_deploy
+
+          bash mlops/vllm_ascend_proxy/generate_hccn_conf.sh
+          export PREFILL_MODEL_PATH="$MAAS_MODEL_DIR"
+          export PREFILL_PP_SIZE=4 KV_DECODE_DP_SIZE=32
+          export PYTHONUNBUFFERED=1
+
+          LOCAL_IP=$(hostname -I | awk '{print $1}')
+          cd prefill
+
+          # Devices, HTTP port, DP size, rank, master, RPC port, TP size.
+          exec bash run_dp_template.sh \
+            0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 \
+            7100 1 0 "$LOCAL_IP" 12321 4
+        Ports:
+        - Type: Other
+          ListenPort: '7100'
+        ServiceDiscoveryPath: /etc/config/discovery/
+        PreStopHookSleepSeconds: 90
+        LifeCycle:
+          PreStopHook: {}
+        Env:
+        - Name: MAAS_MODEL_DIR
+          Value: /maas_models/official/deepseek-ai/npu/DeepSeek-V4-Flash-0731-w8a8-dspark-0914
+        - Name: SFCS_NS_ID
+          Value: '{"maas_models":"","custom_model":"","session_cache":"", "guaranteed_prefix_cache":""}'
+        - Name: SFCS_UFS_PATH
+          Value: '{"maas_models":"","custom_model":"","session_cache":"", "guaranteed_prefix_cache":""}'
+        - Name: SFCS_FSNAME
+          Value: '{"maas_models":"","custom_model":"","session_cache":"", "guaranteed_prefix_cache":""}'
+        LivenessProbe:
+          Enable: false
+        ReadinessProbe:
+          Enable: false
+        StartupProbe:
+          Enable: false
+        Resource:
+          Enable: false
+  - Name: acc
+    Expose: true
+    DisablePublishInternalNotReadyEndpoint: false
+    ExposeAllRank: false
+    Roles:
+    - Name: acc
+      Expose: true
+      DisableCpuPinning: true
+      MountTosSFCS: false
+      TerminationGracePeriodSeconds: 120
+      FlavorType: ark.ebmhpcphk3.60xlarge.vrdma
+      RestartPolicy: Always
+      Replicas: 1
+      SupportCustomModel: false
+      Containers:
+      - Name: acc
+        Image: REPLACE_WITH_ACC_VLLM_PROXY_IMAGE
+        EntryPoint: |
+          #!/bin/bash
+          set -euo pipefail
+          cd /vllm-workspace/vllm-ascend/tests/dsv4/pd_deploy
+
+          exec python3 -u mlops/vllm_ascend_proxy/acc.py \
+            --prefill-workerset prefill \
+            --decode-workerset decode
+        ServiceDiscoveryPath: /etc/config/discovery/
+        PreStopHookSleepSeconds: 90
+        LifeCycle:
+          PreStopHook: {}
+        Ports:
+        - Type: HTTP
+          ListenPort: '8005'
+        LivenessProbe:
+          Enable: false
+        ReadinessProbe:
+          Enable: false
+        StartupProbe:
+          Enable: false
+        Resource:
+          Enable: false
+      Labels:
+      - Key: ark-volcengine-com/multi-role-net-level
+        Value: p2
+  BatchSchedulingPolicies:
+  - Name: scaleupdomain
+    NodeTopologyAffinity:
+      Required:
+      - TopologyKey: cluster.vke.volcengine.com/scale-up-domain
+  - Name: az-policy
+    NodeTopologyAffinity:
+      Required:
+      - TopologyKey: topology.kubernetes.io/zone
+  BatchSchedulingPolicyClaim:
+    Name: az-policy
+Description: "vllm_ascend_proxy: decode x2 EP32, prefill x4 TP4/PP4, acc x1. Prefill and Decode must use the same image; ACC uses a separate image."

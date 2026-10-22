@@ -1,5 +1,14 @@
 # DSV4 PD 部署
 
+MLOps 自动部署提供两套独立配置，按需选择：
+
+| 后端 | 脚本、配置与用法 |
+| --- | --- |
+| Motor | [mlops/motor/README.md](mlops/motor/README.md) |
+| vLLM-Ascend 原生 proxy | [mlops/vllm_ascend_proxy/README.md](mlops/vllm_ascend_proxy/README.md) |
+
+两套目录各自包含 ACC、三 WorkerSet YAML、HCCN 和路由脚本；下面是共用 P/D 脚本的手动启动说明。
+
 支持多个独立 Prefill 和多个独立 Decode 实例。默认使用 1P1D：Prefill 为一台 DP1/TP4/PP4，Decode 为跨两台机器的 TP1、DP32/EP32；每台使用 16 个 NPU 逻辑设备。单个 Decode 也可配置为 EP16（1 台）或 EP64（4 台）。
 
 前提：容器使用 host 网络，已安装匹配的 CANN、vLLM、vllm-ascend，能访问本目录及本端模型权重。每个节点的 `hccn.conf` 使用本机实际卡地址；PP 模式要求安装版本支持目标模型及 draft 模型的 PP 配置。

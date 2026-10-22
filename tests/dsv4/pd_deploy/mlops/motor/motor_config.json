@@ -1,0 +1,54 @@
+{
+  "version": "v2.0",
+  "motor_deploy_config": {
+    "p_instances_num": 0,
+    "d_instances_num": 0
+  },
+  "motor_coordinator_config": {
+    "exception_config": {
+      "infer_timeout": 25600,
+      "stream_idle_timeout": 30
+    },
+    "prefill_kv_event_config": {
+      "block_size_ratio": 32,
+      "model_path": "/maas_models/official/deepseek-ai/npu/DeepSeek-V4-Flash-0731-w8a8-dspark-0914"
+    },
+    "inference_workers_config": {
+      "num_workers": 16
+    },
+    "api_config": {
+      "coordinator_api_infer_port": 1025,
+      "coordinator_api_mgmt_port": 1026
+    },
+    "rate_limit_config": {
+      "min_input_tokens": 0,
+      "max_input_tokens": 180000
+    },
+    "scheduler_config": {
+      "scheduler_type": "kv_hash_affinity",
+      "kv_hash_chunk_tokens": 1024
+    },
+    "pd_handoff_config": {
+      "decode_ignore_eos": false
+    },
+    "decode_batching_config": {
+      "enable": false
+    }
+  },
+  "motor_engine_prefill_config": {
+    "engine_type": "vllm",
+    "engine_config": {
+      "served_model_name": "dsv4",
+      "model": "/maas_models/official/deepseek-ai/npu/DeepSeek-V4-Flash-0731-w8a8-dspark-0914",
+      "max_model_len": 1048576
+    }
+  },
+  "motor_engine_decode_config": {
+    "engine_type": "vllm",
+    "engine_config": {
+      "served_model_name": "dsv4",
+      "model": "/maas_models/ark-dev-temp/hefei.888/models/DeepSeek-V4-Flash-0731-w4a8-0915-dspark-0914",
+      "max_model_len": 1048576
+    }
+  }
+}
