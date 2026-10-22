@@ -217,6 +217,29 @@ def test_replace_rendered_chat_inputs_uses_internal_token_prefix() -> None:
     assert RECOMPUTE_TOKEN_IDS_KEY not in request.kv_transfer_params
 
 
+@pytest.mark.parametrize("return_token_ids", [None, False, True])
+def test_choice_prompt_token_ids_visibility(return_token_ids: bool | None) -> None:
+    request = {"prompt": "Question", "stream": True, "max_tokens": 6}
+    if return_token_ids is not None:
+        request["return_token_ids"] = return_token_ids
+    context = RecomputeContext.from_request(request)
+    payload = {
+        "prompt_token_ids": [1, 2],
+        "choices": [{"text": "Answer", "prompt_token_ids": [1, 2], "token_ids": [3]}],
+    }
+    original = copy.deepcopy(payload)
+    context.observe_response(payload)
+    client_payload = context.response_for_client(payload)
+
+    if return_token_ids:
+        assert client_payload == original
+    else:
+        assert client_payload == {"choices": [{"text": "Answer"}]}
+    assert payload == original
+    context.prepare_retry(request)
+    assert request["prompt"] == [1, 2, 3]
+
+
 def test_stream_response_hides_internal_token_ids_and_rewrites_usage() -> None:
     request = {
         "messages": [{"role": "user", "content": "Question"}],
