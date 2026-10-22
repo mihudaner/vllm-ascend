@@ -186,9 +186,6 @@ Application:
         - *id001
         - *id002
         - *id003
-      Labels:
-      - Key: ark-volcengine-com/multi-role-net-level
-        Value: p2
   BatchSchedulingPolicies:
   - Name: scaleupdomain
     NodeTopologyAffinity:
