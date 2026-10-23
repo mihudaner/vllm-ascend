@@ -1,6 +1,8 @@
-# HC_pre 全场景接入与性能对比
+# HC_pre：开源 Native 与 PTO 的 Graph 重放对比（2026-10-13）
 
-本文 Native 为开源 `cann-recipes-infer` 实现。Native 优化版本 对照另见 [Native 融合算子与 ACLNN PTO 性能对比](Native融合算子与ACLNN_PTO性能对比_20261014.md)，两份基线与调用方式不同。
+本文 Native 为开源 `cann-recipes-infer` 实现。Native 优化版本 对照另见 [优化 Native 与 PTO：ACLNN 普通调用对比](优化Native与PTO_ACLNN普通调用对比_20261014.md)，两份基线与调用方式不同。
+
+主对照在第 3 节：Graph replay 下用 Torch profiler 采集的设备 kernel 耗时。第 5 节另列 NPU Event 包住整次 replay 的耗时，两者计时范围不同；第 1 节是 10-12 版本的历史参考。
 
 ## 1. 10-12 版本基准数据
 
@@ -110,11 +112,11 @@ Native 源码已核对一致：10-12 版本报告与本次构建记录均为 `ca
 
 ## 6. 复现与数据来源
 
-- 执行方式和依赖：[README](README.md)。本文所有性能数据使用真实权重；复现时需指定 `--checkpoint`，默认随机权重模式不属于同条件复现。
+- 执行方式和依赖：[README](../README.md)。本文所有性能数据使用真实权重；复现时需指定 `--checkpoint`，默认随机权重模式不属于同条件复现。
 - 权重：DeepSeek-V4-Flash-0731-w8a8，第 2 层 attn 的 fn/scale/base。输入 BF16，seed=20261009+B×100+S。
 - 10-12 版本：`f04320413804103fe31bedd5a2175b5021bcd91d`。原版算子源码 SHA256：`ff90619b80ade29e673dd742d1c6fe42e237f5aa3ad2f6b4f300f80baec3df0c`。
 - Native：`cann-recipes-infer@4c3d1e1258053c4d810322198a7fd1722c89897e`，接口 `custom::npu_hc_pre`。
 - 原版 PTO 复现使用 PyPTO `00d5ab9f651b03a1f459abb30c58f143a4880cfa`、Simpler `17e342455e2e8d9112c0613b6c9cd6eca79e71d0`，包含 ABI 适配。源码相同不代表与 10-12 归档的软件环境完全相同。
 - Torch / TorchNPU：`2.10.0+cpu` / `2.10.0.post2`。
-- [测试数据](reports/performance_samples.json)：本文对应 `repeat_aclnn` 和 `repeat_original_pto`，保存逐次样本、精度检查与权重校验值。
+- [测试数据](../reports/performance_samples.json)：本文对应 `repeat_aclnn` 和 `repeat_original_pto`，保存逐次样本、精度检查与权重校验值。
 - 原始 profiler 文件为运行产物，不随仓提交。

@@ -1,6 +1,6 @@
-# Native 优化版本与 ACLNN PTO 性能对比（2026-10-14）
+# HC_pre：优化 Native 与 PTO 的 ACLNN 普通调用对比（2026-10-14）
 
-本文归档 2026-10-14 的历史测试，PTO 生成核基于 `f04320413`，不代表当前分支后续优化后的性能。本表 Native 使用优化版本 `HcPreBnn`，与 [全场景性能对比](全场景性能对比.md) 中的开源 `cann-recipes-infer` Native 不同。
+本文归档 2026-10-14 的历史测试，PTO 生成核基于 `f04320413`，不代表当前分支后续优化后的性能。本表 Native 使用优化版本 `HcPreBnn`，与 [开源 Native 与 PTO：Graph 重放对比](开源Native与PTO_Graph重放对比_20261013.md) 中的开源 `cann-recipes-infer` Native 不同。
 
 - 直接查看双方数据：第 7 节的十四场景对照、补充用例和六档汇总。两侧均为 C++ ACLNN 普通调用，不开 replay，预热 5 次、正式 20 次取中位数。
 - 第 1～6 节记录 Native 优化版本的环境、性能及精度；第 8～10 节是后续调用方式排查，独立列出，不能混为同一轮比较。
@@ -110,8 +110,8 @@
 
 ## 6. 随仓数据
 
-- [Native 性能汇总](reports/native_comparison_20261014/native_performance.csv)
-- [PTO 性能汇总](reports/native_comparison_20261014/pto_performance.csv)
+- [Native 性能汇总](../reports/native_comparison_20261014/native_performance.csv)
+- [PTO 性能汇总](../reports/native_comparison_20261014/pto_performance.csv)
 
 CSV 保留各用例的中位数、均值、最小值、最大值及精度通过状态。
 算子包 SHA256：`9036a9c49ece0a61d0193faa1c5aae69e3ad62feefe77cbe543e59e25df43e8d`。

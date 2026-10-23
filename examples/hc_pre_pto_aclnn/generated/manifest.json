@@ -1,92 +1,80 @@
 {
   "source_repository": "https://github.com/mihudaner/vllm-ascend.git",
-  "source_branch": "perf/hc-pre-rms-sinkhorn-20261016",
-  "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b",
+  "source_branch": "hc_pre_aclnn",
+  "base_commit": "0213715f70e51dec72f8a7194871ae6b376bb8fc",
+  "source_file": "vllm_ascend/ops/pypto/hc_pre.py",
+  "source_sha256": "c975c504b432572aeb49a51eb74294de6055cf42d17d93882748b2f6f4edc327",
+  "toolchain": {
+    "pypto": {
+      "commit": "00d5ab9f651b03a1f459abb30c58f143a4880cfa"
+    },
+    "pto_isa": {
+      "commit": "327cd5869f3a7c4d2c6a1b945b2aed06e7665c5d"
+    },
+    "ptoas": {
+      "sha256": "993c20af0a6ec953f44b6ed173acad3b02ef6ed56c72908639db1fc3a558a531"
+    }
+  },
   "files": [
     {
-      "name": "hc_small.cpp",
-      "tokens": "T <= 32",
-      "sha256": "115fa68d614211c636982efaf3cc05ebf33dcd7941e82d01c0d35a22a95ec395",
-      "source_commit": "f04320413804103fe31bedd5a2175b5021bcd91d"
-    },
-    {
-      "name": "hc_small.pto",
-      "tokens": "T <= 32",
-      "sha256": "eb664bf9d508c724aebfaecc3297daa5e1cb51f72921802ee67b496f9d6a56a8",
-      "original_sha256": "52b786ae0f7057d00a2896347e280270c88eda7898403fb94e9ea416d87fce71",
-      "source_commit": "f04320413804103fe31bedd5a2175b5021bcd91d"
-    },
-    {
-      "name": "hc_medium48.cpp",
-      "tokens": "33 <= T <= 48",
-      "sha256": "347a9bfb3b3984001e7f8fb73cc89ce28b7426b03e09d266d87678c580e310f9",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
-    },
-    {
-      "name": "hc_medium48.pto",
-      "tokens": "33 <= T <= 48",
-      "sha256": "97f2e36c6928f2320af719f973067a113671aeb1cd1c8ddc8aba9d2b12b05f18",
-      "original_sha256": "f7c705b675f237ccbb9569948720ee74ebd01e4df7acb51d7b1b7fb241df23fa",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
-    },
-    {
-      "name": "hc_medium96.cpp",
-      "tokens": "49 <= T <= 95",
-      "sha256": "624eab50a449f9fccdc2a3107fb50b2feb6673a8bf5cad29510c7e4ceb45eaf3",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
-    },
-    {
-      "name": "hc_medium96.pto",
-      "tokens": "49 <= T <= 95",
-      "sha256": "0e2e3d9b8a0b1a441cb8cabb983ef3011c008815bbe35e2f4a1ade20c635768c",
-      "original_sha256": "0a41245c536636aebf03af3dba8d4b3a9b82c36dea4db43daa3808d529e759e9",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
-    },
-    {
       "name": "hc_exact96.cpp",
-      "tokens": "T = 96",
-      "sha256": "2cbeeac4dc9e2a3c8f6bd6f09fc2d90b00ff9667c8d2a6548ae5f11cdf18bfaa",
-      "source_commit": "f04320413804103fe31bedd5a2175b5021bcd91d"
+      "sha256": "be6adb5aeea040283e4d718d0695090b6a031e48e006356c6b8b2987c7226071"
     },
     {
       "name": "hc_exact96.pto",
-      "tokens": "T = 96",
-      "sha256": "728d53b8e166edd27804af415bc75556d93bd0258fabaee0c86359f6bb3457ae",
-      "original_sha256": "6a4ca721e7e664d635eb6b6259b60d1d73a4a34f349235c8975ee7c00658d226",
-      "source_commit": "f04320413804103fe31bedd5a2175b5021bcd91d"
-    },
-    {
-      "name": "hc_large144.cpp",
-      "tokens": "97 <= T <= 144",
-      "sha256": "1aa436e48f1a572f8834dd07b4fd087448434f7c93b6a798d0e73003d329e40f",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
-    },
-    {
-      "name": "hc_large144.pto",
-      "tokens": "97 <= T <= 144",
-      "sha256": "ae6a472a9a6f3a4e5a92b71297a81d7ce6698403503ba0e77e52fce293e89246",
-      "original_sha256": "f6d902755c83c9fd1f93aa305746d8b9dda1b603d4834f04ef56301b91a9ffa6",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
+      "sha256": "72aa865186568678e89d19817502b141bd45c7726837be9c182e6cd2e6ee012e",
+      "original_sha256": "65f4be808a4e05e531eb12d48e5e6bf925bcb0c697d8c809289fc8be87e9d092"
     },
     {
       "name": "hc_large.cpp",
-      "tokens": "T > 144",
-      "sha256": "192e8ea747b18a275b61eb8887bafef0b1192e14ad2794d673341e17eb1efb4d",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
+      "sha256": "16c298d5be8151612eb4181b033f70c1ba8fcc57ed4f02dec250bc8447ce27e2"
     },
     {
       "name": "hc_large.pto",
-      "tokens": "T > 144",
-      "sha256": "eeecbd6f028f27506c9dd7559d534c900e3feba2f788e74027e5d37fef0f8904",
-      "original_sha256": "55fe964644f97f2cda02ceed8f52cf7bac3e0856d760be0335e042e5c84a62d2",
-      "source_commit": "8e875aa32be3546dd487057ec9d0ebfdd9a6f48b"
+      "sha256": "a180dee0211ef8af31fb73febb697de88d76a21c79489b074f4c9efd989c6a8a",
+      "original_sha256": "b38caaffbf5e0c7b42983fc8a55a3cdae80b9a2ad0bd36bb73ca56db45cd8f12"
+    },
+    {
+      "name": "hc_large144.cpp",
+      "sha256": "813234729f57ce696425aae74a90684f267bbfdaeac54d877a286a8000228d72"
+    },
+    {
+      "name": "hc_large144.pto",
+      "sha256": "62e5f7f9a1aef7f57f2e0d7454c6e79bdf3f590b4ddb977ab513f070115681a3",
+      "original_sha256": "a55670f5d767035cd733bba7a5593ae9d10eb69be87699a01c307ab3531b9dce"
+    },
+    {
+      "name": "hc_medium48.cpp",
+      "sha256": "e7a0a5fcd7741c9260416e3f70bafe6c09ebfef2692544c6ca02c205a9a3ccb1"
+    },
+    {
+      "name": "hc_medium48.pto",
+      "sha256": "c272aacc99ad67c2e6d7aed0a9b67c9c020d4b431e60f132e426496bb1309490",
+      "original_sha256": "b6523dc3563dc0f2d4ff3d21fe923535e5d06210f5c02cb6ffba3c05cde524bc"
+    },
+    {
+      "name": "hc_medium96.cpp",
+      "sha256": "c37363764391829b40c20477866301c5fe17f64ca16330f4299e6d36fe722117"
+    },
+    {
+      "name": "hc_medium96.pto",
+      "sha256": "af6a5e71dd3ff8ad2162c35ac792fd6cb9af726b06e9e4be3789ad231fb9bfca",
+      "original_sha256": "c0b0d6ff1c8b9d6615663a9e484481079c8e35a863105411bfa97e2b0a22de93"
+    },
+    {
+      "name": "hc_small.cpp",
+      "sha256": "83e350501c91ef02e9a96cb30c78bbc68f14fec0262f41d16b5e23589df07bab"
+    },
+    {
+      "name": "hc_small.pto",
+      "sha256": "f8caf0a58abdf614873a8a2da3163bba1b3f498186defee217a2830a56153c2d",
+      "original_sha256": "ed314f4991cd950aa5cf1292f806b41d0c610a6335163e1690747ef5a169044c"
     }
   ],
-  "path_normalization": "PTO loc metadata uses repository-relative hc_pre.py paths; C++ kernels are unchanged. original_sha256 records pre-normalization PTO artifacts.",
-  "baseline_source_commit": "f04320413804103fe31bedd5a2175b5021bcd91d",
-  "local_artifact_source": "results/21_PR三版合并验证/runs/combined_0/build_output/_jit_hc_pre_ntouo9h6/ptoas",
+  "path_normalization": "Only PTO source loc paths are normalized to repository-relative paths. C++ kernels are byte-identical to the tested compiler output.",
   "integration_changes": [
-    "hc_medium48 uses weight,x pointer order (COMMON_ARGS)",
-    "hc_medium48 FIFO: 49152 FP32 elements per core group (previously 98304)"
-  ]
+    "Four Python col_sum calls use explicit scratch tiles; six variants generate 24 pairwise TCOLSUM calls.",
+    "Kernel signatures, wrapper and GM workspace contract are unchanged."
+  ],
+  "validation_report": "examples/hc_pre_pto_aclnn/文档/python修改二分实验结果说明.md"
 }

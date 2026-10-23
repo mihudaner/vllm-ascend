@@ -38,8 +38,8 @@ report=json.loads(args.report.read_text())
 baseline=json.loads((root/'reports/original_pto_baseline.json').read_text())
 local={(r['B'],r['S']):r for r in baseline['runs']['device_baseline_1']['rows']}
 repeat={(r['B'],r['S']):r for r in baseline['runs']['device_baseline_0']['rows']}
-md=root/'全场景性能对比.md'
-s=md.read_text().split('## 3. ACLNN 接入测试结果')[0]
+md=root/'文档'/'开源Native与PTO_Graph重放对比_20261013.md'
+s=md.read_text().split('## 3.', 1)[0]
 s+='''## 3. ACLNN 接入测试结果
 
 Native 实测 / ACLNN PTO 实测两列均为设备 profiler 的 kernel 耗时，3 次取中位数，单位 μs。
@@ -60,7 +60,7 @@ s+='\n### 同源码原版 PTO：两轮实测参考（未接 ACLNN）\n\n主表�
 for key, r in local.items():
     q=r['pto_l1_us']; o=old[key]['pto_l1_p50_us']
     s+=f"|{key[0]}/{key[1]}|{o:.2f}|{repeat[key]['pto_l1_us']:.2f}|{q:.2f}|{(q/o-1)*100:+.1f}%|\n"
-s+='\n数据来源：2026-10-13 的两轮原版复现，分别记为 baseline_0、baseline_1；使用未修改的 10-12 版本源码。样本及报告校验值已保存到 `reports/original_pto_baseline.json`。\n\n两轮均 14/14 通过，均在物理设备 0；主表左侧的 ACLNN 首轮在设备 8，因此左侧数据不是同卡配对运行。原版与 10-12 版本（`f04320413`）的源码及当次记录的 SHA256 一致：`ff90619b80ade29e673dd742d1c6fe42e237f5aa3ad2f6b4f300f80baec3df0c`。权重层、分支、输入种子、B/S 均一致。\n\n原版使用 PyPTO `00d5ab9f651b03a1f459abb30c58f143a4880cfa`、Simpler `17e342455e2e8d9112c0613b6c9cd6eca79e71d0`，包含 PyPTO 与 Simpler 的 ABI 适配；“算子源码相同”不代表 10-12 版本归档与本次测试的软件环境相同。三次样本、两轮结果与报告校验值见 [原版 PTO 数据来源](reports/original_pto_baseline.json)。\n'
+s+='\n数据来源：2026-10-13 的两轮原版复现，分别记为 baseline_0、baseline_1；使用未修改的 10-12 版本源码。样本及报告校验值已保存到 `../reports/original_pto_baseline.json`。\n\n两轮均 14/14 通过，均在物理设备 0；主表左侧的 ACLNN 首轮在设备 8，因此左侧数据不是同卡配对运行。原版与 10-12 版本（`f04320413`）的源码及当次记录的 SHA256 一致：`ff90619b80ade29e673dd742d1c6fe42e237f5aa3ad2f6b4f300f80baec3df0c`。权重层、分支、输入种子、B/S 均一致。\n\n原版使用 PyPTO `00d5ab9f651b03a1f459abb30c58f143a4880cfa`、Simpler `17e342455e2e8d9112c0613b6c9cd6eca79e71d0`，包含 PyPTO 与 Simpler 的 ABI 适配；“算子源码相同”不代表 10-12 版本归档与本次测试的软件环境相同。三次样本、两轮结果与报告校验值见 [原版 PTO 数据来源](../reports/original_pto_baseline.json)。\n'
 s+='''
 百分比为耗时变化，负数表示更快。精度列比较 ACLNN PTO 与 Native 的三个输出。
 
@@ -89,12 +89,12 @@ s+='''
 
 ## 4. 复现与原始数据
 
-- 执行方式和依赖：[README](README.md)。
+- 执行方式和依赖：[README](../README.md)。
 - 权重：DeepSeek-V4-Flash-0731-w8a8，第 2 层 attn 的 fn/scale/base，报告记录每份权重 SHA256。
 - 输入：BF16，seed=20261009+B×100+S，与 10-12 版本十四场景设置相同。
 - 10-12 版本历史采集与本次并非同一次运行，编译环境、设备状态差异仍可能影响耗时。
 '''
-s+="- 随仓数据摘要：[performance_samples.json](reports/performance_samples.json)；运行时完整报告与 trace 保存在指定输出目录。\n"
+s+="- 随仓数据摘要：[performance_samples.json](../reports/performance_samples.json)；运行时完整报告与 trace 保存在指定输出目录。\n"
 s+=f"- Torch / torch_npu：`{report['torch']}` / `{report['torch_npu']}`。\n"
 s+=f"- 已记录 {len(report['cases'])}/14 个场景；只有上表已填入设备耗时的场景完成性能采集。\n"
 s+=f"- 本次物理设备：`{report.get('physical_device', '见任务日志')}`。\n"

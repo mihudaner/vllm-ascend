@@ -32,7 +32,7 @@ def main():
             assert len(row['device'][side]['samples_us']) == 3
     subprocess.run([sys.executable, str(root / 'scripts/summarize_all.py'),
                     str(args.old_aclnn)], check=True)
-    md = root / '全场景性能对比.md'
+    md = root / '文档' / '开源Native与PTO_Graph重放对比_20261013.md'
     lines = md.read_text().splitlines()
     section = ''
     output = []
@@ -81,7 +81,7 @@ def main():
         if line == '## 3. ACLNN 接入测试结果':
             output += ['', '**表格中的 `原值 / 复测值`：左边保留此前数据，右边为同卡连续复测；10-12 版本历史列不变。**',
                        f"复测物理设备 {current['physical_device']}，先跑原版 PyPTO/Simpler，再跑 ACLNN/Native，仍为相同的 14 组输入。"]
-    output += ['', '### 同卡复测原始记录', '', '- 随仓保存的两轮耗时样本及精度结果：[performance_samples.json](reports/performance_samples.json)。']
+    output += ['', '### 同卡复测原始记录', '', '- 随仓保存的两轮耗时样本及精度结果：[performance_samples.json](../reports/performance_samples.json)。']
     output += ['- 表中原版 PTO 为 L1 核内跨度，ACLNN 为 CANN kernel 时长；同卡复测消除了卡号差异，但计时边界仍不同，差值不能直接当作 Python 或 ACLNN 调用开销。', '']
     output += ['### 复测观察', '']
     for key in [(16, 6), (28, 6)]:

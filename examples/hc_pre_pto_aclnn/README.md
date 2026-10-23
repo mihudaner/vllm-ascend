@@ -85,7 +85,11 @@ hc_pre_pto_aclnn/
 ├── build/torch/                  # 构建后生成的 Torch 扩展库
 ├── output/                       # 运行后生成的报告和采集数据
 ├── README.md                     # 本使用说明
-└── 全场景性能对比.md              # 历史数据、复测结果及验证详情
+└── 文档/
+    ├── 开源Native与PTO_Graph重放对比_20261013.md
+    ├── 优化Native与PTO_ACLNN普通调用对比_20261014.md
+    ├── cpp修改二分实验结果说明.md
+    └── python修改二分实验结果说明.md
 ```
 
 `build*/`、`output/` 和 profiler 临时目录已被 Git 忽略。它们由构建或测试生成，无需作为源码提交。
@@ -266,9 +270,11 @@ bash scripts/run_all.sh \
 - **图重放耗时**：图外 NPU Event 包住一次 replay，两侧交替各测 20 次；会受提交间隙影响，不能当作纯核耗时。
 - **精度**：BF16 的 atol/rtol 为 `0.01/0.01`，FP32 为 `1e-5/1e-4`，沿用 10-12 版本 benchmark 的回归阈值。
 
-Native 优化版本 与 PTO 的 C++ 普通调用对照（无 replay、十四场景及六档汇总）见 [Native 融合算子与 ACLNN PTO 性能对比](Native融合算子与ACLNN_PTO性能对比_20261014.md)。该记录使用 10-12 版生成核，与当前优化版本区分阅读。
+Native 优化版本 与 PTO 的 C++ 普通调用对照（无 replay、十四场景及六档汇总）见 [优化 Native 与 PTO：ACLNN 普通调用对比](文档/优化Native与PTO_ACLNN普通调用对比_20261014.md)。该记录使用 10-12 版生成核，与当前优化版本区分阅读。
 
-具体数据与检查例外见 [全场景性能对比](全场景性能对比.md)。完整报告保留逐输出误差，应同时检查 CPU 对照和修改输入后的检查结果。
+具体数据与检查例外见 [开源 Native 与 PTO：Graph 重放对比](文档/开源Native与PTO_Graph重放对比_20261013.md)。完整报告保留逐输出误差，应同时检查 CPU 对照和修改输入后的检查结果。
+
+二分累加实验归档：[Python 修改、编译生成 C++ 的验证](文档/python修改二分实验结果说明.md)；[旧版手写 C++ 实验](文档/cpp修改二分实验结果说明.md)。两份实验实现不同，数据分别阅读。
 
 ## 8. 接入代码说明
 
@@ -277,7 +283,15 @@ Native 优化版本 与 PTO 的 C++ 普通调用对照（无 replay、十四场�
 - 生成函数中的 `v1、v2…` 是编译器参数名，传参顺序依据同批生成的 kernel wrapper 对齐。更新后的 medium48 与其他动态档均为 weight/x 顺序；exact96 的标量参数数量不同，入口单独适配。
 - `torch/binding.cpp` 负责输入检查、输出申请和 `EXEC_NPU_CMD(aclnnHcPrePtoBnn, ...)` 调用；配套适配实现来自仓内 `csrc/aclnn_torch_adapter/`。
 
-优化接入基于 ACLNN 分支提交 `cf0ca6ef0d8202bc1ed2ab0656af9e108451e93e`，生成文件对应 Python 优化提交 `8e875aa32be3546dd487057ec9d0ebfdd9a6f48b`。各文件来源与校验值见 [manifest.json](generated/manifest.json)。C++ 生成内容不手改；PTO IR 仅将源码定位路径归一化。
+### 当前生成核：Python 二分归约（2026-10-23）
+
+当前六档 C++/PTO 均由仓内 [hc_pre.py](../../vllm_ascend/ops/pypto/hc_pre.py) 生成：仅在第二阶段的两处代码区域，为投影、RMS 的四个 `pl.col_sum` 调用提供临时 tile，选择库的二分归约。入口参数与 GM workspace 计算未变。源码、工具链和文件校验值见 [manifest.json](generated/manifest.json)。
+
+两轮直接 ACLNN 验证均不开 replay。确认复测覆盖 T1～500 的 27 个测点：23 个中位数变快、1 个持平、3 个变慢；收益集中在 T97～144（2.45%～8.24%），T32 回退 4.24%。普通/随机 134 例全部通过；24 个构造相消用例偏离 FP32 golden，按 FP64 参考各有 12 例原版/二分更准。详细表格与限制见 [Python 二分实验结果](文档/python修改二分实验结果说明.md)。本次未重跑 Torch、SK 或 Early-Start；使用新生成核需重新构建安装包。
+
+### 历史接入：RMS 复用与 Sinkhorn（2026-10-16）
+
+优化接入基于 ACLNN 分支提交 `cf0ca6ef0d8202bc1ed2ab0656af9e108451e93e`，生成文件对应 Python 优化提交 `8e875aa32be3546dd487057ec9d0ebfdd9a6f48b`。该段及后续表格记录 2026-10-16 的历史实现与验证。C++ 生成内容不手改；PTO IR 仅将源码定位路径归一化。
 
 | T 范围 | 更新文件（generated/） | 本次改动 |
 |---|---|---|
@@ -296,7 +310,7 @@ T33～48 新生成接口的第三、四个指针为 weight、x，因此入口改
 
 ### 优化生成核的十四场景性能
 
-原版为 `cf0ca6ef0d8202bc1ed2ab0656af9e108451e93e`，优化版为本次接入的生成核（Python 来源提交 `8e875aa32be3546dd487057ec9d0ebfdd9a6f48b`）。下表为 2026-10-16 同卡 C++ 直接 ACLNN 对照，不经过 Torch、图重放或 SK。
+原版为 `cf0ca6ef0d8202bc1ed2ab0656af9e108451e93e`，优化版为 2026-10-16 接入的生成核（Python 来源提交 `8e875aa32be3546dd487057ec9d0ebfdd9a6f48b`）。下表为 2026-10-16 同卡 C++ 直接 ACLNN 对照，不经过 Torch、图重放或 SK。
 
 每版每例运行四轮，每轮丢弃 5 次预热，合并四轮共 80 个有效设备 `Task Duration(us)` 取中位数，不是四个中位数的平均值，也不包含 Host 查询和内存分配耗时。合并收益为 `(原版中位数−优化版中位数)/原版中位数`；配对收益范围按每轮各 20 次样本的中位数计算，正数表示优化版更快。执行顺序为原版1→优化版1→优化版2→原版2，再原版3→优化版3→原版4→优化版4。
 
