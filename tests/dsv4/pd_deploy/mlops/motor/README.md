@@ -32,7 +32,8 @@ exec python3 -u mlops/motor/acc.py --prefill-workerset prefill --decode-workerse
 ```
 
 ACC 每 5 秒读取 `/etc/config/discovery/application-endpoints.yaml` 并检查后端健康状态。
-每个 Pod 注册为一个 Motor 实例：P 使用 `7100`，D 使用 `7100–7115`；实例 ID 不随列表排序改变。
+每个 Pod 注册为一个 Motor 实例：P 使用 `7100`，D 使用 `7100–7115`；实例 ID 为非负 31 位整数，不随列表排序改变，兼容 Motor 共享内存格式。
+从旧 63 位 ID 版本升级时，重启 ACC 及其管理的 Motor 以清除旧注册，再自动注册；无需重启 P/D。
 通过 `/instances/refresh` 的 `add`、`del` 更新实例，IP 或健康端口列表变化时先删旧记录再添加。
 `/readyz` 和 `/healthcheck` 同时检查 Motor 的 `ready` 字段与已注册的 P/D；不要求固定实例数量。
 Motor 异常退出会让 ACC 退出；停止容器时 ACC 关闭监听并终止 Motor 进程组。
@@ -42,6 +43,7 @@ Motor 异常退出会让 ACC 退出；停止容器时 ACC 关闭监听并终止 
 
 P/D 入口在模型启动前调用 `bash mlops/motor/generate_hccn_conf.sh`。
 机器成功调度后，在能访问目标集群的跳板机先执行 `verify`；验证通过无需修复，失败时再执行 `fix`，然后重新 `verify`：
+`verify` 先收集 P/D 设备 IP，再逐节点检查；首次读取失败、路由不匹配或 ping 失败即退出，不再检查后续卡和节点。
 
 ```bash
 bash fix_mlops_npu_routes.sh <service-id> verify
@@ -56,6 +58,7 @@ bash fix_mlops_npu_routes.sh <service-id> verify
 
 如需撤销，在同一目录执行 `bash fix_mlops_npu_routes.sh <service-id> rollback`。
 
-适用当前资源池：D 网段 `28.103.0.0/16`，P 网段 `28.19.0.0/16`、`28.102.0.0/16`，设备 0–15、策略表 100–115。
+脚本启动即显示操作和服务 ID；从当前 P/D 节点的 NPU IP 自动收集对端 `/16` 网段，使用各卡网关和网口修复设备 0–15、策略表 100–115。
+重复 `fix` 会重新发现当前节点；历史节点保留在状态文件中供 `rollback` 使用。
 需要 kubectl 权限和插件内 Perl。保留状态文件及插件临时目录以便回滚；此修复不保证节点重建后保留。
 `verify` 检查同卡号双向 ping，不代替真实 Motor/KV/推理验收；生成 `hccn.conf` 也不代替路由修复。

@@ -1,6 +1,7 @@
 """Motor registration contract and retry tests; no Motor/NPU package required."""
 
 import json
+import struct
 import sys
 import tempfile
 import unittest
@@ -80,6 +81,19 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
         rebooted = {}
         await acc.sync_once(rebooted, self.client, self.settings)
         self.assertEqual(rebooted, self.registered)
+
+    async def test_instance_ids_fit_motor_shared_memory(self):
+        await self.sync()
+        # Motor 3.1.0 kv_usage.py and scheduler_metrics.py entry formats.
+        for instance_id in self.registered:
+            self.assertGreaterEqual(instance_id, 0)
+            for fmt, values in (
+                ("<i i d", (instance_id, 0, 0.5)),
+                ("<i i B 3x d d q q 4x", (instance_id, 0, 1, 0.5, 10.0, 1, 1)),
+            ):
+                with self.subTest(instance_id=instance_id, fmt=fmt):
+                    snapshot = struct.pack(fmt, *values)
+                    self.assertEqual(struct.unpack(fmt, snapshot), values)
 
     async def test_ip_replacement_removal_and_empty_roles(self):
         await self.sync()

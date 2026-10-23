@@ -36,6 +36,7 @@ ACC 每 5 秒读取 `/etc/config/discovery/application-endpoints.yaml`，按健�
 ## 跳板机路由修复
 
 将 `fix_mlops_npu_routes.sh` 放到能访问目标集群的跳板机上。机器成功调度后先执行 `verify`；验证通过无需修复，失败时再执行 `fix`，然后重新 `verify`：
+`verify` 先收集 P/D 设备 IP，再逐节点检查；首次读取失败、路由不匹配或 ping 失败即退出，不再检查后续卡和节点。
 
 ```bash
 bash fix_mlops_npu_routes.sh <service-id> verify
@@ -50,6 +51,7 @@ bash fix_mlops_npu_routes.sh <service-id> verify
 
 如需撤销，在同一目录执行 `bash fix_mlops_npu_routes.sh <service-id> rollback`。
 
-适用当前资源池：D 网段 `28.103.0.0/16`，P 网段 `28.19.0.0/16`、`28.102.0.0/16`，设备 0–15、策略表 100–115。
+脚本启动即显示操作和服务 ID；从当前 P/D 节点的 NPU IP 自动收集对端 `/16` 网段，使用各卡网关和网口修复设备 0–15、策略表 100–115。
+重复 `fix` 会重新发现当前节点；历史节点保留在状态文件中供 `rollback` 使用。
 需要 kubectl 权限和插件内 Perl。保留跳板机状态文件及插件临时目录以便回滚；此修复不保证节点重建后保留。
 `verify` 检查同卡号双向 ping，不代替 Mooncake KV 验收；生成 `hccn.conf` 也不代替路由修复。

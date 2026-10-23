@@ -1508,7 +1508,8 @@ def motor_instance(settings, role, ip, ports):
     # Stable across discovery reordering and ACC restarts. Each Pod is one Motor
     # instance; the endpoint id is its local API index, not the global EP rank.
     identity = f"{settings.application}:{role}:{ip}"
-    instance_id = uuid.uuid5(uuid.NAMESPACE_URL, identity).int & ((1 << 63) - 1)
+    # Motor KV usage and scheduler metrics store instance IDs as signed int32.
+    instance_id = uuid.uuid5(uuid.NAMESPACE_URL, identity).int & ((1 << 31) - 1)
     configured_ports = settings.prefill_ports if role == "prefill" else settings.decode_ports
     return {
         "id": instance_id,
