@@ -1,0 +1,52 @@
+{
+  "status": "offline_compilation_passed",
+  "device_execution": false,
+  "aclnn_validated": false,
+  "artifact_directory": "/data00/wangkai/aclnnWorkspace/csa_generated_c04_01",
+  "artifact_archive": "/data00/wangkai/aclnnWorkspace/csa_generated_c04_01.tar.gz",
+  "archive_sha256": "853f14e9a337d8f2d3e410ef0da789b89333eb33424a7f3951ea5cf7b27d88c4",
+  "entries": {
+    "decode_csa_spmd": {
+      "external_tensor_count": 55,
+      "internal_allocated_tensor_count": 72,
+      "alias_tensor_count": 6,
+      "binaries": {
+        "aic": {
+          "bytes": 63300,
+          "sha256": "2c8e96e4e0136716417de4b94667f182f92db62184131c1083ed10c162349395",
+          "equal_validated_c04_binary": true
+        },
+        "aiv": {
+          "bytes": 155472,
+          "sha256": "c3dea0e262ee33fef82281ef97dc1441232e3cd62b6d29ed1c062a69d97e5101",
+          "equal_validated_c04_binary": true
+        }
+      }
+    },
+    "decode_csa_spmd_debug": {
+      "external_tensor_count": 57,
+      "internal_allocated_tensor_count": 70,
+      "alias_tensor_count": 6,
+      "binaries": {
+        "aic": {
+          "bytes": 63300,
+          "sha256": "2c8e96e4e0136716417de4b94667f182f92db62184131c1083ed10c162349395",
+          "equal_validated_c04_binary": true
+        },
+        "aiv": {
+          "bytes": 155472,
+          "sha256": "c3dea0e262ee33fef82281ef97dc1441232e3cd62b6d29ed1c062a69d97e5101",
+          "equal_validated_c04_binary": true
+        }
+      }
+    }
+  },
+  "validation": [
+    "Both entry compilations completed",
+    "All build-report file sizes and SHA256 values verified",
+    "Both entries submit one MIX task with 133 Tensor payloads",
+    "All four AIC/AIV binaries byte-equal to previously validated C04",
+    "Python and shell syntax checks passed; git diff --check passed"
+  ],
+  "limitation": "Full format.sh ci unavailable: pre-commit is not installed."
+}
