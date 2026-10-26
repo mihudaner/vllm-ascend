@@ -1,0 +1,731 @@
+{
+  "status": "analysis_only_not_aclnn_validated",
+  "upstream_repository": "https://github.com/nalinaly/vllm-ascend",
+  "upstream_branch": "dsv4-flash-pto-v0.25.1rc1",
+  "upstream_commit": "c346573ab3313fcc71cd58756acd129f34755439",
+  "reference_repository": "https://github.com/mihudaner/vllm-ascend",
+  "reference_branch": "hc_pre_aclnn",
+  "reference_commit": "a200612dde961e14edb25490b1e92f7bb79b06b7",
+  "entry_path": "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/entry.py",
+  "entry_sha256": "b391f69d70b291f1415de27525f39c8bf6577ba12091e27da60c14cdd5172834",
+  "python_entry_inventory": [
+    {
+      "name": "decode_csa_spmd_debug",
+      "tensor_parameters": [
+        {
+          "name": "x",
+          "annotation": "pl.Tensor[[T, 16384], pl.BF16]"
+        },
+        {
+          "name": "hc_fn",
+          "annotation": "pl.Tensor[[24, 16384], pl.FP32]"
+        },
+        {
+          "name": "hc_scale",
+          "annotation": "pl.Tensor[[3], pl.FP32]"
+        },
+        {
+          "name": "hc_base",
+          "annotation": "pl.Tensor[[24], pl.FP32]"
+        },
+        {
+          "name": "hc_base_2d",
+          "annotation": "pl.Tensor[[1, 24], pl.FP32]"
+        },
+        {
+          "name": "norm_w",
+          "annotation": "pl.Tensor[[4096], pl.BF16]"
+        },
+        {
+          "name": "wq_a",
+          "annotation": "pl.Tensor[[1024, 4096], pl.BF16, BF16_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "gamma_cq",
+          "annotation": "pl.Tensor[[1024], pl.BF16]"
+        },
+        {
+          "name": "wq_b",
+          "annotation": "pl.Tensor[[1024, 32768], pl.INT8, QUANT_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "wq_b_scale",
+          "annotation": "pl.Tensor[[32768], pl.FP32]"
+        },
+        {
+          "name": "rope_cos",
+          "annotation": "pl.Tensor[[T, 64], pl.FP32]"
+        },
+        {
+          "name": "rope_sin",
+          "annotation": "pl.Tensor[[T, 64], pl.FP32]"
+        },
+        {
+          "name": "wkv",
+          "annotation": "pl.Tensor[[4096, 512], pl.BF16]"
+        },
+        {
+          "name": "gamma_ckv",
+          "annotation": "pl.Tensor[[512], pl.BF16]"
+        },
+        {
+          "name": "native_slots",
+          "annotation": "pl.Tensor[[T, 2], pl.INT32]"
+        },
+        {
+          "name": "cache_rows",
+          "annotation": "pl.InOut[pl.Tensor[[CACHE_ROWS, 512], pl.BF16]]"
+        },
+        {
+          "name": "main_wkv",
+          "annotation": "pl.Tensor[[1024, 4096], pl.BF16]"
+        },
+        {
+          "name": "main_wgate",
+          "annotation": "pl.Tensor[[1024, 4096], pl.BF16]"
+        },
+        {
+          "name": "main_state",
+          "annotation": "pl.InOut[pl.Tensor[[MSTATE_PAGES, MSTATE_ELEMS], pl.FP32]]"
+        },
+        {
+          "name": "main_state_table",
+          "annotation": "pl.Tensor[[B, MTABLE_COLS], pl.INT32]"
+        },
+        {
+          "name": "main_ape",
+          "annotation": "pl.Tensor[[4, 1024], pl.FP32]"
+        },
+        {
+          "name": "positions",
+          "annotation": "pl.Tensor[[T], pl.INT64]"
+        },
+        {
+          "name": "main_bounds",
+          "annotation": "pl.Tensor[[MQ], pl.INT32]"
+        },
+        {
+          "name": "main_lengths",
+          "annotation": "pl.Tensor[[B], pl.INT32]"
+        },
+        {
+          "name": "main_state_slots",
+          "annotation": "pl.Tensor[[T, 2], pl.INT32]"
+        },
+        {
+          "name": "main_gamma",
+          "annotation": "pl.Tensor[[512], pl.BF16]"
+        },
+        {
+          "name": "main_cos",
+          "annotation": "pl.Tensor[[MC, 64], pl.FP32]"
+        },
+        {
+          "name": "main_sin",
+          "annotation": "pl.Tensor[[MC, 64], pl.FP32]"
+        },
+        {
+          "name": "main_slots",
+          "annotation": "pl.Tensor[[MSLOTS, 2], pl.INT32]"
+        },
+        {
+          "name": "main_cache",
+          "annotation": "pl.InOut[pl.Tensor[[MCACHE_ROWS, 512], pl.BF16]]"
+        },
+        {
+          "name": "idx_wkv",
+          "annotation": "pl.Tensor[[256, 4096], pl.BF16]"
+        },
+        {
+          "name": "idx_wgate",
+          "annotation": "pl.Tensor[[256, 4096], pl.BF16]"
+        },
+        {
+          "name": "idx_state",
+          "annotation": "pl.InOut[pl.Tensor[[ISTATE_PAGES, ISTATE_ELEMS], pl.FP32]]"
+        },
+        {
+          "name": "idx_state_table",
+          "annotation": "pl.Tensor[[B, ITABLE_COLS], pl.INT32]"
+        },
+        {
+          "name": "idx_ape",
+          "annotation": "pl.Tensor[[4, 256], pl.FP32]"
+        },
+        {
+          "name": "idx_bounds",
+          "annotation": "pl.Tensor[[IQ], pl.INT32]"
+        },
+        {
+          "name": "idx_lengths",
+          "annotation": "pl.Tensor[[B], pl.INT32]"
+        },
+        {
+          "name": "idx_state_slots",
+          "annotation": "pl.Tensor[[T, 2], pl.INT32]"
+        },
+        {
+          "name": "idx_gamma",
+          "annotation": "pl.Tensor[[128], pl.BF16]"
+        },
+        {
+          "name": "idx_cos",
+          "annotation": "pl.Tensor[[IC, 64], pl.FP32]"
+        },
+        {
+          "name": "idx_sin",
+          "annotation": "pl.Tensor[[IC, 64], pl.FP32]"
+        },
+        {
+          "name": "idx_slots",
+          "annotation": "pl.Tensor[[ISLOTS, 2], pl.INT32]"
+        },
+        {
+          "name": "hadamard",
+          "annotation": "pl.Tensor[[128, 128], pl.BF16]"
+        },
+        {
+          "name": "idx_cache",
+          "annotation": "pl.InOut[pl.Tensor[[ICACHE_PAGES, ICACHE_BYTES], pl.INT8]]"
+        },
+        {
+          "name": "original_table",
+          "annotation": "pl.Tensor[[B, ORIGINAL_COLS], pl.INT32]"
+        },
+        {
+          "name": "compressed_table",
+          "annotation": "pl.Tensor[[B, COMPRESSED_COLS], pl.INT32]"
+        },
+        {
+          "name": "indexer_table",
+          "annotation": "pl.Tensor[[B, INDEXER_COLS], pl.INT32]"
+        },
+        {
+          "name": "idx_wq_b",
+          "annotation": "pl.Tensor[[1024, 8192], pl.INT8]"
+        },
+        {
+          "name": "idx_wq_b_scale",
+          "annotation": "pl.Tensor[[8192], pl.FP32]"
+        },
+        {
+          "name": "weights_proj",
+          "annotation": "pl.Tensor[[4096, 64], pl.BF16]"
+        },
+        {
+          "name": "topk_scores",
+          "annotation": "pl.InOut[pl.Tensor[[T, 512], pl.FP32]]"
+        },
+        {
+          "name": "topk_indices",
+          "annotation": "pl.InOut[pl.Tensor[[T, 512], pl.INT32]]"
+        },
+        {
+          "name": "attn_sink",
+          "annotation": "pl.Tensor[[64, 1], pl.FP32]"
+        },
+        {
+          "name": "wo_a",
+          "annotation": "pl.Tensor[[8, 4096, 1024], pl.BF16, BF16_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "wo_b",
+          "annotation": "pl.Tensor[[8192, 4096], pl.INT8, QUANT_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "wo_b_scale",
+          "annotation": "pl.Tensor[[4096], pl.FP32]"
+        },
+        {
+          "name": "output",
+          "annotation": "pl.InOut[pl.Tensor[[T, 16384], pl.BF16]]"
+        }
+      ],
+      "constexpr_parameters": [
+        {
+          "name": "QUERY_GROUP",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "QK_PANEL",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SCORE_TILE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PREFETCH",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "TO_L0",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "BALANCED",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "ROOTS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OA_COLS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OA_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OB_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OUTPUT_GROUP_PIPELINE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "HC_ROW_DEPENDENCIES",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "ATTENTION_QUERY_METADATA",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "HC_CONSUMER_REDUCE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "QA_M16_PARALLEL",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "COOPERATIVE_PREFIX",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "EARLY_ATTENTION_GEOMETRY",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "LOCAL_ATTENTION_STATS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SCALE_PAGE_COALESCING",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "LEAF_SCALE_LAYOUT",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PLAN_PHYSICAL_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SPLIT_SCORE_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OUTPUT_WORK_BALANCE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SHORT_HALF_SCORE_UB",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SHORT_TOPK_PREFIX",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "QB_WIDE_N",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PREFIX_BRANCH_GROUPS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "JOINT_BF16_PREFIX",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PREFIX_PROJECTION_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SCORE_GROUP_ORDER",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "FUSED_INDEXER_COEFF",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PLAN_TABLE_COLUMNS",
+          "annotation": "pl.constexpr"
+        }
+      ]
+    },
+    {
+      "name": "decode_csa_spmd",
+      "tensor_parameters": [
+        {
+          "name": "x",
+          "annotation": "pl.Tensor[[T, 16384], pl.BF16]"
+        },
+        {
+          "name": "hc_fn",
+          "annotation": "pl.Tensor[[24, 16384], pl.FP32]"
+        },
+        {
+          "name": "hc_scale",
+          "annotation": "pl.Tensor[[3], pl.FP32]"
+        },
+        {
+          "name": "hc_base",
+          "annotation": "pl.Tensor[[24], pl.FP32]"
+        },
+        {
+          "name": "hc_base_2d",
+          "annotation": "pl.Tensor[[1, 24], pl.FP32]"
+        },
+        {
+          "name": "norm_w",
+          "annotation": "pl.Tensor[[4096], pl.BF16]"
+        },
+        {
+          "name": "wq_a",
+          "annotation": "pl.Tensor[[1024, 4096], pl.BF16, BF16_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "gamma_cq",
+          "annotation": "pl.Tensor[[1024], pl.BF16]"
+        },
+        {
+          "name": "wq_b",
+          "annotation": "pl.Tensor[[1024, 32768], pl.INT8, QUANT_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "wq_b_scale",
+          "annotation": "pl.Tensor[[32768], pl.FP32]"
+        },
+        {
+          "name": "rope_cos",
+          "annotation": "pl.Tensor[[T, 64], pl.FP32]"
+        },
+        {
+          "name": "rope_sin",
+          "annotation": "pl.Tensor[[T, 64], pl.FP32]"
+        },
+        {
+          "name": "wkv",
+          "annotation": "pl.Tensor[[4096, 512], pl.BF16]"
+        },
+        {
+          "name": "gamma_ckv",
+          "annotation": "pl.Tensor[[512], pl.BF16]"
+        },
+        {
+          "name": "native_slots",
+          "annotation": "pl.Tensor[[T, 2], pl.INT32]"
+        },
+        {
+          "name": "cache_rows",
+          "annotation": "pl.InOut[pl.Tensor[[CACHE_ROWS, 512], pl.BF16]]"
+        },
+        {
+          "name": "main_wkv",
+          "annotation": "pl.Tensor[[1024, 4096], pl.BF16]"
+        },
+        {
+          "name": "main_wgate",
+          "annotation": "pl.Tensor[[1024, 4096], pl.BF16]"
+        },
+        {
+          "name": "main_state",
+          "annotation": "pl.InOut[pl.Tensor[[MSTATE_PAGES, MSTATE_ELEMS], pl.FP32]]"
+        },
+        {
+          "name": "main_state_table",
+          "annotation": "pl.Tensor[[B, MTABLE_COLS], pl.INT32]"
+        },
+        {
+          "name": "main_ape",
+          "annotation": "pl.Tensor[[4, 1024], pl.FP32]"
+        },
+        {
+          "name": "positions",
+          "annotation": "pl.Tensor[[T], pl.INT64]"
+        },
+        {
+          "name": "main_bounds",
+          "annotation": "pl.Tensor[[MQ], pl.INT32]"
+        },
+        {
+          "name": "main_lengths",
+          "annotation": "pl.Tensor[[B], pl.INT32]"
+        },
+        {
+          "name": "main_state_slots",
+          "annotation": "pl.Tensor[[T, 2], pl.INT32]"
+        },
+        {
+          "name": "main_gamma",
+          "annotation": "pl.Tensor[[512], pl.BF16]"
+        },
+        {
+          "name": "main_cos",
+          "annotation": "pl.Tensor[[MC, 64], pl.FP32]"
+        },
+        {
+          "name": "main_sin",
+          "annotation": "pl.Tensor[[MC, 64], pl.FP32]"
+        },
+        {
+          "name": "main_slots",
+          "annotation": "pl.Tensor[[MSLOTS, 2], pl.INT32]"
+        },
+        {
+          "name": "main_cache",
+          "annotation": "pl.InOut[pl.Tensor[[MCACHE_ROWS, 512], pl.BF16]]"
+        },
+        {
+          "name": "idx_wkv",
+          "annotation": "pl.Tensor[[256, 4096], pl.BF16]"
+        },
+        {
+          "name": "idx_wgate",
+          "annotation": "pl.Tensor[[256, 4096], pl.BF16]"
+        },
+        {
+          "name": "idx_state",
+          "annotation": "pl.InOut[pl.Tensor[[ISTATE_PAGES, ISTATE_ELEMS], pl.FP32]]"
+        },
+        {
+          "name": "idx_state_table",
+          "annotation": "pl.Tensor[[B, ITABLE_COLS], pl.INT32]"
+        },
+        {
+          "name": "idx_ape",
+          "annotation": "pl.Tensor[[4, 256], pl.FP32]"
+        },
+        {
+          "name": "idx_bounds",
+          "annotation": "pl.Tensor[[IQ], pl.INT32]"
+        },
+        {
+          "name": "idx_lengths",
+          "annotation": "pl.Tensor[[B], pl.INT32]"
+        },
+        {
+          "name": "idx_state_slots",
+          "annotation": "pl.Tensor[[T, 2], pl.INT32]"
+        },
+        {
+          "name": "idx_gamma",
+          "annotation": "pl.Tensor[[128], pl.BF16]"
+        },
+        {
+          "name": "idx_cos",
+          "annotation": "pl.Tensor[[IC, 64], pl.FP32]"
+        },
+        {
+          "name": "idx_sin",
+          "annotation": "pl.Tensor[[IC, 64], pl.FP32]"
+        },
+        {
+          "name": "idx_slots",
+          "annotation": "pl.Tensor[[ISLOTS, 2], pl.INT32]"
+        },
+        {
+          "name": "hadamard",
+          "annotation": "pl.Tensor[[128, 128], pl.BF16]"
+        },
+        {
+          "name": "idx_cache",
+          "annotation": "pl.InOut[pl.Tensor[[ICACHE_PAGES, ICACHE_BYTES], pl.INT8]]"
+        },
+        {
+          "name": "original_table",
+          "annotation": "pl.Tensor[[B, ORIGINAL_COLS], pl.INT32]"
+        },
+        {
+          "name": "compressed_table",
+          "annotation": "pl.Tensor[[B, COMPRESSED_COLS], pl.INT32]"
+        },
+        {
+          "name": "indexer_table",
+          "annotation": "pl.Tensor[[B, INDEXER_COLS], pl.INT32]"
+        },
+        {
+          "name": "idx_wq_b",
+          "annotation": "pl.Tensor[[1024, 8192], pl.INT8]"
+        },
+        {
+          "name": "idx_wq_b_scale",
+          "annotation": "pl.Tensor[[8192], pl.FP32]"
+        },
+        {
+          "name": "weights_proj",
+          "annotation": "pl.Tensor[[4096, 64], pl.BF16]"
+        },
+        {
+          "name": "attn_sink",
+          "annotation": "pl.Tensor[[64, 1], pl.FP32]"
+        },
+        {
+          "name": "wo_a",
+          "annotation": "pl.Tensor[[8, 4096, 1024], pl.BF16, BF16_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "wo_b",
+          "annotation": "pl.Tensor[[8192, 4096], pl.INT8, QUANT_WEIGHT_LAYOUT]"
+        },
+        {
+          "name": "wo_b_scale",
+          "annotation": "pl.Tensor[[4096], pl.FP32]"
+        },
+        {
+          "name": "output",
+          "annotation": "pl.InOut[pl.Tensor[[T, 16384], pl.BF16]]"
+        }
+      ],
+      "constexpr_parameters": [
+        {
+          "name": "QUERY_GROUP",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "QK_PANEL",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SCORE_TILE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PREFETCH",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "TO_L0",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "BALANCED",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "ROOTS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OA_COLS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OA_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OB_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OUTPUT_GROUP_PIPELINE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "HC_ROW_DEPENDENCIES",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "ATTENTION_QUERY_METADATA",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "HC_CONSUMER_REDUCE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "QA_M16_PARALLEL",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "COOPERATIVE_PREFIX",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "EARLY_ATTENTION_GEOMETRY",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "LOCAL_ATTENTION_STATS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SCALE_PAGE_COALESCING",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "LEAF_SCALE_LAYOUT",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PLAN_PHYSICAL_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SPLIT_SCORE_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "OUTPUT_WORK_BALANCE",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SHORT_HALF_SCORE_UB",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SHORT_TOPK_PREFIX",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "QB_WIDE_N",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PREFIX_BRANCH_GROUPS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "JOINT_BF16_PREFIX",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PREFIX_PROJECTION_ROWS",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "SCORE_GROUP_ORDER",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "FUSED_INDEXER_COEFF",
+          "annotation": "pl.constexpr"
+        },
+        {
+          "name": "PLAN_TABLE_COLUMNS",
+          "annotation": "pl.constexpr"
+        }
+      ]
+    }
+  ]
+}
