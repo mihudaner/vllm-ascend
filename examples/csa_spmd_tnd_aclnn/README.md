@@ -24,7 +24,7 @@ Python：PreparedAclnnCSA(native_inputs, ...)
 
 ## 1. 先看哪些文件
 
-一级目录有 19 个文件：2 个构建/调用入口，以及 17 个说明、配置和结果清单。阅读工程从本 README 开始，详细数据按下表查阅。
+一级目录有 16 个文件：2 个构建/调用入口，以及 14 个说明、配置和结果清单。阅读工程从本 README 开始，详细数据按下表查阅。
 
 | 目的 | 文件 |
 |---|---|
@@ -36,7 +36,7 @@ Python：PreparedAclnnCSA(native_inputs, ...)
 | 当前精度/状态验证和新增输入定义 | [dynamic_validation_results.json](dynamic_validation_results.json)、[expanded_dynamic_cases.json](expanded_dynamic_cases.json) |
 | 适配过程、精度差异定位及历史决策 | [ADAPTATION_LOG.md](ADAPTATION_LOG.md) |
 
-`validation_results.json`、`compilation_result.json` 和两份前期中文分析属于历史证据，不作为当前支持范围的定义。
+[接入计划](接入计划.md)记录当前适配路线、完成状态和剩余事项；[接口与参数说明](接口与参数说明.md)集中说明 57 项外部参数、动态约束、修改语义及 replay 生命周期。
 
 ## 2. 示例目录
 
@@ -53,7 +53,7 @@ csa_spmd_tnd_aclnn/
 │   ├── *.pto                        # 62 份对应 PTO IR
 │   ├── manifest.json                # 完整 policy → key、来源与哈希
 │   ├── interface.json               # 57 Tensor 顺序、类型、布局及输出映射
-│   └── layout_fixtures.json          # 原八场景的描述符，供布局/Meta 回归
+│   └── layout_fixtures.json          # 已知输入描述符，仅供绑定 UT，不用于运行时选档
 ├── include/
 │   ├── contract.h                   # 动态维度及关联 shape 检查
 │   ├── policy_generated.h           # 生成的策略常量/数量
@@ -76,9 +76,7 @@ csa_spmd_tnd_aclnn/
 │   ├── build.sh                     # 编译、打包已有生成核
 │   ├── install.sh                   # 安装到仓外独立 vendor
 │   ├── build_torch.py               # 编译 csa_pto_npu.so
-│   ├── test_layout.py               # 原八场景 Host 布局/非法维度检查
-│   ├── test_meta.py                 # 原八场景 Meta/非法输入检查
-│   ├── test_dynamic_contract.py     # 62 策略、动态布局和 Meta 检查
+│   ├── test_dynamic_contract.py     # 62 策略、动态布局/Meta 与非法输入检查
 │   ├── audit_policies.py            # 符号枚举 Python 默认选择器的可达策略
 │   ├── generate_adapter.py          # 从编译产物生成 Host/MIX/Torch/布局适配
 │   └── build_generated.py/.sh       # 早期 C04 PTO 离线导出入口
@@ -97,12 +95,9 @@ csa_spmd_tnd_aclnn/
 ├── dynamic_validation_results.json   # 当前动态包验证证据和报告路径
 ├── expanded_dynamic_cases.json       # 本轮新增 12 个输入的精确定义
 ├── baseline.json                    # c346573 基线、入口签名与摘要
-├── c04_policy.json                  # 早期 C04 完整策略，非全量选档配置
-├── compilation_result.json          # 早期 C04 离线编译/二进制一致性记录
-├── validation_results.json          # 旧 csa_final 八场景包的验证记录
 ├── ADAPTATION_LOG.md                 # 按时间保留的适配过程
-├── 接入计划.md                       # 前期方案，历史参考
-└── 接口与参数说明.md                 # 前期接口分析，以当前 interface.json 为准
+├── 接入计划.md                       # 当前适配路线、完成状态与剩余工作
+└── 接口与参数说明.md                 # 当前参数表、动态约束与存储/调用合同
 ```
 
 服务器上还可能看到 `__pycache__/`（Python 缓存）及空的 `python/`、`tests/` 占位目录；这些不是已提交的包或测试入口。当前没有 HC-pre 那样的 Python wheel 包，使用 `runtime.py` 或 `torch.ops` 调用。
@@ -204,11 +199,9 @@ output = prepared()  # 返回 native_inputs["x_out"]，并原地更新 cache/sta
 
 ### 6.1 Host 布局与 Torch Meta
 
-从 example 目录执行，检查不启动 NPU kernel；Meta 检查需要已编译的 Torch 扩展。
+从 example 目录统一执行动态合同检查，不启动 NPU kernel；Meta 检查需要已编译的 Torch 扩展。测试按当前 interface.json 构造动态描述符，覆盖 62 策略与 3,000 组随机输入，并检查非法维度、dtype、参数数量、key 和别名越界。
 
 ```bash
-python scripts/test_layout.py --build-dir /external/csa_layout_check
-python scripts/test_meta.py --library /external/csa_torch/csa_pto_npu.so
 python scripts/test_dynamic_contract.py \
   --build-dir /external/csa_dynamic_check \
   --library /external/csa_torch/csa_pto_npu.so
@@ -293,7 +286,7 @@ Host workspace = Layout<key>(实际描述符).workspaceBytes
 
 `layout_generated.h` 约 3.5 万行是 62 个策略展开后的生成代码，公共分配逻辑在 `workspace.h`。修改映射应修改 `scripts/generate_adapter.py` 并从对应编译产物重新生成，不能只手改生成头文件。
 
-正常使用直接构建已有 `generated/`。`build_generated.py/.sh`、`c04_policy.json` 和 `compilation_result.json` 是早期 C04 导出/核验材料；其中 `.sh` 沿用历史工作区路径，不作为当前服务器恢复环境的直接启动命令。重新导出须使用公共工具链及当前 bootstrap 路径，步骤和来源见 [REPRODUCTION.md](REPRODUCTION.md)、[ADAPTATION_LOG.md](ADAPTATION_LOG.md)。
+正常使用直接构建已有 `generated/`。`build_generated.py` 保留 C04 离线导出功能，策略直接读取 `generated/manifest.json` 的 key 3。配套 `.sh` 沿用历史工作区路径，不作为当前服务器恢复环境的直接启动命令。重新导出须使用公共工具链及当前 bootstrap 路径，步骤和来源见 [REPRODUCTION.md](REPRODUCTION.md)、[ADAPTATION_LOG.md](ADAPTATION_LOG.md)。
 
 ## 9. 当前限制与参考
 

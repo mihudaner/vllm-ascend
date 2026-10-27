@@ -20,7 +20,8 @@ def main():
     source = repo / baseline["entry_path"]
     if hashlib.sha256(source.read_bytes()).hexdigest() != baseline["entry_sha256"]:
         raise RuntimeError("Entry differs from the recorded baseline; review before exporting")
-    policy = json.loads((project / "c04_policy.json").read_text())
+    manifest = json.loads((project / "generated/manifest.json").read_text())
+    policy = next(v for v in manifest["variants"] if v["tiling_key"] == 3)
     if policy["source_commit"] != baseline["upstream_commit"]:
         raise RuntimeError("Policy and source baselines differ")
     from pypto.ir.compiled_program import CompiledProgram

@@ -144,9 +144,9 @@ python record_source.py --repo /path/to/xllm-vllm-ascend --output /tmp/csa-sourc
 已完成的独立 C01 验证：最终输出 178/98304 元素超出 atol=rtol=0.01，
 最大绝对误差 0.0234375；主要差异定位到性能核 Indexer 量化/TopK 选择。
 PTO 诊断 score 为数学分数的 1/1024，比较前需统一单位。
-这不影响“八档 ACLNN 与原 c346573 SPMD 逐位一致”的接入结论，但不能据此宣称数学精度通过。
+这不改变当前动态包 36 场景与原 c346573 SPMD 逐位一致的接入结论，但不能据此宣称数学精度通过。
 
 详见上级 [适配记录](../ADAPTATION_LOG.md) 第 016–017 节及
-[验证汇总](../validation_results.json)。本机完整精度报告位于仓外
+[当前动态接入验证汇总](../dynamic_validation_results.json)。本机完整精度报告位于仓外
 `/data00/wangkai/aclnnWorkspace/build/golden_c01_01/`。
 本目录的 generate.py 只生成数学结果，不自动执行 ACLNN、解码物理缓存或作精度判定。

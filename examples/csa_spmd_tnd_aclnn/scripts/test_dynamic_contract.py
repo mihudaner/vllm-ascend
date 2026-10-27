@@ -59,8 +59,12 @@ for v in inputs:
     policy = m.select_policy(**v).constexprs()
     assert key(policy) in lookup, (v, policy)
     rows.append([lookup[key(policy)], v["tokens"], v["requests"], v["compressed_table_columns"]])
-base = json.loads((root / "generated/layout_fixtures.json").read_text())[3]["shapes"]
 params = json.loads((root / "generated/interface.json").read_text())["params"]
+# Synthetic CPU/Meta descriptors from the current interface, not an eight-case fixture.
+# These describe storage only; they are not executable NPU input data.
+base = [[1 if dim < 0 else dim for dim in param["shape"]] for param in params]
+for name, shape in {"main_state": [1, 8192], "idx_state": [1, 1040], "idx_cache": [1, 4160]}.items():
+    base[next(i for i, param in enumerate(params) if param["name"] == name)] = shape
 sizes = {"fp32": 4, "fp16": 2, "bfloat16": 2, "int32": 4, "int64": 8, "int8": 1}
 code = [
     '#include "layout_generated.h"',
@@ -90,8 +94,20 @@ assert(l.sources[i]>=-1 && l.sources[i]<57);
 if(l.sources[i]<0)assert(l.offsets[i]<l.workspaceBytes);
 else assert(l.offsets[i]<ext[l.sources[i]].Elements()*ext[l.sources[i]].bytes);
 }
-ext[10].shapes[0]++;assert(!csa::ValidDynamicShape(variant,size));
+for(int i:{10,22,23,26,39,50,56}){
+ext[i].shapes[0]++;assert(!csa::ValidDynamicShape(variant,size));ext[i].shapes[0]--;
 }
+ext[43].shapes[1]=4096;assert(!csa::ValidDynamicShape(variant,size));ext[43].shapes[1]=4160;
+bool rejected=false;ext[6].shapes[0]++;
+try{layout(variant,ext);}catch(const std::invalid_argument&){rejected=true;}
+assert(rejected);
+}
+csa::Tensor tensor;tensor.rank=1;tensor.bytes=4;tensor.shapes[0]=16;
+uint32_t dims[]={8},start[]={9};bool rejected=false;
+try{tensor.view(dims,start);}catch(const std::invalid_argument&){rejected=true;}
+assert(rejected);rejected=false;
+try{tensor.reshape(dims,1);}catch(const std::invalid_argument&){rejected=true;}
+assert(rejected);
 std::cout<<"dynamic workspace cases "<<sizeof(cases)/sizeof(cases[0])<<std::endl;
 }"""
 ]
@@ -102,8 +118,10 @@ subprocess.run(["g++", "-std=c++17", "-O0", "-I" + str(root / "include"), str(sr
 subprocess.run([str(binary)], check=True)
 if a.library:
     import torch
+    import torch_npu  # noqa: F401 - preload the backend required by the binding
 
     torch.ops.load_library(a.library)
+    rejected_meta = 0
     for variant, t, b, columns in rows[: len(variants)] + rows[-100:]:
         shapes = [list(s) for s in base]
         for i in [0, 10, 11, 14, 21, 24, 37, 50, 51, 56]:
@@ -122,15 +140,34 @@ if a.library:
         }
         tensors = [torch.empty(s, dtype=dt[param["dtype"]], device="meta") for param, s in zip(params, shapes)]
         torch.ops.csa_pto.run(tensors, variant)
+        invalid_rows = list(tensors)
+        invalid_rows[0] = tensors[0].new_empty((t + 1, *tensors[0].shape[1:]))
+        for invalid, invalid_variant in (
+            (invalid_rows, variant),
+            (tensors[:-1], variant),
+            (tensors, -1),
+            (tensors, len(variants)),
+            ([tensors[0].to(torch.float32)] + tensors[1:], variant),
+        ):
+            try:
+                torch.ops.csa_pto.run(invalid, invalid_variant)
+            except RuntimeError:
+                rejected_meta += 1
+            else:
+                raise AssertionError("Invalid dynamic descriptor accepted")
     report_meta = len(variants) + 100
 else:
     report_meta = 0
+    rejected_meta = 0
 (a.build_dir / "result.json").write_text(
     json.dumps(
         {
             "policy_count": len(variants),
             "policy_and_layout_cases": len(rows),
             "meta_cases": report_meta,
+            "rejected_meta_cases": rejected_meta,
+            "rejected_layout_cases": len(rows) * 9,
+            "rejected_alias_cases": 2,
             "passed": True,
         },
         indent=2,

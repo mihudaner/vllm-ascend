@@ -24,7 +24,7 @@
 - [x] C04 ACLNN eager 数值/Top-K/cache/state/保护区验证。
 - [x] C04：10 项同址 metadata 变化、4 步连续状态 graph replay 通过；八档 eager/graph 通过。
 - [x] 其余七档选档验证通过：八档 55/57 Tensor eager/graph 与冻结 SPMD bitwise 一致；仅承诺清单内策略及容量。
-- [x] 安装、独立调用、限制、复现命令和结果已整理（README、validation_results.json、第 012–015 节）。
+- [x] 安装、独立调用、限制、复现命令和结果已整理（README、[validation_results.json（历史版本）](https://github.com/mihudaner/vllm-ascend/blob/e97e6096a6e2b5660d3f48aaaee0f989d3e58f90/examples/csa_spmd_tnd_aclnn/validation_results.json)、第 012–015 节）。
 
 以上清单于 2026-10-27 按最终结果补齐；此前仅更新后续章节，未同步此清单，导致状态过期。
 接入一致性以 c346573 SPMD 为基准，不代表独立数学精度通过：
@@ -123,7 +123,7 @@ build_c04_05 构建通过；终止测试后确认 PID 已退出、NPU0 利用率
 
 八档 C01–C08 全部完成诊断 57 Tensor 与业务 55 Tensor 的 eager/graph 验证。
 每种入口的 9 项数值/缓存结果与 c346573 SPMD bitwise 一致，保护区检查通过。
-结果路径及 SHA256 已写入 validation_results.json；不等同于独立数学 golden 验收。
+结果路径及 SHA256 已写入 [validation_results.json（历史版本）](https://github.com/mihudaner/vllm-ascend/blob/e97e6096a6e2b5660d3f48aaaee0f989d3e58f90/examples/csa_spmd_tnd_aclnn/validation_results.json)；不等同于独立数学 golden 验收。
 加入动态维度检查的最终算子包 csa_final 编译安装完成，torch_final Meta 八档及
 非法数量/variant/dtype/token 维度检查通过。纯 C++ ACLNN runner 已编译。
 按 HC pre 流程导出真实物理字节输入，另存 format_cast(ND) 权重和逻辑缓存快照，
@@ -164,7 +164,7 @@ CPU workspace pytest 已通过；修改的 Python 文件 Ruff 检查通过。
 不初始化 Simpler runtime，所有 9 项结果与冻结 SPMD bitwise 相等。
 C04 首次读取二次验证记录失败（缺 spmd 描述符，尚未执行设备），改引用原始
 SPMD 快照后通过；失败日志 final_h131072_b16_s6_01.log 保留，通过为 _02。
-八档详情与哈希见 validation_results.json 的 final_package.eight_variants。
+八档详情与哈希见 [validation_results.json（历史版本）](https://github.com/mihudaner/vllm-ascend/blob/e97e6096a6e2b5660d3f48aaaee0f989d3e58f90/examples/csa_spmd_tnd_aclnn/validation_results.json) 的 final_package.eight_variants。
 
 新增 CPU 测试覆盖完整策略选档、55→57 诊断输出补齐、未知策略拒绝，以及
 八档 workspace/描述符契约，3 项 pytest 通过。build_torch.py 禁止仓内构建。
@@ -204,7 +204,7 @@ c346573 为 HEAD 祖先，未提交/推送。所有构建、安装、快照、�
 | 独立 C++ 调用 | direct_cpp_c01_01.log；8 输出 bitwise，保护区/只读输入检查通过 |
 | 同址状态与图重放 | final_state_c04_01：10 metadata +4 continuous，通过 |
 | 可复现构建与安装 | scripts/build.sh、build_torch.py、install.sh，aclnn_test/CMakeLists.txt |
-| 决策及证据 | ADAPTATION_LOG.md、validation_results.json、外部 logs/build/reference |
+| 决策及证据 | ADAPTATION_LOG.md、[validation_results.json（历史版本）](https://github.com/mihudaner/vllm-ascend/blob/e97e6096a6e2b5660d3f48aaaee0f989d3e58f90/examples/csa_spmd_tnd_aclnn/validation_results.json)、外部 logs/build/reference |
 | 独立数学精度验证 | 已执行 C01，结果失败；阶段差异报告完整保留，不计为精度通过 |
 
 独立数学 golden 的失败为当前保留的基线数值差异：不修改 c346573 算法，
@@ -420,3 +420,19 @@ record_source.py 重建的 SOURCE_MANIFEST 与导入清单完全一致，导入�
 README、DYNAMIC_SHAPES、PERFORMANCE 和当前复现手册已改为本轮有效结果。/data00/wangkai/pto_env/REPRODUCTION_LOG.md 与仓内 REPRODUCTION.md 内容一致；直接更新现行章节和主表，不追加过时结论。独立数学 golden C01 未通过、生产服务尚未验收的结论不变。
 
 保存前复核：36 份设备报告哈希、20 场景共 120 个原始 CSV 样本、两份性能表的中位数及新增行的空缺列全部核对。全仓 `bash format.sh ci` 再次因缺少 pre-commit 退出，未记为通过；本轮未修改算子实现。
+
+## 024. 移除一级目录的早期清单（2026-10-27）
+
+按用户要求，从当前工程删除 c04_policy.json、compilation_result.json、validation_results.json。三份原文件逐字节归档到 /data00/wangkai/aclnnWorkspace/reference/csa_legacy_records_20261027/，archive_manifest.json 记录原提交和 SHA256；Git 历史仍保留原始证据。
+
+C04 导出脚本改为从 generated/manifest.json 的 key 3 读取策略，已核对 policy、case、source_commit 三项与旧配置完全一致；当前运行/构建路径无需重复配置。README 顶层文件清单更新为 16 项，golden 说明链接当前动态验证记录，旧日志引用指向固定历史提交。当前 62 策略、生成核、设备包和验证结果未变。
+
+同时移除独立的 test_layout.py、test_meta.py 八场景测试入口，原脚本也归档到同一仓外目录。有效的非法维度、权重 reshape、越界 view、dtype、参数数量和 key 拒绝检查合并到 test_dynamic_contract.py；仓库 CPU UT 同步指向动态入口。动态脚本直接从当前 interface.json 构造描述符，不再使用旧八场景 fixture 作为布局/Meta 的基础。generated/layout_fixtures.json 仍作为输入绑定 UT 的已知样本使用，不参与生产选档或限制动态 shape。
+
+
+将从其他机器导入的《接入计划》《接口与参数说明》按当前实现整体重写：计划只保留目标、适配路线、阶段状态、关键决定和待办；57 项参数顺序、Native 来源、shape/dtype/NZ、输入输出别名、workspace 所有权及 graph 生命周期统一归入参数说明。删除尚未接入、130 个外部 Tensor 和 Python 分配内部临时区等失效结论。原文归档到上述仓外目录，README 导航同步更新。
+
+动态合同检查初次在 Meta 库加载时报缺少 libtorch_npu.so，补齐原 Meta 入口已有的 torch_npu 预加载后重跑通过。最终报告为 build/dynamic_contract_cleanup_02/result.json：3062 组策略/布局、162 组 Meta，27558 项非法布局、810 项非法 Meta 和 2 项别名/reshape 拒绝检查通过。未运行设备 kernel，不更新既有数值或性能结果。
+
+
+保存前检查：相关 3 项 pytest 通过（--noconftest，仅执行布局和输入绑定 UT）；修改 Python 的 AST 解析、57 行参数表数量、README 顶层文件计数、修改文档的相对链接、旧 C04 策略复用一致性及 git diff --check 通过。全仓 bash format.sh ci 因缺少 pre-commit 未完成；当前环境也没有 Ruff，本轮未将 lint/格式检查计为通过。
