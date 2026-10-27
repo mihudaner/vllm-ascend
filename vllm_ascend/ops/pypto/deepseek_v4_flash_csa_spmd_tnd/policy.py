@@ -26,6 +26,8 @@ LEAF_SCALE_LAYOUT只用于长G6、64<=T容量<=96且压缩长度上界<=6*8192�
 
 from dataclasses import dataclass
 
+from ..deepseek_v4_flash_csa.validation import validation_error
+
 # At most six original 8192-candidate leaves before balancing.
 LEAF_LAYOUT_MAX_CACHE_ROWS = 6 * 8192
 DEFAULT_OA_ROWS = 128
@@ -128,17 +130,55 @@ def select_policy(
     """仅依据已有Host信息选策略；有效分组数、叶数及全部访问地址由AIV/AIC计算。"""
     if compressed_table_columns is not None:
         if type(compressed_table_columns) is not int or compressed_table_columns <= 0:
-            raise ValueError("compressed_table_columns must be a positive allocated dimension")
+            raise ValueError(
+                validation_error(
+                    "compressed_table_columns must be a positive allocated dimension",
+                    tokens=tokens,
+                    requests=requests,
+                    max_query_tokens=max_query_tokens,
+                    max_seq_len=max_seq_len,
+                    compressed_table_columns=compressed_table_columns,
+                )
+            )
     values = (tokens, requests, max_query_tokens, max_seq_len)
     if any(type(v) is not int or v <= 0 for v in values):
-        raise ValueError("tokens/requests/max_query_tokens/max_seq_len须为已有的正整数描述符")
-    if tokens > requests * max_query_tokens:
-        raise ValueError("token容量超过请求容量×query上界；请绑定Native同一档描述符")
+        raise ValueError(
+            validation_error(
+                "tokens/requests/max_query_tokens/max_seq_len须为已有的正整数描述符",
+                tokens=tokens,
+                requests=requests,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=compressed_table_columns,
+            )
+        )
+    # tokens是图的行容量，max_query_tokens只约束有效请求。Native可将全部
+    # padding合并为一个失活请求，因此容量可以超过requests * max_query_tokens。
+    # 有效token/query的合法性由service_config.supported_descriptor检查；
+    # 此处只选资源策略，不回读Q/L，也不扩大真实query上界来迁就padding。
     cache_rows = max_seq_len // 4
     if cache_rows < 2048:
-        raise NotImplementedError("完整动态SPMD的小历史Vector Score路径尚未接入")
+        raise NotImplementedError(
+            validation_error(
+                "完整动态SPMD的小历史Vector Score路径尚未接入",
+                tokens=tokens,
+                requests=requests,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=compressed_table_columns,
+            )
+        )
     if cache_rows > 262144:
-        raise ValueError("当前TopK工作区合同最多支持262144个压缩候选")
+        raise ValueError(
+            validation_error(
+                "当前TopK工作区合同最多支持262144个压缩候选",
+                tokens=tokens,
+                requests=requests,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=compressed_table_columns,
+            )
+        )
     long_history = cache_rows > 8192
     group = 2
     if long_history:

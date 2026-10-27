@@ -14,6 +14,8 @@
 
 from dataclasses import dataclass
 
+from ..deepseek_v4_flash_csa.validation import validation_error
+
 # 沿CSA已有投影行块选择窗口；不是按B/S/history测试点枚举。
 EARLY_GEOMETRY_MIN_TOKENS = 64
 # 与既有O_A N128输出区间一致；不是按七个测试点枚举。
@@ -83,17 +85,54 @@ def select_policy(
     """仅依据已有Host描述符选策略；实际分组/叶数由AICPU规划，寻址在设备消费端完成。"""
     if compressed_table_columns is not None:
         if type(compressed_table_columns) is not int or compressed_table_columns <= 0:
-            raise ValueError("compressed_table_columns须为已分配页表的正整数列数")
+            raise ValueError(
+                validation_error(
+                    "compressed_table_columns须为已分配页表的正整数列数",
+                    tokens=tokens,
+                    requests=requests,
+                    max_query_tokens=max_query_tokens,
+                    max_seq_len=max_seq_len,
+                    compressed_table_columns=compressed_table_columns,
+                )
+            )
     values = (tokens, requests, max_query_tokens, max_seq_len)
     if any(type(v) is not int or v <= 0 for v in values):
-        raise ValueError("tokens/requests/max_query_tokens/max_seq_len须为已有的正整数描述符")
-    if tokens > requests * max_query_tokens:
-        raise ValueError("token容量超过请求容量×query上界；请绑定Native同一档描述符")
+        raise ValueError(
+            validation_error(
+                "tokens/requests/max_query_tokens/max_seq_len须为已有的正整数描述符",
+                tokens=tokens,
+                requests=requests,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=compressed_table_columns,
+            )
+        )
+    # Native图可将全部padding合并为一个失活请求；tokens是行容量，不能
+    # 用有效请求的query上界限制它。有效token/query仍由共享服务入口检查，
+    # 本层仅选择资源策略，不读取设备Q/L或修改请求容量。
     cache_rows = max_seq_len // 4
     if cache_rows < 2048:
-        raise NotImplementedError("TND 多 task 的短历史 Vector Score 路径尚未接入")
+        raise NotImplementedError(
+            validation_error(
+                "TND 多 task 的短历史 Vector Score 路径尚未接入",
+                tokens=tokens,
+                requests=requests,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=compressed_table_columns,
+            )
+        )
     if cache_rows > 262144:
-        raise ValueError("当前TopK工作区合同最多支持262144个压缩候选")
+        raise ValueError(
+            validation_error(
+                "当前TopK工作区合同最多支持262144个压缩候选",
+                tokens=tokens,
+                requests=requests,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=compressed_table_columns,
+            )
+        )
     long_history = cache_rows > 8192
     group = 2
     if long_history:

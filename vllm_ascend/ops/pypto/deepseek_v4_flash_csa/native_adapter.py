@@ -23,6 +23,7 @@ from .decode_csa import (
 from .host_metadata import CSAHostMetadata
 from .native_storage import indexer_storage, physical_pages, table_storage
 from .nz_mode import root_weight_layouts, root_weight_shapes
+from .validation import validation_error
 
 _NZ_C0_BYTES = 32
 _NZ_FRACTAL_ROWS = 16
@@ -143,7 +144,14 @@ def prepare_weights(attention, hadamard: torch.Tensor | None, layer=None, *,
     import torch_npu
 
     if attention.compress_ratio not in (4, 128) or attention.n_local_heads != 64 or attention.n_local_groups != 8:
-        raise ValueError("PTO attention 要求 C4/C128、TP1、64 个 head 和 8 个输出组")
+        raise ValueError(
+            validation_error(
+                "PTO attention 要求 C4/C128、TP1、64 个 head 和 8 个输出组",
+                compress_ratio=attention.compress_ratio,
+                n_local_heads=attention.n_local_heads,
+                n_local_groups=attention.n_local_groups,
+            )
+        )
 
     layouts = root_weight_layouts(root_function)
     shapes = root_weight_shapes(root_function)
@@ -163,7 +171,9 @@ def prepare_weights(attention, hadamard: torch.Tensor | None, layer=None, *,
     def bind_root_storage(name, value):
         # 形状已由调用方验证；NZ直接借用Native字节，不能先转ND再重新打包。
         if not value.is_contiguous():
-            raise ValueError(f"Native {name} weight须满足连续存储描述符")
+            raise ValueError(
+                validation_error(f"Native {name} weight须满足连续存储描述符", parameter=name, weight=value)
+            )
         current = int(torch_npu.get_npu_format(value))
         if layouts[name] == "NZ":
             return value if current == 29 else _recast(name, value, current, 29)
@@ -175,13 +185,30 @@ def prepare_weights(attention, hadamard: torch.Tensor | None, layer=None, *,
         # 根矩阵方向与 Native 相同。格式已匹配时借用原存储，禁止解包、转置或重新打包。
         value = getattr(attention, name).weight.detach()
         if tuple(value.shape) != shape or value.dtype != dtype:
-            raise ValueError(f"Unexpected Native {name} weight: {value.shape}/{value.dtype}")
+            raise ValueError(
+                validation_error(
+                    f"Unexpected Native {name} weight: {value.shape}/{value.dtype}",
+                    parameter=name,
+                    weight=value,
+                    expected_shape=shape,
+                    expected_dtype=str(dtype),
+                )
+            )
         return bind_root_storage(name, value)
 
     def weight(module, shape, dtype, transpose=False, layout_name=None):
         value = module.weight.detach()
         if tuple(value.shape) != shape or value.dtype != dtype:
-            raise ValueError(f"Unexpected loaded weight: {value.shape}/{value.dtype}; expected {shape}/{dtype}")
+            raise ValueError(
+                validation_error(
+                    f"Unexpected loaded weight: {value.shape}/{value.dtype}; expected {shape}/{dtype}",
+                    weight=value,
+                    expected_shape=shape,
+                    expected_dtype=str(dtype),
+                    transpose=transpose,
+                    layout_name=layout_name,
+                )
+            )
         if layout_name is not None and layout_name in shapes:
             target_shape = shapes[layout_name]
             if tuple(value.shape) == target_shape:
@@ -189,7 +216,13 @@ def prepare_weights(attention, hadamard: torch.Tensor | None, layer=None, *,
             transposed_shape = (*value.shape[:-2], value.shape[-1], value.shape[-2])
             if not transpose or transposed_shape != target_shape:
                 raise ValueError(
-                    f"Native {layout_name}的矩阵方向与root不匹配：{tuple(value.shape)} -> {target_shape}"
+                    validation_error(
+                        f"Native {layout_name}的矩阵方向与root不匹配：{tuple(value.shape)} -> {target_shape}",
+                        parameter=layout_name,
+                        weight=value,
+                        expected_shape=target_shape,
+                        transpose=transpose,
+                    )
                 )
         if torch_npu.get_npu_format(value) not in (_ACL_FORMAT_NCHW, _ACL_FORMAT_ND):
             # 仅矩阵方向不同或未声明root布局的输入走此路径。
@@ -208,10 +241,14 @@ def prepare_weights(attention, hadamard: torch.Tensor | None, layer=None, *,
     def scale(module, width):
         result = module.weight_scale.detach().reshape(-1)
         if result.numel() != width:
-            raise ValueError("Unexpected quantized channel-scale count")
+            raise ValueError(
+                validation_error("Unexpected quantized channel-scale count", weight_scale=result, expected_width=width)
+            )
         offset = getattr(module, "weight_offset", None)
         if offset is not None and bool(torch.count_nonzero(offset).cpu()):
-            raise ValueError("The reference CSA chain requires symmetric INT8 weights")
+            raise ValueError(
+                validation_error("The reference CSA chain requires symmetric INT8 weights", weight_offset=offset)
+            )
         return result.float().contiguous()
 
     bf16, int8 = torch.bfloat16, torch.int8
