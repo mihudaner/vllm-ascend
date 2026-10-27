@@ -9,6 +9,8 @@
 from dataclasses import dataclass
 from typing import Any
 
+from ..deepseek_v4_flash_csa.validation import validation_error
+
 TND_PADDED_REDISPATCH = "pto_csa_tnd_padded_redispatch"
 CSA_COMPRESS_RATIO = 4
 
@@ -31,7 +33,7 @@ def graph_compact_request(request, tokens):
 
     requests = request.seq_lens.numel()
     if request.start_pos.shape != (requests,) or request.start_pos.dtype != torch.int32:
-        raise ValueError("Native C4 start_pos须为INT32请求容量向量")
+        raise ValueError(validation_error("Native C4 start_pos须为INT32请求容量向量", request=request, tokens=tokens))
     adapted = copy(request)
     adapted.num_reqs_actual = requests
     adapted.num_compressed_tokens = compact_metadata_capacity(tokens, requests)
@@ -58,7 +60,14 @@ def native_decode_capacity_views(metadata, hidden_tokens, compress_ratio):
             result.append(item)
             continue
         if item.num_input_tokens != hidden_tokens or item.num_decode_tokens > hidden_tokens:
-            raise ValueError("TND图回退的Native输入与已准备的padding容量不一致")
+            raise ValueError(
+                validation_error(
+                    "TND图回退的Native输入与已准备的padding容量不一致",
+                    metadata=item,
+                    hidden_tokens=hidden_tokens,
+                    compress_ratio=compress_ratio,
+                )
+            )
         decoded = copy(item.decode)
         decoded.input_positions = token_capacity_view(decoded.input_positions.view(-1, 1), hidden_tokens, 1).view(-1)
         if decoded.slot_mapping is not None:
@@ -69,7 +78,14 @@ def native_decode_capacity_views(metadata, hidden_tokens, compress_ratio):
             # 与Native builder的_num_compressor_metadata_rows保持同一容量规则。
             # 实际compact行仍由原num_reqs_actual/start_pos/Q在设备上决定。
             if compress_ratio <= 1:
-                raise ValueError("压缩metadata必须对应真实的Native压缩比")
+                raise ValueError(
+                    validation_error(
+                        "压缩metadata必须对应真实的Native压缩比",
+                        metadata=item,
+                        hidden_tokens=hidden_tokens,
+                        compress_ratio=compress_ratio,
+                    )
+                )
             decoded.num_compressed_tokens = min(hidden_tokens, hidden_tokens // compress_ratio + item.num_decodes)
         adapted = copy(item)
         adapted.decode = decoded

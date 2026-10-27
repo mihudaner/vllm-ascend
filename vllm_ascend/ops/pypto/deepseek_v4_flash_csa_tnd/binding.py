@@ -11,6 +11,7 @@ import torch
 
 from vllm_ascend import envs
 
+from ..deepseek_v4_flash_csa.validation import validation_error
 from .policy import CSAMPMDPolicy, select_policy
 
 
@@ -26,15 +27,21 @@ class PreparedDynamicCSA:
         policy: CSAMPMDPolicy | None = None,
     ):
         if envs.VLLM_ASCEND_ENABLE_NZ != 2:
-            raise NotImplementedError("TND MPMD 当前接 Native NZ2，其他布局尚未完成整链验证")
+            raise NotImplementedError(
+                validation_error(
+                    "TND MPMD 当前接 Native NZ2，其他布局尚未完成整链验证", nz_mode=envs.VLLM_ASCEND_ENABLE_NZ
+                )
+            )
         self.native = dict(native)
         hidden = native["x_hc"]
         self.tokens = t = hidden.shape[0]
         self.requests = b = native["kv_seq_lens"].numel()
         if hidden.shape != (t, 4, 4096) or hidden.dtype != torch.bfloat16 or not hidden.is_contiguous():
-            raise ValueError("要求Native BF16连续hidden[T,4,4096]")
+            raise ValueError(validation_error("要求Native BF16连续hidden[T,4,4096]", hidden=hidden))
         if native["cmp_block_table"].ndim != 2:
-            raise ValueError("cmp_block_table须为二维Tensor")
+            raise ValueError(
+                validation_error("cmp_block_table须为二维Tensor", cmp_block_table=native["cmp_block_table"])
+            )
         self.policy = policy or select_policy(
             tokens=t,
             requests=b,
@@ -100,7 +107,13 @@ class PreparedDynamicCSA:
         }
         self._diagnostic = "idx_topk" in native
         if self._diagnostic != ("idx_topk_scores" in native):
-            raise ValueError("诊断Top-K索引与分数必须同时提供")
+            raise ValueError(
+                validation_error(
+                    "诊断Top-K索引与分数必须同时提供",
+                    has_topk="idx_topk" in native,
+                    has_topk_scores="idx_topk_scores" in native,
+                )
+            )
         if not self._diagnostic:
             direct.pop("topk_indices")
             direct.pop("topk_scores")
@@ -108,10 +121,18 @@ class PreparedDynamicCSA:
         self.buffers.update({target: native[source] for target, source in direct.items()})
         for name in ("main_bounds", "idx_bounds"):
             if self.buffers[name].shape != (b + 1,) or self.buffers[name].dtype != torch.int32:
-                raise ValueError(f"{name}须为Native INT32[B+1]")
+                raise ValueError(
+                    validation_error(
+                        f"{name}须为Native INT32[B+1]", parameter=name, tensor=self.buffers[name], requests=b
+                    )
+                )
         for name in ("main_lengths", "idx_lengths"):
             if self.buffers[name].shape != (b,) or self.buffers[name].dtype != torch.int32:
-                raise ValueError(f"{name}须为Native INT32[B]")
+                raise ValueError(
+                    validation_error(
+                        f"{name}须为Native INT32[B]", parameter=name, tensor=self.buffers[name], requests=b
+                    )
+                )
         for name, width in (
             ("norm_w", 4096),
             ("gamma_cq", 1024),
@@ -121,16 +142,33 @@ class PreparedDynamicCSA:
         ):
             value = self.buffers[name]
             if value.shape != (width,) or value.dtype != torch.bfloat16:
-                raise ValueError(f"{name}必须保持Native BF16[{width}]")
+                raise ValueError(
+                    validation_error(f"{name}必须保持Native BF16[{width}]", parameter=name, tensor=value, width=width)
+                )
         for name in ("wq_a", "wq_b", "wo_a", "wo_b", "wkv", "idx_wq_b", "weights_proj"):
             if device.type == "npu":
                 import torch_npu
 
                 if torch_npu.get_npu_format(self.buffers[name]) != 29:
-                    raise ValueError(f"{name}须由Native已有加载流程提供NZ格式")
+                    raise ValueError(
+                        validation_error(
+                            f"{name}须由Native已有加载流程提供NZ格式",
+                            parameter=name,
+                            tensor=self.buffers[name],
+                            expected_format=29,
+                            actual_format=torch_npu.get_npu_format(self.buffers[name]),
+                        )
+                    )
         for name, value in self.buffers.items():
             if value.device != device or not value.is_contiguous():
-                raise ValueError(f"{name}须在同一设备并满足连续GM描述符")
+                raise ValueError(
+                    validation_error(
+                        f"{name}须在同一设备并满足连续GM描述符",
+                        parameter=name,
+                        tensor=value,
+                        expected_device=str(device),
+                    )
+                )
 
         self.buffers.update(
             x=hidden.view(t, 16384),
@@ -143,7 +181,9 @@ class PreparedDynamicCSA:
         self.allocations: dict[str, torch.Tensor] = {}  # 外部工作区计数为零。
         cache = self.buffers["idx_cache"]
         if cache.dtype != torch.int8 or cache.ndim != 2 or cache.shape[1] < 4160 or cache.shape[1] % 64:
-            raise ValueError("Indexer cache须为Native对齐INT8页，页内至少4096B key+64B scale")
+            raise ValueError(
+                validation_error("Indexer cache须为Native对齐INT8页，页内至少4096B key+64B scale", cache=cache)
+            )
 
     def rebind(self, native: Mapping[str, torch.Tensor]) -> None:
         """替换同描述符的Native根参数；内部临时内存由每次PTO调用管理。"""
@@ -164,7 +204,14 @@ class PreparedDynamicCSA:
                 or value.dtype != previous.dtype
                 or value.device != previous.device
             ):
-                raise ValueError(f"{name}的Native描述符变化，需要重新准备TND绑定")
+                raise ValueError(
+                    validation_error(
+                        f"{name}的Native描述符变化，需要重新准备TND绑定",
+                        parameter=name,
+                        expected=previous,
+                        actual=value,
+                    )
+                )
         self.native = dict(native)
         self.buffers.update(roots)
 

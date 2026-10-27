@@ -16,6 +16,7 @@ from vllm_ascend.ops.pypto.trace import trace_event
 
 from ..deepseek_v4_flash_csa.native_adapter import prepare_weights
 from ..deepseek_v4_flash_csa.service import AttentionServiceBase
+from ..deepseek_v4_flash_csa.validation import validation_error
 from .binding import PreparedDynamicCSA
 from .entry import decode_csa_spmd
 from .graph_contract import TNDGraphContract, compact_metadata_capacity, graph_compact_request, tensor_descriptor
@@ -51,12 +52,14 @@ def _native_token_views(requests, layer_name, tokens):
     for name in ("swa", "state", "indexer_state"):
         slots = requests[name].slot_mapping
         if slots is None or slots.dtype != torch.int32:
-            raise ValueError("Native slots须为INT32")
+            raise ValueError(validation_error("Native slots须为INT32", group=name, slots=slots, tokens=tokens))
         result.append((name + ".slots", token_capacity_view(slots, tokens, 2)))
     for kind in ("cos", "sin"):
         value = _rope_tensor(requests["compressed"], kind, layer_name)
         if value is None or value.dtype != torch.float32:
-            raise ValueError("Native RoPE须为FP32")
+            raise ValueError(
+                validation_error("Native RoPE须为FP32", kind=kind, value=value, layer_name=layer_name, tokens=tokens)
+            )
         result.append((kind, token_capacity_view(value, tokens, 64)))
     return result
 
@@ -77,7 +80,11 @@ class CSAServiceRuntime(AttentionServiceBase):
     def __init__(self, attention, operators, max_num_seqs, layer=None):
         # operators参数保留模型准备钩子的统一调用约定；本实现不注册多task算子。
         if operators is not None:
-            raise ValueError("TND CSA直接提交，不接受旧BSH CSAOperators")
+            raise ValueError(
+                validation_error(
+                    "TND CSA直接提交，不接受旧BSH CSAOperators", operators=operators, max_num_seqs=max_num_seqs
+                )
+            )
         self.wrapper = attention.dsa_attn
         self.layer_name = self.wrapper.dsa_attn.layer_name
         self.weights = self._prepare_weights(attention, layer)
@@ -367,10 +374,28 @@ class CSAServiceRuntime(AttentionServiceBase):
         )
         hadamard = metadata["indexer"].hadamard
         if hadamard is None:
-            raise ValueError("Native Indexer未提供Hadamard")
+            raise ValueError(
+                validation_error(
+                    "Native Indexer未提供Hadamard",
+                    layer_name=self.layer_name,
+                    hidden=hidden,
+                    positions=positions,
+                    output=output,
+                    capturing=capturing,
+                    metadata=metadata,
+                )
+            )
         if self._hadamard is not hadamard:
             if capturing:
-                raise RuntimeError("TND CSA须在捕获前完成Native Hadamard warmup")
+                raise RuntimeError(
+                    validation_error(
+                        "TND CSA须在捕获前完成Native Hadamard warmup",
+                        layer_name=self.layer_name,
+                        hadamard=hadamard,
+                        cached_hadamard=self._hadamard,
+                        capturing=capturing,
+                    )
+                )
             self.weights["hadamard_idx"] = hadamard.detach().T.to(torch.bfloat16).contiguous()
             self._hadamard = hadamard
 
@@ -410,7 +435,19 @@ class CSAServiceRuntime(AttentionServiceBase):
         key = (_descriptor_key(native), policy)
         if key not in self._bindings:
             if capturing:
-                raise RuntimeError("TND CSA须在捕获前warmup当前描述符与策略")
+                raise RuntimeError(
+                    validation_error(
+                        "TND CSA须在捕获前warmup当前描述符与策略",
+                        layer_name=self.layer_name,
+                        native=native,
+                        tokens=tokens,
+                        requests=requests,
+                        max_query_tokens=MAX_QUERY_TOKENS,
+                        max_seq_len=maximum,
+                        policy=policy.constexprs(),
+                        prepared_bindings=len(self._bindings),
+                    )
+                )
             self._bindings[key] = self._prepare_binding(
                 native,
                 max_query_tokens=MAX_QUERY_TOKENS,
@@ -439,7 +476,17 @@ class CSAServiceRuntime(AttentionServiceBase):
         if capturing:
             signature = self.graph_signature(context, tokens)
             if signature is None:
-                raise RuntimeError("TND CSA捕获输入未满足可重放合同")
+                raise RuntimeError(
+                    validation_error(
+                        "TND CSA捕获输入未满足可重放合同",
+                        layer_name=self.layer_name,
+                        hidden=hidden,
+                        positions=positions,
+                        output=output,
+                        capturing=capturing,
+                        metadata=metadata,
+                    )
+                )
             context.additional_kwargs.setdefault("pto_csa_tnd_graph_contracts", {})[self.layer_name] = TNDGraphContract(
                 self, tokens, signature
             )
