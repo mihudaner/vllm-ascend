@@ -74,7 +74,7 @@ class HCATNDServiceRuntime(AttentionServiceBase):
             counts = current
             if req.num_reqs_actual is not None and not 1 <= req.num_reqs_actual <= batch:
                 return False
-            if req.ori_win_right not in (None, 0) or req.dspark_swa_indices is not None:
+            if req.ori_win_right not in (None, 0) or getattr(req, "dspark_swa_indices", None) is not None:
                 return False
             requests_by_group[name] = req
         if requests_by_group["swa"].ori_win_left not in (None, 127):

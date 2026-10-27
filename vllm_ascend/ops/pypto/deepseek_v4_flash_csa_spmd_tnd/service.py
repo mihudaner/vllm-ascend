@@ -151,7 +151,7 @@ class CSAServiceRuntime(AttentionServiceBase):
             if reference_counts is not None and counts != reference_counts:
                 return None
             reference_counts = counts
-            if req.ori_win_right not in (None, 0) or req.dspark_swa_indices is not None:
+            if req.ori_win_right not in (None, 0) or getattr(req, "dspark_swa_indices", None) is not None:
                 return None
             descriptors.append(
                 (
@@ -269,7 +269,7 @@ class CSAServiceRuntime(AttentionServiceBase):
             reference_counts = counts
             if req.num_reqs_actual is not None and not 1 <= req.num_reqs_actual <= requests:
                 return False
-            if req.ori_win_right not in (None, 0) or req.dspark_swa_indices is not None:
+            if req.ori_win_right not in (None, 0) or getattr(req, "dspark_swa_indices", None) is not None:
                 return False
         try:
             _native_token_views(

@@ -102,7 +102,7 @@ class HCATNDGraphServiceRuntime(HCATNDServiceRuntime):
                     or req.seq_lens.dtype != torch.int32 or req.query_start_loc.dtype != torch.int32
                     or req.start_pos is None or req.start_pos.shape != (batch,) or req.start_pos.dtype != torch.int32
                     or req.max_seq_lens is None or not 1 <= req.max_seq_lens <= MAX_HISTORY
-                    or req.ori_win_right not in (None, 0) or req.dspark_swa_indices is not None):
+                    or req.ori_win_right not in (None, 0) or getattr(req, "dspark_swa_indices", None) is not None):
                 return None
             if req.num_reqs_actual is not None and not 1 <= req.num_reqs_actual <= batch:
                 return None
