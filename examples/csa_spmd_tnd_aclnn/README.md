@@ -95,6 +95,63 @@ build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8�
 当前限制：独立数学 golden 的 C01 验证未通过（输出 178/98304 超差，最大绝对误差 0.0234375）；尚不宣称独立精度验收或生产服务验收。Host 布局检查仅覆盖描述符及指针起始范围，不能替代 NPU 精度、保护区与状态验证。
 
 
+## Tiling key 选择与 workspace 计算
+
+当前 **tiling key 在 Python 准备阶段选择，workspace 在 C++ Host tiling 阶段计算**。
+Host 接收调用者传入的 `variant`，进行范围、描述符及布局检查；目前没有在 C++ 中重新实现 Python 的策略选择规则。
+
+| 环节 | 代码位置 | 职责 |
+| --- | --- | --- |
+| 原始策略选择 | [policy.py](../../vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py)，`select_policy()` | 根据 T、B、query/history 上界、页表宽度选择完整 policy |
+| 准备时调用选择器 | [binding.py](../../vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/binding.py)，`PreparedDynamicCSA` | 复用上游输入合同和策略选择，不新增 device 长度回读 |
+| policy 映射到 key | [runtime.py](runtime.py)，`PreparedAclnnCSA.__init__()` | 与 [generated/manifest.json](generated/manifest.json) 中完整 constexpr policy 精确匹配，取得 `tiling_key`，作为 `variant` 传入 Torch 算子 |
+| Torch 传参 | [torch/binding.cpp](torch/binding.cpp)，`Run()` | 检查输入并将 `variant` 传给 ACLNN |
+| Host tiling | [op_host/csa_spmd_tnd_pto.cpp](op_host/csa_spmd_tnd_pto.cpp)，`Tiling()` | 读取真实描述符，按 key 调用 `Layout0…Layout61(ext)`，设置 `SetTilingKey(*v)`，提交 workspace 大小和 tiling data |
+| 动态布局 | [include/layout_generated.h](include/layout_generated.h)，`Layout0…Layout61()` | 按实际 T/B、缓存尺寸及策略推导临时 Tensor、偏移和运行时标量 |
+| 分配与别名 | [include/workspace.h](include/workspace.h)，`Allocate()`、`Align()`、`Tensor::view/reshape()` | 512 字节对齐、尺寸溢出检查；别名视图复用存储，不重复分配 |
+| 设备侧指针和分派 | [op_kernel/csa_spmd_tnd_pto.cpp](op_kernel/csa_spmd_tnd_pto.cpp) | `GetUserWorkspace()` 取得用户区，结合 `sources/offsets` 还原指针，按 `TILING_KEY_IS(key)` 调用对应 C/V 核 |
+
+调用关系：
+
+```text
+PreparedDynamicCSA → policy.select_policy → 完整 constexpr policy
+  → manifest 精确匹配 → variant / tiling key
+  → Torch → ACLNN → Host Tiling
+  → Layout<key>(实际描述符) → workspace + tiling data
+  → MIX 入口按 key 执行
+```
+
+其中 `select_policy` 是 policy 模块的函数，由 `PreparedDynamicCSA` 调用。
+直接使用纯 C++ ACLNN 接口时，调用者同样需要传入符合上游策略的 key；当前 Host 不会根据描述符自动替调用者选策略。
+
+### Workspace 大小与地址如何得到
+
+例如 `Layout0()` 从 `ext[0].shapes[0]` 读取 T，从 `ext[19].shapes[0]` 读取 B，
+再为 `x_fp32=[T,16384]` 等中间 Tensor 计算空间。每次内部申请先将 cursor 对齐到
+512 字节，再增加 `元素数量 × dtype 字节数`；最终 `layout.workspaceBytes=Align(cursor)`。
+同一个 key 下实际 shape 改变，workspace 会重新计算，不是每个 key 固定一个大小。
+
+Host 向 CANN 提交的总空间为：
+
+```cpp
+c->GetWorkspaceSizes(1)[0] =
+    layout.workspaceBytes + platform.GetLibApiWorkSpaceSize();
+```
+
+用户工作区与 CANN 系统工作区分开处理。设备侧通过 `AscendC::GetUserWorkspace(workspace)`
+取得用户区，按下面的映射还原生成核所需的 133 个指针：
+
+```cpp
+ptrs[i] = (data.sources[i] < 0 ? ws : ext[data.sources[i]]) + data.offsets[i];
+```
+
+`sources[i] < 0` 表示内部 workspace；其余项指向外部 Tensor。
+Host 同时写入 `offsets[133]`、`sources[133]` 和 `scalars[28]`，供设备核使用。
+
+这些布局和包装代码由 [scripts/generate_adapter.py](scripts/generate_adapter.py) 从各策略编译产物的
+`orchestration/decode_csa_spmd_debug.cpp` 与 `compiled_meta.json` 提取、生成。
+修改生成规则应调整生成器并重新生成对应文件；运行时计算发生在 C++ Host，不依赖 Python 执行生成器。
+
 ## 安装和纯 C++ 验证
 
 构建全部策略时将 build.sh 第三个参数设置为 -1。安装到仓外目录：
