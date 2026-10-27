@@ -1,8 +1,6 @@
 # CSA 单 SPMD TND 自定义算子开发与调用示例
 
-> 当前同步状态（2026-10-27）：本分支已合入上游 `1685da6914ae6196537d7f1a66e84e09a9c48ae5`，Python 源码已采用新增三张 Native NZ 权重合同。此 example 的生成 C++、接口/布局及已安装 ACLNN 包仍对应 `c346573a`，新版 ACLNN 适配、重新生成和验证尚未完成。下文既有精度与性能结果仅对应旧包，不能据此直接组合新版输入与旧包运行。同步前完整已验证工程保留在提交 `1bc8c87f`；本次未新建分支。
-
-本示例将 PyPTO 生成的 CSA 单 SPMD TND C++ 核封装为 CANN 自定义算子，通过 Torch 扩展或纯 C++ 调用 ACLNN。算法基线为 `c346573a`；支持原 Python 默认选择器的 62 种编译策略，T/B 使用运行时描述符，不限制为原八个性能场景。
+本示例将 PyPTO 生成的 CSA 单 SPMD TND C++ 核封装为 CANN 自定义算子，通过 Torch 扩展或纯 C++ 调用 ACLNN。算法基线为 `1685da69`；支持原 Python 默认选择器的 62 种编译策略，T/B 使用运行时描述符，不限制为原八个性能场景。
 
 ```text
 Python：PreparedAclnnCSA(native_inputs, ...)
@@ -18,11 +16,11 @@ Python：PreparedAclnnCSA(native_inputs, ...)
 | 当前验收项 | 结果 |
 |---|---|
 | 动态编译与安装包 | 62 个策略，tiling key 0–61；设备 binary 已包含实际 C/V 机器码 |
-| 接入一致性 | 36 个场景的业务/诊断 eager、graph replay 与原 Python PTO 逐位一致，外部保护区通过；覆盖 18/62 个策略 |
-| 同址更新与连续状态 | 10 项 metadata 更新、4 步连续状态 replay 通过 |
-| CPU 合同检查 | 3,062 组策略/布局、162 组 Meta 通过 |
-| 当前包性能 | 20 场景的 replay/eager 核耗时已采集；NPU Event replay 时间暂缓 |
-| 独立数学 golden | C01 未通过；接入一致性不能代替数学精度验收 |
+| 接入一致性 | 5 个代表场景的业务/诊断 eager、graph replay 与新版 Python PTO 逐位一致；七张 NZ 权重零拷贝/只读及外部保护区通过；覆盖 key 3/4/5/10 |
+| 同址更新与连续状态 | 新版 5 场景 graph replay 通过；旧版 10 项同址更新、4 步连续状态本轮未重跑 |
+| CPU 合同检查 | 本轮 5 组 Meta、10 项旧 shape 拒绝检查及 14 项相关 UT 通过；未单独重跑 workspace 大小验证 |
+| 当前包性能 | 3 个代表场景 replay/eager 核耗时已采集；NPU Event replay 时间暂缓 |
+| 独立数学 golden | 旧基线 C01 未通过；新版未重测，不以接入一致性替代数学精度验收 |
 
 ## 1. 先看哪些文件
 
@@ -96,7 +94,7 @@ csa_spmd_tnd_aclnn/
 ├── PERFORMANCE_PROVENANCE.json       # 性能采集源码、环境及脚本哈希
 ├── dynamic_validation_results.json   # 当前动态包验证证据和报告路径
 ├── expanded_dynamic_cases.json       # 本轮新增 12 个输入的精确定义
-├── baseline.json                    # c346573 基线、入口签名与摘要
+├── baseline.json                    # 1685da69 基线、入口签名与摘要
 ├── ADAPTATION_LOG.md                 # 按时间保留的适配过程
 ├── 接入计划.md                       # 当前适配路线、完成状态与剩余工作
 └── 接口与参数说明.md                 # 当前参数表、动态约束与存储/调用合同
@@ -113,7 +111,7 @@ csa_spmd_tnd_aclnn/
 ├── local-config/                    # 本机环境和公共 bootstrap 路径适配
 ├── scripts/                         # 本机真实权重场景、对照及性能启动脚本
 ├── build/                           # .run、Torch .so、参考 .pt、输入输出 .bin、报告
-├── install/csa_dynamic/             # 当前动态包的独立 OPP 安装目录
+├── install/csa_nz1685/             # 当前动态包的独立 OPP 安装目录
 └── logs/                            # 编译和设备运行日志
 ```
 
@@ -125,7 +123,7 @@ csa_spmd_tnd_aclnn/
 | 工具 | CANN 9.1、CMake ≥ 3.20、C++17 编译器及 PTO-ISA 头文件 |
 | Torch 路径 | 匹配的 PyTorch / TorchNPU；本轮为 `2.10.0+cpu` / `2.10.0.post2` |
 | 源码 | 完整 vLLM Ascend 仓；Torch 绑定复用 `csrc/aclnn_torch_adapter/` |
-| 算法基线 | `nalinaly/vllm-ascend:dsv4-flash-pto-v0.25.1rc1` 的 `c346573ab3313fcc71cd58756acd129f34755439` |
+| 算法基线 | `nalinaly/vllm-ascend:dsv4-flash-pto-v0.25.1rc1` 的 `1685da6914ae6196537d7f1a66e84e09a9c48ae5` |
 | 开发分支 | [mihudaner/vllm-ascend:csa_spmd_tnd_aclnn](https://github.com/mihudaner/vllm-ascend/tree/csa_spmd_tnd_aclnn) |
 
 直接编译已有 `generated/` 不需要重新运行 PyPTO 编译器。`PreparedAclnnCSA` 复用上游输入绑定与选择器，仍需要匹配的 Python 工程环境；纯 C++ runner 不依赖 Torch/vLLM/PyPTO/Simpler。重新生成 PTO 或运行 Python PTO 参考时必须使用公共 shared-toolchain，不能另外选择 SDK。
@@ -152,18 +150,18 @@ python scripts/build_torch.py --build-dir /external/csa_torch
 
 | 产物 | 当前服务器已验证路径 |
 |---|---|
-| 全策略安装包 | `/data00/wangkai/aclnnWorkspace/build/csa_dynamic_keys2/csa_spmd_tnd_pto.run` |
-| OPP vendor | `/data00/wangkai/aclnnWorkspace/install/csa_dynamic/vendors/csa_spmd_tnd_pto` |
-| Torch 扩展 | `/data00/wangkai/aclnnWorkspace/build/torch_dynamic/csa_pto_npu.so` |
+| 全策略安装包 | `/data00/wangkai/aclnnWorkspace/build/csa_nz1685/csa_spmd_tnd_pto.run` |
+| OPP vendor | `/data00/wangkai/aclnnWorkspace/install/csa_nz1685/vendors/csa_spmd_tnd_pto` |
+| Torch 扩展 | `/data00/wangkai/aclnnWorkspace/build/torch_nz1685/csa_pto_npu.so` |
 
-当前设备二进制位于 vendor 的 `op_impl/ai_core/tbe/kernel/ascend910_93/csa_spmd_tnd_pto/`：62 个 key 的实际代码合并为一个 `.o`，含 62 个 AIC 和 62 个 AIV 非空函数入口。文件共 13,463,560 字节（12.84 MiB），其中 `.text` 为 13,254,552 字节；完整 `.run` 为 42.81 MiB。文件大小与 workspace 申请量是不同指标。
+当前设备二进制位于 vendor 的 `op_impl/ai_core/tbe/kernel/ascend910_93/csa_spmd_tnd_pto/`：62 个 key 的实际代码合并为一个 `.o`，含 62 个 AIC 和 62 个 AIV 非空函数入口。当前 binary 大小及 SHA256 见 `dynamic_validation_results.json` 的 build 字段；完整 `.run` 为 43.03 MiB。文件大小与 workspace 申请量是不同指标。
 
 ## 5. 配置运行环境与 Torch 调用
 
 在导入 `torch_npu` 前，将本次安装的 vendor 和 ACLNN 库加入环境；保留输入准备/对照所需的 Native vendor：
 
 ```bash
-CSA_VENDOR=/data00/wangkai/aclnnWorkspace/install/csa_dynamic/vendors/csa_spmd_tnd_pto
+CSA_VENDOR=/data00/wangkai/aclnnWorkspace/install/csa_nz1685/vendors/csa_spmd_tnd_pto
 export ASCEND_CUSTOM_OPP_PATH="$CSA_VENDOR${ASCEND_CUSTOM_OPP_PATH:+:$ASCEND_CUSTOM_OPP_PATH}"
 export LD_LIBRARY_PATH="$CSA_VENDOR/op_api/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ```
@@ -177,7 +175,7 @@ from runtime import PreparedAclnnCSA
 
 prepared = PreparedAclnnCSA(
     native_inputs,
-    library="/data00/wangkai/aclnnWorkspace/build/torch_dynamic/csa_pto_npu.so",
+    library="/data00/wangkai/aclnnWorkspace/build/torch_nz1685/csa_pto_npu.so",
     max_query_tokens=max_query_tokens,
     max_seq_len=max_seq_len,
 )
@@ -191,7 +189,7 @@ output = prepared()  # 返回 native_inputs["x_out"]，并原地更新 cache/sta
 | Tensor 数量 | 业务入口 55 项；缺少 TopK 时准备阶段补两项，Torch/ACLNN 使用 57 项 |
 | 底层 Torch 接口 | `torch.ops.csa_pto.run(buffers, variant) -> None`，顺序以 `generated/interface.json` 为准 |
 | 修改语义 | output、TopK/score 写入传入 buffer；五项 cache/state 同址原地更新 |
-| 物理布局 | NZ=2，固定模型维度，按接口清单和上游绑定检查；不能任意 reshape NZ 权重 |
+| 物理布局 | NZ=2，七张 NZ 权重，按接口清单和上游绑定检查；`wkv/weights_proj` 保持 Native `[N,K]` 方向 |
 | graph replay | 库加载和准备在 capture 前完成；相同地址可更新内容，改变 T/B 容量需重新准备和 capture |
 | rebind | 仅支持同描述符替换；不会改写已捕获图中的旧指针 |
 
@@ -209,19 +207,17 @@ python scripts/test_dynamic_contract.py \
   --library /external/csa_torch/csa_pto_npu.so
 ```
 
-### 6.2 当前服务器的动态 ACLNN 对照
+### 6.2 当前服务器的新版 NZ 对照
 
-本机设备测试脚本在仓外 `aclnnWorkspace/scripts/`，依赖已配置的 Native 输入准备、正式单层权重和参考快照。以下不是仓内 `tests/` 的命令；输出标签应使用尚不存在的新名称。
+本轮仅验证五个代表输入：C04、B24/B28 联合前缀、小 batch B3/S2、容量 B16/T96 而有效 B5/T16 的 padding。精确输入定义、报告路径、SHA256 和已测 key 见 [dynamic_validation_results.json](dynamic_validation_results.json)。
 
 ```bash
 cd /data00/wangkai/aclnnWorkspace
-TASK_DEVICE=0 bash scripts/run_dynamic_case.sh validate dynamic_b1_s1 dynamic_b1_s1_rerun_new \
-  --reference-state /data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b1_s1_01/result/reference_state.pt
+TASK_DEVICE=0 bash scripts/run_nz1685_case.sh validate h131072_b16_s6 nz1685_c04_rerun_new \
+  --reference-state build/nz1685_ref_h131072_b16_s6_01/result/reference_state.pt
 ```
 
-该路径使用当前动态包与 Torch 扩展，检查业务/诊断 eager、graph replay，比较 output、TopK、score、cache/state 并检查外部保护区。冻结参考快照用于独立 ACLNN 进程比较，该进程不初始化 Simpler runtime。
-
-新增 12 输入的完整定义已保存为 [expanded_dynamic_cases.json](expanded_dynamic_cases.json)。本机 `scripts/run_extra_dynamic_matrix.py` 先生成原 Python PTO 参考，再做 ACLNN 校验；汇总和报告哈希见 [dynamic_validation_results.json](dynamic_validation_results.json)。既有结果会被检查，重测时应更换脚本输出标签。
+参考快照来自同一仓库的新版 Python PTO；ACLNN 独立进程不初始化 Simpler runtime。四条业务/诊断 eager/replay 路径比较 output、Top-K、score、cache/state，并检查外部保护区、七张 NZ 权重的 Native 存储复用与只读性。测试脚本和大数据保留在仓外，输出名须更换为未使用的新名称。旧版 36 场景与同址状态的完整记录保留在验证 JSON 的 historical_versions，复现手册保留历史汇总；不计入新版覆盖。
 
 ### 6.3 纯 C++ ACLNN
 
@@ -229,7 +225,7 @@ TASK_DEVICE=0 bash scripts/run_dynamic_case.sh validate dynamic_b1_s1 dynamic_b1
 
 ```bash
 cmake -S aclnn_test -B /external/csa_cpp_test \
-  -DCSA_VENDOR=/data00/wangkai/aclnnWorkspace/install/csa_dynamic/vendors/csa_spmd_tnd_pto
+  -DCSA_VENDOR=/data00/wangkai/aclnnWorkspace/install/csa_nz1685/vendors/csa_spmd_tnd_pto
 cmake --build /external/csa_cpp_test
 /external/csa_cpp_test/csa_aclnn_test /fixture/input /fixture/actual /fixture/expected 0 0
 ```
@@ -240,8 +236,8 @@ cmake --build /external/csa_cpp_test
 
 | 流程 | 参考与结论 |
 |---|---|
-| 接入一致性 | 同输入/初始缓存的原 Python PTO → ACLNN；当前 36 场景逐位一致 |
-| 独立数学精度 | 物理输入解码为逻辑 ND → `golden/golden.py` → 比较；C01 仍有 178/98304 个输出超出 atol=rtol=0.01，max_abs=0.0234375 |
+| 接入一致性 | 同输入/初始缓存的原 Python PTO → ACLNN；新版 5 个代表场景逐位一致 |
+| 独立数学精度 | 物理输入解码为逻辑 ND → `golden/golden.py` → 比较；旧基线 C01 有 178/98304 个输出超出 atol=rtol=0.01，max_abs=0.0234375 |
 
 `.pt` 是 Python Tensor 快照，`.bin` 是纯 C++ 读取的原始字节，`.pto` 是编译 IR。数学参考的数据流是 `logical_snapshot.pt → golden_input.pt → golden.pt → expected/*.bin`；纯 C++ runner 读取 `input/*.bin + tensors.tsv`，不直接读取 `.pt`。参考 `.bin` 也可以来自原 PTO，两种参考的含义不同。
 
@@ -249,23 +245,9 @@ cmake --build /external/csa_cpp_test
 
 ## 7. 性能采集
 
-当前动态包的 20 场景数据见 [PERFORMANCE.md](PERFORMANCE.md)。原八场景的 ACLNN 两列已更新为新包结果；新增场景仅填写 ACLNN 两列，其他列为 `-`。
+当前新版包只测 C04、B24、B28 的 replay/eager 核耗时，结果及同口径旧版历史对照见 [PERFORMANCE.md](PERFORMANCE.md)。当前综合表其他场景/实现填 `-`；旧版 20 场景完整表保留在同一性能文档的历史章节，全部样本与来源保留在 JSON 的 historical_versions。
 
-- replay：由 graph replay 触发；eager：直接执行 Torch → ACLNN。
-- 两列均取 CANN `op_summary` 中目标算子的 `Task Duration(us)`，预热 10 次，各采 3 次取中位数。
-- 不含 Host 检查、tiling/分配、图捕获、状态恢复和同步等待；NPU Event 包住一次 replay 的时间未测。
-- 原 PTO L1 是核内时间戳，计时起止不同，不能直接用两列差值推断精确接入开销。
-
-本机运行/汇总入口：
-
-```bash
-cd /data00/wangkai/aclnnWorkspace
-python3 scripts/run_dynamic_performance.py          # 原八场景
-python3 scripts/run_dynamic_performance.py --extra  # 新增 12 场景
-python3 scripts/summarize_dynamic_run.py
-```
-
-已通过结果会跳过；重新采集前需更换脚本中的 run 后缀。原始 PROF、CSV 和三次样本路径保存在 [PERFORMANCE.json](PERFORMANCE.json)，采集环境和脚本哈希见 [PERFORMANCE_PROVENANCE.json](PERFORMANCE_PROVENANCE.json)。
+两列均使用 CANN `Task Duration(us)`，预热 10 次、3 个样本取中位数；不含 Host、tiling/分配、捕获或状态恢复。NPU Event replay 时间未测。本轮历史对照不是交替配对重测，不据此宣称稳定收益。复跑命令和原始证据见性能说明及 [PERFORMANCE.json](PERFORMANCE.json)。
 
 ## 8. Tiling key、workspace 与生成代码
 
@@ -284,7 +266,7 @@ Host workspace = Layout<key>(实际描述符).workspaceBytes
                + PlatformAscendC::GetLibApiWorkSpaceSize()
 ```
 
-当前系统区为 16 MiB，用户区随 T/B 和策略变化，一次调用只申请所选策略的 workspace。62 个代表输入和全部已测输入的精确申请量见 [WORKSPACE.md](WORKSPACE.md)。生成核的 133 个 Tensor 指针包括外部 Tensor、内部临时对象和别名视图，不是用户另传 133 个独立 Tensor。
+当前系统区为 16 MiB，用户区随 T/B 和策略变化，一次调用只申请所选策略的 workspace。历史基线的申请量见 [WORKSPACE.md](WORKSPACE.md)；本次内部申请逻辑未变，按用户要求不单独重做大小统计。生成核的 133 个 Tensor 指针包括外部 Tensor、内部临时对象和别名视图，不是用户另传 133 个独立 Tensor。
 
 `layout_generated.h` 约 3.5 万行是 62 个策略展开后的生成代码，公共分配逻辑在 `workspace.h`。修改映射应修改 `scripts/generate_adapter.py` 并从对应编译产物重新生成，不能只手改生成头文件。
 
@@ -292,6 +274,6 @@ Host workspace = Layout<key>(实际描述符).workspaceBytes
 
 ## 9. 当前限制与参考
 
-62 个策略均已编译，但设备数值验证覆盖 18 个策略，有效请求 Q 测到 1–6；未把这些样例外推为任意输入都已验收。独立数学 golden C01、生产服务、整模型、SuperKernel/Early-Start 尚未完成本工程验收。本轮文档整理没有重新执行 NPU 验证；全仓格式检查此前因缺少 pre-commit 未完成。
+62 个策略均已重新生成和编译；新版设备验证仅覆盖 5 个代表输入、4 个策略键，不把旧版 36 场景算作新版覆盖。独立数学 golden 新版未测、旧版 C01 未通过；生产服务、整模型、SuperKernel/Early-Start 尚未验收。全仓格式检查因缺少 pre-commit 未完成。
 
 工程组织参考 [HC-pre 示例](https://github.com/mihudaner/vllm-ascend/tree/a200612dde961e14edb25490b1e92f7bb79b06b7/examples/hc_pre_pto_aclnn)，沿用“前提 → 目录 → 编译安装 → 调用 → 验证 → 性能 → 接入说明”的阅读方式。CSA 当前的输入规模、策略选择位置、依赖和验证结果以上述实际实现为准。

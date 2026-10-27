@@ -1529,5 +1529,7 @@
     }
   ],
   "normalized_warning": "For comparing layout sizes only; not every key is selected by Python at T96/B16.",
-  "limits": "Host requested bytes only. Excludes external weights/cache/outputs, allocator caching, graph pools and concurrent invocations."
+  "limits": "Host requested bytes only. Excludes external weights/cache/outputs, allocator caching, graph pools and concurrent invocations.",
+  "measured_baseline": "c346573ab3313fcc71cd58756acd129f34755439",
+  "nz1685_note": "Historical values retained; no standalone workspace size validation or recount for this upgrade"
 }

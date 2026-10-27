@@ -1,13 +1,13 @@
 {
-  "status": "analysis_only_not_aclnn_validated",
+  "status": "nz_aclnn_representative_validation_passed",
   "upstream_repository": "https://github.com/nalinaly/vllm-ascend",
   "upstream_branch": "dsv4-flash-pto-v0.25.1rc1",
-  "upstream_commit": "c346573ab3313fcc71cd58756acd129f34755439",
+  "upstream_commit": "1685da6914ae6196537d7f1a66e84e09a9c48ae5",
   "reference_repository": "https://github.com/mihudaner/vllm-ascend",
   "reference_branch": "hc_pre_aclnn",
   "reference_commit": "a200612dde961e14edb25490b1e92f7bb79b06b7",
   "entry_path": "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/entry.py",
-  "entry_sha256": "b391f69d70b291f1415de27525f39c8bf6577ba12091e27da60c14cdd5172834",
+  "entry_sha256": "9f9ac2ffe57a3ad02c64d26e3b1227bbc2569b24b4f0f05bde557163e0ecff80",
   "python_entry_inventory": [
     {
       "name": "decode_csa_spmd_debug",
@@ -62,7 +62,7 @@
         },
         {
           "name": "wkv",
-          "annotation": "pl.Tensor[[4096, 512], pl.BF16]"
+          "annotation": "pl.Tensor[[512, 4096], pl.BF16, BF16_WEIGHT_LAYOUT]"
         },
         {
           "name": "gamma_ckv",
@@ -202,7 +202,7 @@
         },
         {
           "name": "idx_wq_b",
-          "annotation": "pl.Tensor[[1024, 8192], pl.INT8]"
+          "annotation": "pl.Tensor[[1024, 8192], pl.INT8, QUANT_WEIGHT_LAYOUT]"
         },
         {
           "name": "idx_wq_b_scale",
@@ -210,7 +210,7 @@
         },
         {
           "name": "weights_proj",
-          "annotation": "pl.Tensor[[4096, 64], pl.BF16]"
+          "annotation": "pl.Tensor[[64, 4096], pl.BF16, BF16_WEIGHT_LAYOUT]"
         },
         {
           "name": "topk_scores",
@@ -425,7 +425,7 @@
         },
         {
           "name": "wkv",
-          "annotation": "pl.Tensor[[4096, 512], pl.BF16]"
+          "annotation": "pl.Tensor[[512, 4096], pl.BF16, BF16_WEIGHT_LAYOUT]"
         },
         {
           "name": "gamma_ckv",
@@ -565,7 +565,7 @@
         },
         {
           "name": "idx_wq_b",
-          "annotation": "pl.Tensor[[1024, 8192], pl.INT8]"
+          "annotation": "pl.Tensor[[1024, 8192], pl.INT8, QUANT_WEIGHT_LAYOUT]"
         },
         {
           "name": "idx_wq_b_scale",
@@ -573,7 +573,7 @@
         },
         {
           "name": "weights_proj",
-          "annotation": "pl.Tensor[[4096, 64], pl.BF16]"
+          "annotation": "pl.Tensor[[64, 4096], pl.BF16, BF16_WEIGHT_LAYOUT]"
         },
         {
           "name": "attn_sink",

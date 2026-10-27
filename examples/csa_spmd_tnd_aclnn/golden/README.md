@@ -1,5 +1,7 @@
 # CSA 独立 PyTorch golden
 
+新版 1685da69 本轮只验证 ACLNN 与新版 Python PTO 的接入一致性，未重跑独立数学 golden。下文已知 C01 数值结论属于旧基线；新版外部 wkv/weights_proj 改为 Native NZ `[N,K]`，导出数学输入时需解码为 ND 并转换为 golden 所需方向，不能直接复用旧物理输入文件。
+
 本目录是独立数学参考，不导入 vLLM、PyPTO、Simpler，也不调用被测 CSA、
 融合 HC_pre、融合 Compressor 或融合 Attention。只使用 torch 基础操作。
 数学参考只取 `/data00/wangkai/pto_env/xllm-vllm-ascend` 的已提交版本
@@ -144,7 +146,7 @@ python record_source.py --repo /path/to/xllm-vllm-ascend --output /tmp/csa-sourc
 已完成的独立 C01 验证：最终输出 178/98304 元素超出 atol=rtol=0.01，
 最大绝对误差 0.0234375；主要差异定位到性能核 Indexer 量化/TopK 选择。
 PTO 诊断 score 为数学分数的 1/1024，比较前需统一单位。
-这不改变当前动态包 36 场景与原 c346573 SPMD 逐位一致的接入结论，但不能据此宣称数学精度通过。
+这不改变新版 NZ 包 5 个代表场景与原 c346573 SPMD 逐位一致的接入结论，但不能据此宣称数学精度通过。
 
 详见上级 [适配记录](../ADAPTATION_LOG.md) 第 016–017 节及
 [当前动态接入验证汇总](../dynamic_validation_results.json)。本机完整精度报告位于仓外

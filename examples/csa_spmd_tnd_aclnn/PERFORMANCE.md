@@ -1,6 +1,58 @@
-# CSA 动态 ACLNN 核耗时（2026-10-27）
+# CSA ACLNN 新版 NZ 代表场景核耗时
 
-原 PTO 列保留 2026-10-26 的 c346573 单层结果；ACLNN 两列已替换为 2026-10-27 当前 `csa_dynamic`/`torch_dynamic` 的新实测值。新增 12 个场景仅采集 ACLNN 两列，其余列按要求填 `-`。旧 csa_final 数值不作为当前性能。
+更新日期：2026-10-27。当前算法基线为 `1685da6914ae6196537d7f1a66e84e09a9c48ae5`，使用 `csa_nz1685` / `torch_nz1685`。按用户要求仅采 C04、B24、B28 三个代表场景，不重跑全量性能。
+
+## 同口径历史数据对照
+
+单位 μs；旧版对应 c346573 的动态 ACLNN 包，来自此前已保存记录。这不是同一轮交替配对测量，不由差值宣称稳定加速。
+
+| 场景 | 新版 replay | 新版 eager | 旧版 replay（历史） | 旧版 eager（历史） |
+|---|---:|---:|---:|---:|
+| 128K/B16/S6 | 768.65 | 771.88 | 787.86 | 778.41 |
+| 128K/B24/S6 | 998.26 | 1001.76 | 999.00 | 998.56 |
+| 128K/B28/S6 | 1161.82 | 1159.32 | 1168.16 | 1178.52 |
+
+## 当前综合表
+
+本轮仅填写实际测量的三行 ACLNN 两列。其他实现与未重测场景填 `-`，不把旧版 PTO 或 ACLNN 数字混写为新版实测。
+
+| 场景 | Native | BSH-MPMD-L1 | BSH-SPMD | TND-MPMD-AICPU | TND-MPMD-L1 | TND-SPMD-AICPU | TND-SPMD-L1 | TND-SPMD-ACLNN核耗时（replay） | TND-SPMD-ACLNN核耗时（eager） |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128K/B1/S6 | - | - | - | - | - | - | - | - | - |
+| 256K/B16/S6 | - | - | - | - | - | - | - | - | - |
+| 128K/B8/S6 | - | - | - | - | - | - | - | - | - |
+| 128K/B16/S6 | - | - | - | - | - | - | - | 768.65 | 771.88 |
+| 128K/B24/S6 | - | - | - | - | - | - | - | 998.26 | 1001.76 |
+| 128K/B28/S6 | - | - | - | - | - | - | - | 1161.82 | 1159.32 |
+| 8K/B32/S6 | - | - | - | - | - | - | - | - | - |
+| 128K/B16/混长 T56 | - | - | - | - | - | - | - | - | - |
+
+## 计时与正确性
+
+- 两列均取 CANN `op_summary` 的 `Task Duration(us)`，目标 `CsaSpmdTndPto`。replay 由图回放触发，eager 直接调用 Torch → ACLNN。
+- NPU 0，诊断 57 Tensor 入口；每种模式预热 10 次，采 3 次取中位数，输入/cache 恢复在测量区间外。
+- 采样后输出、Top-K、score、cache/state 与新版 Python PTO 逐位一致，外部保护区和七张 NZ 权重只读检查通过。
+- 不含 Host 检查、tiling/分配、图捕获、数据拷贝、状态恢复和同步等待。NPU Event 包住一次 replay 的计时仍未测。
+- 不单独验证 workspace 大小。原 PTO L1 与当前 CANN Task Duration 起止不同，不直接据此推断接入开销。
+
+## 复现与证据
+
+```bash
+cd /data00/wangkai/aclnnWorkspace
+TASK_DEVICE=0 bash scripts/run_nz1685_case.sh benchmark h131072_b16_s6 nz1685_perf_c04_rerun_new \
+  --reference-state build/nz1685_ref_h131072_b16_s6_01/result/reference_state.pt
+source local-config/env-dynamic.sh
+python scripts/export_aclnn_perf.py build/nz1685_perf_c04_rerun_new/result/result.json
+```
+
+输出名称须使用新名称。完整原始 PROF/CSV 路径、三个样本和报告哈希见 [PERFORMANCE.json](PERFORMANCE.json)，脚本/环境来源见 [PERFORMANCE_PROVENANCE.json](PERFORMANCE_PROVENANCE.json)。
+
+旧版完整 20 场景性能见[固定历史版本](https://github.com/mihudaner/vllm-ascend/blob/1bc8c87f2cefd5d127087c35b4774284986e82a7/examples/csa_spmd_tnd_aclnn/PERFORMANCE.md)，不计入本次新版验收。
+
+
+## c346573 历史完整性能（保留原始 20 场景）
+
+以下为 2026-10-27 旧动态包 csa_dynamic/torch_dynamic 的完整历史表，数值原样保留。原 PTO 列沿用当时 c346573 单层记录；这些列的计时口径见该版本说明，不作为新版实测。此前的 ACLNN 两列也未删除或覆盖为新值。
 
 | 场景 | Native | BSH-MPMD-L1 | BSH-SPMD | TND-MPMD-AICPU | TND-MPMD-L1 | TND-SPMD-AICPU | TND-SPMD-L1 | TND-SPMD-ACLNN核耗时（replay） | TND-SPMD-ACLNN核耗时（eager） |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -25,41 +77,4 @@
 | H65536/B9/S4（碎片化、反序页） | - | - | - | - | - | - | - | 607.47 | 603.95 |
 | H131072/B6/S6（页表宽 2082） | - | - | - | - | - | - | - | 580.95 | 582.51 |
 
-## 计时与验证范围
-
-- 单位 μs。诊断 57 Tensor 入口，与原 PTO 表的输出范围一致；目标 `OP Type=CsaSpmdTndPto`。
-- replay 列由捕获后的图重放触发；eager 列直接执行 Torch → ACLNN。两列都读取 CANN op_summary 的 `Task Duration(us)`，预热 10 次、各采 3 个样本并取中位数。
-- 20 个场景均在 NPU 0 逐个采样；其他设备的正确性任务可并行。每次调用前恢复同一输入/cache；采样后及业务/诊断 eager/graph 的数值逐位一致，外部输入/cache 保护区通过。此处未设置内部 workspace 哨兵。
-- 不包含 Host 检查、tiling/分配、编译、图捕获、数据拷贝、状态恢复或同步等待。NPU Event 包住一次 replay 的时间按用户要求暂缓，未测。
-- 原 PTO 表使用 graph replay；L1 为核内时间戳，AICPU 列为包含设备调度的完整设备跨度。两者与 CANN Task Duration 的起止不同，不由表中差值计算精确接入开销。
-- 独立数学 golden C01 仍未通过；本轮验证的是与原 Python PTO 的接入一致性。
-
-## 新增输入与动态性
-
-H 表示历史 token 数，B/T 为分配容量。新增输入包含 Q=1/2/3/4/6、不同 seed、未对齐历史、混合历史与查询长度、容量 padding、碎片化反序页映射、加宽页表。
-`extra_padded_b16` 的有效请求仅 5 个、有效 token 16 个；实际分配 B16/T96，剩余 token 通过 dummy metadata 表示。
-混合历史为 `[8191,15359,32767,65535,131071]`，Q 为 `[1,2,3,4,6]`。
-精确输入见 [expanded_dynamic_cases.json](expanded_dynamic_cases.json)。这些是测试样例，不是新增静态 shape 档位。
-
-## 原始记录与复现
-
-[PERFORMANCE_PROVENANCE.json](PERFORMANCE_PROVENANCE.json) 记录源码提交、环境路径及验证脚本哈希。
-[PERFORMANCE.json](PERFORMANCE.json) 保留每种模式的 3 个样本、中位数、CSV/PROF 路径、完整采样记录和结果 SHA256。
-动态包 SHA256 为 `0096f66c045e64aee907b2b5d7af196043a3ee4a7845f2812c4eb039ab4e0b7f`；包路径见同文件。
-仓外汇总：`/data00/wangkai/aclnnWorkspace/build/aclnn_dynamic_performance_20261027/PERFORMANCE.json`。
-每场景结果：`/data00/wangkai/aclnnWorkspace/build/perf_dynamic_<case>_02/result/result.json`。
-
-```bash
-cd /data00/wangkai/aclnnWorkspace
-# 已通过的结果会跳过；重采样请先在脚本中更换新的 run 后缀。
-python3 scripts/run_dynamic_performance.py
-python3 scripts/run_dynamic_performance.py --extra
-python3 scripts/summarize_dynamic_run.py
-```
-
-新增用例先通过 `scripts/run_extra_dynamic_matrix.py` 生成 Python PTO reference_state.pt 并做 ACLNN 对照。
-启动器为 `scripts/run_dynamic_case.sh`，环境为 `local-config/env-dynamic.sh`。
-Python PTO 和 ACLNN 使用同一个 `/data00/wangkai/aclnnWorkspace/vllm-ascend` 源码仓；
-vLLM 框架位于 `/data00/wangkai/aclnnWorkspace/deps/vllm`，固定提交 `752a3a504485790a2e8491cacbb35c137339ad34`。
-依赖恢复未修改 CSA 算法，原始算法目录对 c346573 的 Git diff 为空。
-采样实现为仓外 `scripts/benchmark_aclnn.py`、`scripts/profile_aclnn.py`、`scripts/export_aclnn_perf.py`。
+历史 20 场景的全部样本、原始 CSV/PROF 路径、报告哈希与旧包身份完整保存在 [PERFORMANCE.json](PERFORMANCE.json) 的 `historical_versions[0].record`；对应采集环境和脚本哈希保存在 [PERFORMANCE_PROVENANCE.json](PERFORMANCE_PROVENANCE.json) 同名字段。旧包、原始报告和采样文件继续保留服务器仓外。

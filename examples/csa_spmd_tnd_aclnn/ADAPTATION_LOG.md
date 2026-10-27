@@ -455,3 +455,21 @@ C04 导出脚本改为从 generated/manifest.json 的 key 3 读取策略，已�
 同步检查：新版 NZ 权重合同 UT 与现有 ACLNN 布局/绑定 UT 共 15 项通过（--noconftest）；git diff --check 与暂存区差异检查通过。未运行 NPU；format.sh ci 仍因缺少 pre-commit 未完成。
 
 用户补充约束：若 workspace 理论上没有明显变化，不再单独验证或重做大小统计。已核对本次入口函数体及内部申请逻辑未变化，后续仅随生成代码正常更新布局并保留必要编译/运行检查，不安排独立 workspace 大小扫描；重点验证新增三张 NZ 权重合同、数值与 replay。既有 WORKSPACE.md 数字保留原基线身份。
+
+
+## 027. 完成 1685da69 NZ 适配与代表场景验证（2026-10-27）
+
+在原 csa_spmd_tnd_aclnn 分支继续适配，没有新增分支。按新版根签名重新导出全部 62 策略 C++/PTO，生成 57 项外部接口、133 指针/28 标量映射及 Host/MIX/Torch/动态布局。wkv、idx_wq_b、weights_proj 更新为 Native NZ 合同，两张 BF16 保留 [N,K]；baseline.json、参数表和描述符 UT 样本同步。未手改生成核计算；共享工具链未变。
+
+新包 build/csa_nz1685/csa_spmd_tnd_pto.run，SHA256 2007260c7681fb7215a677c4dccabacca0178f3118bd3e084375bed01e05f76b；独立安装 install/csa_nz1685，Torch 为 build/torch_nz1685/csa_pto_npu.so。核验 kernelList 覆盖 key 0–61，binary 哈希与安装元数据一致。旧包及原始数据保留，不直接混用新输入与旧 ABI。
+
+用户要求只做代表场景：C04、B24、B28、小 batch B3/S2、padding B16/T96（有效 B5/T16）。先生成新版 Python PTO 参考，再以不初始化 Simpler runtime 的 ACLNN 独立进程比较。五项业务/诊断 eager/replay 的 9 项数值均 PASS 且 bit_equal=true，外部保护区通过；七张权重格式均为 29，与 Native data_ptr/storage/offset 相同，调用后只读检查通过。覆盖 key 3、4、5、10，未将原 36 场景结果算作新版验收。
+
+新版 Meta 5 组合法描述符通过，将 wkv/weights_proj 换成旧矩阵方向的 10 项错误输入均被拒绝。这是故意构造的参数拒绝检查，不是正常输入失败，也未在 NPU 上执行。相关 14 项输入绑定/NZ 合同 UT 通过。按用户要求不单独验证或统计 workspace 大小；仅正常生成布局并在真实调用中使用。旧 workspace 表保留 c346573 统计身份。
+
+仅重测 C04/B24/B28 的 replay/eager CANN 核耗时，分别为 768.655/771.876、998.260/1001.760、1161.823/1159.323 us；预热 10 次，每种模式 3 样本中位数，采样后数值、外部保护区与权重只读复查通过。NPU Event 未测。与旧版数据的对照属于历史同口径比较，不是交替配对重测，不宣称稳定收益。
+
+本轮未重跑独立数学 golden、同址 metadata/连续状态专项或服务/整模型。验证清单只标本轮实际通过项；旧结论通过固定提交链接保留。README、接入计划、参数说明、动态范围、性能与复现手册同步到当前版本，服务器 REPRODUCTION_LOG.md 与仓内副本一致。
+
+
+用户要求历史数据不能仅用 Git 链接替代。已将 c346573 的完整 20 场景性能表恢复到 PERFORMANCE.md 和 REPRODUCTION.md 的独立历史章节；PERFORMANCE.json、PERFORMANCE_PROVENANCE.json、dynamic_validation_results.json 的 historical_versions 保存 1bc8c87f 时的完整原始记录（包括 36 场景、状态验证、20 场景各次样本与报告哈希），不只保留摘要。原始报告、参考快照、旧包与采样文件未删除。新版结果位于顶层，旧基线按版本独立保留，未测项不拿历史值冒充。

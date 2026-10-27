@@ -1,6 +1,8 @@
 # 62 策略的 workspace 申请量（2026-10-27）
 
-workspace 不是每个 key 固定一个数值。以下直接在 CPU 调用当前 `Layout0…Layout61` 计算 Host 申请量；未把 62 个策略全部运行一遍，也未实际申请这些容量。
+本表及 workspace_sizes.json 保留 c346573 历史统计身份。1685da69 主要改变三张外部权重的布局和矩阵方向，内部申请逻辑未变；按用户要求，本轮不单独验证或重统计 workspace 大小，也不把下表标为新版实测。
+
+workspace 不是每个 key 固定一个数值。以下是在 c346573 基线时直接在 CPU 调用当时的 `Layout0…Layout61` 计算 Host 申请量；未把 62 个策略全部运行一遍，也未实际申请这些容量。
 
 ```text
 Host 申请量 = 用户 workspace(T, B, policy) + CANN 系统 workspace

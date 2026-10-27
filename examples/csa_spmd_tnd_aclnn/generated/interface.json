@@ -119,11 +119,11 @@
       "name": "wkv",
       "direction": "In",
       "shape": [
-        4096,
-        512
+        512,
+        4096
       ],
       "dtype": "bfloat16",
-      "layout": "ND"
+      "layout": "NZ"
     },
     {
       "name": "gamma_ckv",
@@ -465,7 +465,7 @@
         8192
       ],
       "dtype": "int8",
-      "layout": "ND"
+      "layout": "NZ"
     },
     {
       "name": "idx_wq_b_scale",
@@ -480,11 +480,11 @@
       "name": "weights_proj",
       "direction": "In",
       "shape": [
-        4096,
-        64
+        64,
+        4096
       ],
       "dtype": "bfloat16",
-      "layout": "ND"
+      "layout": "NZ"
     },
     {
       "name": "topk_scores",

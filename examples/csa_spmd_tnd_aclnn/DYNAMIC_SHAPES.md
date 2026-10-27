@@ -1,6 +1,6 @@
 # 动态 shape 接入与验证范围
 
-当前代码按上游 `deepseek_v4_flash_csa_spmd_tnd.policy.select_policy` 选择编译策略，取消八个验证场景的 T/B 等值白名单。原八场景仅为回归样例。当前 csa_dynamic 包已完成 36 场景与状态验证；动态包原八场景及新增 12 场景的 replay/eager 核耗时已重新采集，见 PERFORMANCE.md。
+当前代码按上游 `deepseek_v4_flash_csa_spmd_tnd.policy.select_policy` 选择编译策略，取消八个验证场景的 T/B 等值白名单。原八场景仅为回归样例。当前 csa_nz1685 包已完成五个代表场景的 NZ 接口迁移验证，三个场景采集 replay/eager 核耗时，见 PERFORMANCE.md。
 
 ## 支持合同
 
@@ -17,16 +17,13 @@
 
 证据：`/data00/wangkai/aclnnWorkspace/build/dynamic_policy_symbolic_audit.json`。审计依赖 Z3 仅用于开发期覆盖检查，算子运行不依赖它。
 
-## 验证状态
+## 验证状态（1685da69）
 
-- 已完成全部策略的离线 C++ 生成。
-- 3,062 组策略/动态布局检查与 162 组 Torch Meta 检查通过，见 `/data00/wangkai/aclnnWorkspace/build/dynamic_contract/result.json`。
-- 完整 ACLNN 包构建成功；包内 kernelList 核验包含全部 tiling key 0–61。产物为 `/data00/wangkai/aclnnWorkspace/build/csa_dynamic_keys2/csa_spmd_tnd_pto.run`，SHA256 `0096f66c045e64aee907b2b5d7af196043a3ee4a7845f2812c4eb039ab4e0b7f`。
-- 16 个新增 shape 的原 Python PTO eager/graph 参考验证全部通过，记录位于 `build/dynamic_reference_*/result/result.json`。这一步生成比较基准，不代表 ACLNN 通过。
-- 动态包的 28 个新增输入场景 + 原八场景，共 36 项业务/诊断 eager/graph 验证全部与原 PTO 逐位一致，保护区通过；这些 ACLNN 独立进程不初始化 Simpler runtime。
-- 新包 C04 的 10 项同址 metadata 更新、4 步连续状态 graph replay 全部逐位一致，外部地址/保护区检查通过；未直接观测内部 geometry/signal。
-- 设备用例覆盖策略键 `[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 25, 36, 47, 59]`，共 18/62 个。全部策略编译与 CPU 检查通过，不等于全部策略已在 NPU 验收。完整矩阵见 [REPRODUCTION.md](REPRODUCTION.md)，结果与原始报告哈希见 [dynamic_validation_results.json](dynamic_validation_results.json)。
-- 独立数学 golden 与 PTO 基线的已知差异仍保留，本轮检验的是接入与原 Python PTO 的一致性。
+- 全部 62 策略已按新版七张 NZ 权重合同重新生成和编译，安装包核验包含 key 0–61；产物与哈希见 [验证清单](dynamic_validation_results.json)。
+- 本轮只选 C04、B24、B28、小 batch B3/S2、padding B16/T96（有效 B5/T16）五个输入，覆盖 key `[3,4,5,10]`。每项业务/诊断 eager/replay 与新版 Python PTO 逐位一致，外部保护区、七张权重只读及 Native 存储复用检查通过。
+- 新版 Meta 的 5 组合法描述符通过；将两张 BF16 权重换成旧方向的 10 次错误输入均被拒绝。相关 14 项 UT 通过，未单独重跑 workspace 大小验证。
+- 同址 metadata 更新和连续状态测试本轮未重跑；旧版 10 项更新、4 步状态及 36 场景结果保留历史基线身份，不计入本次覆盖。
+- 只采 C04、B24、B28 的 replay/eager 核耗时；其他场景不补测。独立数学 golden 本轮未测，旧基线 C01 未通过的结果没有被宣称解决。
 
 ## 当前快照的复现入口
 
@@ -42,10 +39,8 @@ python examples/csa_spmd_tnd_aclnn/scripts/test_dynamic_contract.py \
 
 策略审计脚本为 `scripts/audit_policies.py`，需安装开发依赖 `z3-solver`；传入 `--source vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py --output /external/policy_audit.json`。所有 build/install/输入快照和设备验证启动器仍保留在服务器仓外 `aclnnWorkspace` 中；本次提交保存工程源码和状态说明，不包含二进制或模型数据。
 
-## 本轮新增 12 个设备用例
+## 历史覆盖与当前范围
 
-额外覆盖 B3/9/11/40、Q1/2/3/4/6、历史上界 8192/15360/15364/32768、混合历史/查询长度、有效 B5/T16 而容量 B16/T96 的 padding、碎片化反序页映射及 compressed/indexer 页表宽 2082。每个用例使用不同 seed，先运行当前仓原 Python PTO eager/graph 保存快照，再由独立 ACLNN 进程执行四条路径，数值逐位一致、外部保护区通过。内部 workspace 未在本轮增加哨兵。
+c346573 版本曾完成 36 个设备输入、18/62 个策略验证，包括不同 seed、历史边界、宽页表及碎片化映射。详情见[固定历史版本](https://github.com/mihudaner/vllm-ascend/blob/1bc8c87f2cefd5d127087c35b4774284986e82a7/examples/csa_spmd_tnd_aclnn/DYNAMIC_SHAPES.md)。expanded_dynamic_cases.json 仍保存当时 12 个输入定义，本次复用了其中两个。
 
-精确输入保存在 expanded_dynamic_cases.json；结果路径与哈希在 dynamic_validation_results.json。实际有效请求 Q 只测到 1–6，不将编译策略覆盖外推为更大 Q 的设备验收。容量或地址变化仍需重新准备及 capture。
-
-新增用例共用同一个已安装的 csa_dynamic 包，未按 case 重建 ACLNN。例如 key 10 同时验证 T6/B3 与 T27/B9；相同 T16/B4 在 max_seq_len 从 15360 到 15364 时按原选择器从 key 8 切换至 key 9，两边均通过。
+当前支持合同仍由未变化的 Python policy 与动态描述符决定；本轮按用户要求做代表性升级验证，不把未测策略/输入写成设备验收通过。具体五个输入已完整记录在 dynamic_validation_results.json 中。
