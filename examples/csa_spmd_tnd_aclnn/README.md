@@ -97,6 +97,8 @@ build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8�
 
 ## Tiling key 选择与 workspace 计算
 
+62 个策略的代表输入申请量及 36 个已验证场景的容量见 [WORKSPACE.md](WORKSPACE.md)，精确字节数见 [workspace_sizes.json](workspace_sizes.json)。当前系统区为 16 MiB；用户区随 T/B 与策略变化，不按 62 个 key 同时申请。
+
 当前 **tiling key 在 Python 准备阶段选择，workspace 在 C++ Host tiling 阶段计算**。
 Host 接收调用者传入的 `variant`，进行范围、描述符及布局检查；目前没有在 C++ 中重新实现 Python 的策略选择规则。
 

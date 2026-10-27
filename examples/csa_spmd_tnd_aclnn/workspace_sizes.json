@@ -1,0 +1,1533 @@
+{
+  "date": "2026-10-27",
+  "source_commit": "d82fa56f023516d68775ce0c4b0b6903a4f96613",
+  "method": "CPU invokes current Layout0..Layout61; no NPU kernels launched and no workspace allocated",
+  "system_probe": {
+    "soc": "Ascend910_9382",
+    "aic": 24,
+    "aiv": 48,
+    "api": "PlatformAscendC::GetLibApiWorkSpaceSize",
+    "bytes": 16777216
+  },
+  "layout_sha256": "8891e83ca4c525f700ce6e1dfb9839c281f1e1d1c00cdfcb0410c852bd3d09fc",
+  "representatives": [
+    {
+      "tiling_key": 0,
+      "T": 6,
+      "B": 1,
+      "max_query_tokens": 6,
+      "max_seq_len": 131078,
+      "user_bytes": 82022912,
+      "system_bytes": 16777216,
+      "host_total_bytes": 98800128
+    },
+    {
+      "tiling_key": 1,
+      "T": 96,
+      "B": 16,
+      "max_query_tokens": 6,
+      "max_seq_len": 262150,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 2,
+      "T": 48,
+      "B": 8,
+      "max_query_tokens": 6,
+      "max_seq_len": 131078,
+      "user_bytes": 110068224,
+      "system_bytes": 16777216,
+      "host_total_bytes": 126845440
+    },
+    {
+      "tiling_key": 3,
+      "T": 96,
+      "B": 16,
+      "max_query_tokens": 6,
+      "max_seq_len": 131078,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 4,
+      "T": 144,
+      "B": 24,
+      "max_query_tokens": 6,
+      "max_seq_len": 131078,
+      "user_bytes": 211131392,
+      "system_bytes": 16777216,
+      "host_total_bytes": 227908608
+    },
+    {
+      "tiling_key": 5,
+      "T": 168,
+      "B": 28,
+      "max_query_tokens": 6,
+      "max_seq_len": 131078,
+      "user_bytes": 223473664,
+      "system_bytes": 16777216,
+      "host_total_bytes": 240250880
+    },
+    {
+      "tiling_key": 6,
+      "T": 192,
+      "B": 32,
+      "max_query_tokens": 6,
+      "max_seq_len": 8198,
+      "user_bytes": 226629632,
+      "system_bytes": 16777216,
+      "host_total_bytes": 243406848
+    },
+    {
+      "tiling_key": 7,
+      "T": 56,
+      "B": 16,
+      "max_query_tokens": 6,
+      "max_seq_len": 131078,
+      "user_bytes": 114328064,
+      "system_bytes": 16777216,
+      "host_total_bytes": 131105280
+    },
+    {
+      "tiling_key": 8,
+      "T": 1,
+      "B": 1,
+      "max_query_tokens": 1,
+      "max_seq_len": 8192,
+      "user_bytes": 79642112,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96419328
+    },
+    {
+      "tiling_key": 9,
+      "T": 1,
+      "B": 1,
+      "max_query_tokens": 1,
+      "max_seq_len": 16384,
+      "user_bytes": 79642112,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96419328
+    },
+    {
+      "tiling_key": 10,
+      "T": 1,
+      "B": 1,
+      "max_query_tokens": 1,
+      "max_seq_len": 32772,
+      "user_bytes": 79740416,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96517632
+    },
+    {
+      "tiling_key": 11,
+      "T": 1,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 79642624,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96419840
+    },
+    {
+      "tiling_key": 12,
+      "T": 1,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 79642624,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96419840
+    },
+    {
+      "tiling_key": 13,
+      "T": 24,
+      "B": 4,
+      "max_query_tokens": 6,
+      "max_seq_len": 32772,
+      "user_bytes": 98162688,
+      "system_bytes": 16777216,
+      "host_total_bytes": 114939904
+    },
+    {
+      "tiling_key": 14,
+      "T": 32,
+      "B": 6,
+      "max_query_tokens": 6,
+      "max_seq_len": 32772,
+      "user_bytes": 101985280,
+      "system_bytes": 16777216,
+      "host_total_bytes": 118762496
+    },
+    {
+      "tiling_key": 15,
+      "T": 33,
+      "B": 6,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 95545344,
+      "system_bytes": 16777216,
+      "host_total_bytes": 112322560
+    },
+    {
+      "tiling_key": 16,
+      "T": 33,
+      "B": 6,
+      "max_query_tokens": 6,
+      "max_seq_len": 16384,
+      "user_bytes": 95545344,
+      "system_bytes": 16777216,
+      "host_total_bytes": 112322560
+    },
+    {
+      "tiling_key": 17,
+      "T": 33,
+      "B": 7,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 95643648,
+      "system_bytes": 16777216,
+      "host_total_bytes": 112420864
+    },
+    {
+      "tiling_key": 18,
+      "T": 33,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 95545856,
+      "system_bytes": 16777216,
+      "host_total_bytes": 112323072
+    },
+    {
+      "tiling_key": 19,
+      "T": 33,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 95545856,
+      "system_bytes": 16777216,
+      "host_total_bytes": 112323072
+    },
+    {
+      "tiling_key": 20,
+      "T": 64,
+      "B": 11,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 21,
+      "T": 64,
+      "B": 11,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 22,
+      "T": 64,
+      "B": 11,
+      "max_query_tokens": 6,
+      "max_seq_len": 16384,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 23,
+      "T": 64,
+      "B": 11,
+      "max_query_tokens": 6,
+      "max_seq_len": 16384,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 24,
+      "T": 64,
+      "B": 11,
+      "max_query_tokens": 6,
+      "max_seq_len": 32772,
+      "user_bytes": 118151168,
+      "system_bytes": 16777216,
+      "host_total_bytes": 134928384
+    },
+    {
+      "tiling_key": 25,
+      "T": 64,
+      "B": 11,
+      "max_query_tokens": 6,
+      "max_seq_len": 196612,
+      "user_bytes": 118151168,
+      "system_bytes": 16777216,
+      "host_total_bytes": 134928384
+    },
+    {
+      "tiling_key": 26,
+      "T": 64,
+      "B": 13,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 110548480,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127325696
+    },
+    {
+      "tiling_key": 27,
+      "T": 64,
+      "B": 13,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 110548480,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127325696
+    },
+    {
+      "tiling_key": 28,
+      "T": 64,
+      "B": 13,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 29,
+      "T": 64,
+      "B": 13,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 30,
+      "T": 64,
+      "B": 13,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 31,
+      "T": 64,
+      "B": 13,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 110450176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 127227392
+    },
+    {
+      "tiling_key": 32,
+      "T": 97,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 129973760,
+      "system_bytes": 16777216,
+      "host_total_bytes": 146750976
+    },
+    {
+      "tiling_key": 33,
+      "T": 97,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 129973760,
+      "system_bytes": 16777216,
+      "host_total_bytes": 146750976
+    },
+    {
+      "tiling_key": 34,
+      "T": 97,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 129973760,
+      "system_bytes": 16777216,
+      "host_total_bytes": 146750976
+    },
+    {
+      "tiling_key": 35,
+      "T": 97,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 129973760,
+      "system_bytes": 16777216,
+      "host_total_bytes": 146750976
+    },
+    {
+      "tiling_key": 36,
+      "T": 97,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 32772,
+      "user_bytes": 137944576,
+      "system_bytes": 16777216,
+      "host_total_bytes": 154721792
+    },
+    {
+      "tiling_key": 37,
+      "T": 97,
+      "B": 16,
+      "max_query_tokens": 7,
+      "max_seq_len": 32772,
+      "user_bytes": 137944576,
+      "system_bytes": 16777216,
+      "host_total_bytes": 154721792
+    },
+    {
+      "tiling_key": 38,
+      "T": 97,
+      "B": 20,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 130072064,
+      "system_bytes": 16777216,
+      "host_total_bytes": 146849280
+    },
+    {
+      "tiling_key": 39,
+      "T": 97,
+      "B": 20,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 130072064,
+      "system_bytes": 16777216,
+      "host_total_bytes": 146849280
+    },
+    {
+      "tiling_key": 40,
+      "T": 97,
+      "B": 24,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 137649664,
+      "system_bytes": 16777216,
+      "host_total_bytes": 154426880
+    },
+    {
+      "tiling_key": 41,
+      "T": 97,
+      "B": 24,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 137649664,
+      "system_bytes": 16777216,
+      "host_total_bytes": 154426880
+    },
+    {
+      "tiling_key": 42,
+      "T": 129,
+      "B": 22,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 195821568,
+      "system_bytes": 16777216,
+      "host_total_bytes": 212598784
+    },
+    {
+      "tiling_key": 43,
+      "T": 129,
+      "B": 22,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 195821568,
+      "system_bytes": 16777216,
+      "host_total_bytes": 212598784
+    },
+    {
+      "tiling_key": 44,
+      "T": 129,
+      "B": 22,
+      "max_query_tokens": 6,
+      "max_seq_len": 16384,
+      "user_bytes": 195821568,
+      "system_bytes": 16777216,
+      "host_total_bytes": 212598784
+    },
+    {
+      "tiling_key": 45,
+      "T": 129,
+      "B": 22,
+      "max_query_tokens": 6,
+      "max_seq_len": 16384,
+      "user_bytes": 195821568,
+      "system_bytes": 16777216,
+      "host_total_bytes": 212598784
+    },
+    {
+      "tiling_key": 46,
+      "T": 129,
+      "B": 22,
+      "max_query_tokens": 6,
+      "max_seq_len": 32772,
+      "user_bytes": 204055040,
+      "system_bytes": 16777216,
+      "host_total_bytes": 220832256
+    },
+    {
+      "tiling_key": 47,
+      "T": 129,
+      "B": 24,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 203759616,
+      "system_bytes": 16777216,
+      "host_total_bytes": 220536832
+    },
+    {
+      "tiling_key": 48,
+      "T": 129,
+      "B": 24,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "user_bytes": 203759616,
+      "system_bytes": 16777216,
+      "host_total_bytes": 220536832
+    },
+    {
+      "tiling_key": 49,
+      "T": 129,
+      "B": 26,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 195919872,
+      "system_bytes": 16777216,
+      "host_total_bytes": 212697088
+    },
+    {
+      "tiling_key": 50,
+      "T": 129,
+      "B": 26,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 195919872,
+      "system_bytes": 16777216,
+      "host_total_bytes": 212697088
+    },
+    {
+      "tiling_key": 51,
+      "T": 161,
+      "B": 23,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 211724800,
+      "system_bytes": 16777216,
+      "host_total_bytes": 228502016
+    },
+    {
+      "tiling_key": 52,
+      "T": 161,
+      "B": 23,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 211724800,
+      "system_bytes": 16777216,
+      "host_total_bytes": 228502016
+    },
+    {
+      "tiling_key": 53,
+      "T": 161,
+      "B": 23,
+      "max_query_tokens": 7,
+      "max_seq_len": 16384,
+      "user_bytes": 211724800,
+      "system_bytes": 16777216,
+      "host_total_bytes": 228502016
+    },
+    {
+      "tiling_key": 54,
+      "T": 161,
+      "B": 23,
+      "max_query_tokens": 7,
+      "max_seq_len": 32772,
+      "user_bytes": 220220416,
+      "system_bytes": 16777216,
+      "host_total_bytes": 236997632
+    },
+    {
+      "tiling_key": 55,
+      "T": 161,
+      "B": 24,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 219924992,
+      "system_bytes": 16777216,
+      "host_total_bytes": 236702208
+    },
+    {
+      "tiling_key": 56,
+      "T": 161,
+      "B": 24,
+      "max_query_tokens": 7,
+      "max_seq_len": 8192,
+      "user_bytes": 219924992,
+      "system_bytes": 16777216,
+      "host_total_bytes": 236702208
+    },
+    {
+      "tiling_key": 57,
+      "T": 161,
+      "B": 33,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 211823104,
+      "system_bytes": 16777216,
+      "host_total_bytes": 228600320
+    },
+    {
+      "tiling_key": 58,
+      "T": 161,
+      "B": 33,
+      "max_query_tokens": 5,
+      "max_seq_len": 32772,
+      "user_bytes": 211823104,
+      "system_bytes": 16777216,
+      "host_total_bytes": 228600320
+    },
+    {
+      "tiling_key": 59,
+      "T": 193,
+      "B": 28,
+      "max_query_tokens": 7,
+      "max_seq_len": 32772,
+      "user_bytes": 239006720,
+      "system_bytes": 16777216,
+      "host_total_bytes": 255783936
+    },
+    {
+      "tiling_key": 60,
+      "T": 193,
+      "B": 28,
+      "max_query_tokens": 7,
+      "max_seq_len": 32772,
+      "user_bytes": 239006720,
+      "system_bytes": 16777216,
+      "host_total_bytes": 255783936
+    },
+    {
+      "tiling_key": 61,
+      "T": 32,
+      "B": 5,
+      "max_query_tokens": 7,
+      "max_seq_len": 32772,
+      "user_bytes": 101985280,
+      "system_bytes": 16777216,
+      "host_total_bytes": 118762496
+    }
+  ],
+  "validated_cases": [
+    {
+      "case": "dynamic_b1_s1",
+      "tiling_key": 10,
+      "T": 1,
+      "B": 1,
+      "user_bytes": 79740416,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96517632,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b1_s1_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b1_s5",
+      "tiling_key": 0,
+      "T": 5,
+      "B": 1,
+      "user_bytes": 81567232,
+      "system_bytes": 16777216,
+      "host_total_bytes": 98344448,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b1_s5_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b2_s6",
+      "tiling_key": 10,
+      "T": 12,
+      "B": 2,
+      "user_bytes": 84867072,
+      "system_bytes": 16777216,
+      "host_total_bytes": 101644288,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b2_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b4_s6",
+      "tiling_key": 13,
+      "T": 24,
+      "B": 4,
+      "user_bytes": 98162688,
+      "system_bytes": 16777216,
+      "host_total_bytes": 114939904,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b4_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b5_s6",
+      "tiling_key": 13,
+      "T": 30,
+      "B": 5,
+      "user_bytes": 101055488,
+      "system_bytes": 16777216,
+      "host_total_bytes": 117832704,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b5_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b6_s6",
+      "tiling_key": 2,
+      "T": 36,
+      "B": 6,
+      "user_bytes": 104385536,
+      "system_bytes": 16777216,
+      "host_total_bytes": 121162752,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b6_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b7_mixed",
+      "tiling_key": 13,
+      "T": 27,
+      "B": 7,
+      "user_bytes": 99661824,
+      "system_bytes": 16777216,
+      "host_total_bytes": 116439040,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b7_mixed_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b8_s5",
+      "tiling_key": 17,
+      "T": 40,
+      "B": 8,
+      "user_bytes": 98840064,
+      "system_bytes": 16777216,
+      "host_total_bytes": 115617280,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b8_s5_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b15_s6",
+      "tiling_key": 3,
+      "T": 90,
+      "B": 15,
+      "user_bytes": 134148608,
+      "system_bytes": 16777216,
+      "host_total_bytes": 150925824,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b15_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b17_s6",
+      "tiling_key": 36,
+      "T": 102,
+      "B": 17,
+      "user_bytes": 140268544,
+      "system_bytes": 16777216,
+      "host_total_bytes": 157045760,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b17_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b22_s6",
+      "tiling_key": 4,
+      "T": 132,
+      "B": 22,
+      "user_bytes": 205448704,
+      "system_bytes": 16777216,
+      "host_total_bytes": 222225920,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b22_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_b33_s6",
+      "tiling_key": 59,
+      "T": 198,
+      "B": 33,
+      "user_bytes": 241330176,
+      "system_bytes": 16777216,
+      "host_total_bytes": 258107392,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_b33_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_short_b4",
+      "tiling_key": 8,
+      "T": 24,
+      "B": 4,
+      "user_bytes": 90789888,
+      "system_bytes": 16777216,
+      "host_total_bytes": 107567104,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_short_b4_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_short_b24",
+      "tiling_key": 47,
+      "T": 144,
+      "B": 24,
+      "user_bytes": 210835456,
+      "system_bytes": 16777216,
+      "host_total_bytes": 227612672,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_short_b24_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_history_32k",
+      "tiling_key": 3,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_history_32k_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "dynamic_history_192k",
+      "tiling_key": 25,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_dynamic_history_192k_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h131072_b1_s6",
+      "tiling_key": 0,
+      "T": 6,
+      "B": 1,
+      "user_bytes": 82022912,
+      "system_bytes": 16777216,
+      "host_total_bytes": 98800128,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h131072_b1_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h262144_b16_s6",
+      "tiling_key": 1,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h262144_b16_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h131072_b8_s6",
+      "tiling_key": 2,
+      "T": 48,
+      "B": 8,
+      "user_bytes": 110068224,
+      "system_bytes": 16777216,
+      "host_total_bytes": 126845440,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h131072_b8_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h131072_b16_s6",
+      "tiling_key": 3,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h131072_b16_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h131072_b24_s6",
+      "tiling_key": 4,
+      "T": 144,
+      "B": 24,
+      "user_bytes": 211131392,
+      "system_bytes": 16777216,
+      "host_total_bytes": 227908608,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h131072_b24_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h131072_b28_s6",
+      "tiling_key": 5,
+      "T": 168,
+      "B": 28,
+      "user_bytes": 223473664,
+      "system_bytes": 16777216,
+      "host_total_bytes": 240250880,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h131072_b28_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h8192_b32_s6",
+      "tiling_key": 6,
+      "T": 192,
+      "B": 32,
+      "user_bytes": 226629632,
+      "system_bytes": 16777216,
+      "host_total_bytes": 243406848,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h8192_b32_s6_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "h131072_b16_mixed",
+      "tiling_key": 7,
+      "T": 56,
+      "B": 16,
+      "user_bytes": 114328064,
+      "system_bytes": 16777216,
+      "host_total_bytes": 131105280,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/dynamic_h131072_b16_mixed_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_b3_s2",
+      "tiling_key": 10,
+      "T": 6,
+      "B": 3,
+      "user_bytes": 82022912,
+      "system_bytes": 16777216,
+      "host_total_bytes": 98800128,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_b3_s2_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_b9_s3",
+      "tiling_key": 10,
+      "T": 27,
+      "B": 9,
+      "user_bytes": 92362752,
+      "system_bytes": 16777216,
+      "host_total_bytes": 109139968,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_b9_s3_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_b11_s4",
+      "tiling_key": 17,
+      "T": 44,
+      "B": 11,
+      "user_bytes": 100770304,
+      "system_bytes": 16777216,
+      "host_total_bytes": 117547520,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_b11_s4_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_b40_s1",
+      "tiling_key": 16,
+      "T": 40,
+      "B": 40,
+      "user_bytes": 98741760,
+      "system_bytes": 16777216,
+      "host_total_bytes": 115518976,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_b40_s1_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_short_lower_edge",
+      "tiling_key": 8,
+      "T": 2,
+      "B": 2,
+      "user_bytes": 80097792,
+      "system_bytes": 16777216,
+      "host_total_bytes": 96875008,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_short_lower_edge_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_prefetch_lower",
+      "tiling_key": 8,
+      "T": 16,
+      "B": 4,
+      "user_bytes": 86595584,
+      "system_bytes": 16777216,
+      "host_total_bytes": 103372800,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_prefetch_lower_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_prefetch_upper",
+      "tiling_key": 9,
+      "T": 16,
+      "B": 4,
+      "user_bytes": 86595584,
+      "system_bytes": 16777216,
+      "host_total_bytes": 103372800,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_prefetch_upper_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_history_edge",
+      "tiling_key": 9,
+      "T": 24,
+      "B": 4,
+      "user_bytes": 90789888,
+      "system_bytes": 16777216,
+      "host_total_bytes": 107567104,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_history_edge_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_padded_b16",
+      "tiling_key": 3,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_padded_b16_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_mixed_history",
+      "tiling_key": 10,
+      "T": 16,
+      "B": 5,
+      "user_bytes": 86693888,
+      "system_bytes": 16777216,
+      "host_total_bytes": 103471104,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_mixed_history_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_fragmented",
+      "tiling_key": 17,
+      "T": 36,
+      "B": 9,
+      "user_bytes": 97012736,
+      "system_bytes": 16777216,
+      "host_total_bytes": 113789952,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_fragmented_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    },
+    {
+      "case": "extra_wide_table",
+      "tiling_key": 2,
+      "T": 36,
+      "B": 6,
+      "user_bytes": 104385536,
+      "system_bytes": 16777216,
+      "host_total_bytes": 121162752,
+      "descriptors_source": "/data00/wangkai/aclnnWorkspace/build/expanded_aclnn_extra_wide_table_01/result/result.json",
+      "method": "host_layout_calculation_from_validated_case_T_B"
+    }
+  ],
+  "normalized_T96_B16": [
+    {
+      "tiling_key": 0,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 1,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 2,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    },
+    {
+      "tiling_key": 3,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 4,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 5,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 6,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 7,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    },
+    {
+      "tiling_key": 8,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 9,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 10,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 11,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 12,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 13,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    },
+    {
+      "tiling_key": 14,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    },
+    {
+      "tiling_key": 15,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 16,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 17,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 18,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 19,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 20,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 21,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 22,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 23,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 24,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 25,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 26,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 27,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 28,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 29,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 30,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 31,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 32,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 33,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 34,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 35,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 36,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 37,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 38,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 39,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 40,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136642560,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153419776
+    },
+    {
+      "tiling_key": 41,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136642560,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153419776
+    },
+    {
+      "tiling_key": 42,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 43,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 44,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 45,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 46,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 47,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136642560,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153419776
+    },
+    {
+      "tiling_key": 48,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136642560,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153419776
+    },
+    {
+      "tiling_key": 49,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 50,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 51,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 52,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 53,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 128974848,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145752064
+    },
+    {
+      "tiling_key": 54,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937984,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153715200
+    },
+    {
+      "tiling_key": 55,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136642560,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153419776
+    },
+    {
+      "tiling_key": 56,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136642560,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153419776
+    },
+    {
+      "tiling_key": 57,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 58,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 129073152,
+      "system_bytes": 16777216,
+      "host_total_bytes": 145850368
+    },
+    {
+      "tiling_key": 59,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    },
+    {
+      "tiling_key": 60,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    },
+    {
+      "tiling_key": 61,
+      "T": 96,
+      "B": 16,
+      "user_bytes": 136937472,
+      "system_bytes": 16777216,
+      "host_total_bytes": 153714688
+    }
+  ],
+  "normalized_warning": "For comparing layout sizes only; not every key is selected by Python at T96/B16.",
+  "limits": "Host requested bytes only. Excludes external weights/cache/outputs, allocator caching, graph pools and concurrent invocations."
+}
