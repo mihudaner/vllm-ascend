@@ -11,6 +11,14 @@ def register_model():
         "vllm_ascend.models.kimi_k3:AscendKimiK3ForConditionalGeneration",
     )
     ModelRegistry.register_model(
+        "PyptoCSAHCADeepseekV4ForCausalLM",
+        "vllm_ascend.models.pypto_deepseek_v4_hca:PyptoCSAHCADeepseekV4ForCausalLM",
+    )
+    ModelRegistry.register_model(
+        "PyptoHCADeepseekV4ForCausalLM",
+        "vllm_ascend.models.pypto_deepseek_v4_hca:PyptoHCADeepseekV4ForCausalLM",
+    )
+    ModelRegistry.register_model(
         "PyptoCSADeepseekV4ForCausalLM",
         "vllm_ascend.models.pypto_deepseek_v4:PyptoCSADeepseekV4ForCausalLM",
     )
