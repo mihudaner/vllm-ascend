@@ -8,6 +8,7 @@ from vllm.logger import logger
 
 from vllm_ascend.models.deepseek_v4 import AscendDeepseekV4ForCausalLM
 from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.service_config import validate_configuration
+from vllm_ascend.ops.pypto.trace import csa_trace_enabled, trace_event
 
 
 def csa_layer_forward(layer, positions, hidden_states, residual, llama_4_scaling=None):
@@ -21,8 +22,18 @@ def csa_layer_forward(layer, positions, hidden_states, residual, llama_4_scaling
     The Native DSA wrapper owns the prefix and all six cache tensors. Keep
     positions explicit in the custom-op ABI, including during torch.compile.
     """
+    prefix = layer.self_attn.dsa_attn.prefix
+    if csa_trace_enabled():
+        trace_event(
+            f"patched_layer:{prefix}",
+            "patched_layer_enter",
+            layer=prefix,
+            tokens=hidden_states.shape[0],
+            hc_shape=tuple(hidden_states.shape),
+            positions=tuple(positions.shape),
+        )
     attn_out = torch.empty_like(hidden_states)
-    torch.ops.vllm.dsv4_csa_forward(hidden_states, positions, attn_out, layer.self_attn.dsa_attn.prefix)
+    torch.ops.vllm.dsv4_csa_forward(hidden_states, positions, attn_out, prefix)
     hidden_states = attn_out
 
     # FFN 半边：与 xllm 的 DeepseekV4DecoderLayer.forward 后半段逐行一致，
@@ -47,6 +58,13 @@ def install_csa_forward(layer):
         # model.eval() 里 module.train() 的递归遍历会直接栈溢出。
         attention.dsa_attn._pto_csa_layer = (layer,)
         layer.forward = MethodType(csa_layer_forward, layer)
+        logger.info("PTO_CSA patch installed on layer %s (C4 attention)", attention.dsa_attn.prefix)
+    else:
+        logger.debug(
+            "PTO_CSA patch skipped on layer %s (compress_ratio=%s, Native forward kept)",
+            attention.dsa_attn.prefix,
+            attention.compress_ratio,
+        )
 
 
 def init_pto_runtime():

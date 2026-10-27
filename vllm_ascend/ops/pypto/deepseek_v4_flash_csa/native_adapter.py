@@ -11,6 +11,8 @@ from typing import Any
 import torch
 from vllm.logger import logger
 
+from vllm_ascend.ops.pypto.trace import trace_event
+
 from .config import DECODE_BATCH
 from .decode_csa import (
     _decode_csa_tp1_layer,
@@ -275,6 +277,7 @@ class NativeCSACall:
                  kernel=decode_csa_tp1_layer_test, host_args=None):
         # Each entry contains its own metadata and Native cache views. No shared
         # synthetic page table can stand in for another cache group.
+        self.layer_name = layer_name
         self.ops = ops
         self.groups = groups
         self.positions = positions
@@ -382,6 +385,13 @@ class NativeCSACall:
     def __call__(self):
         selector = getattr(self.ops, "for_tokens", None)
         entry = self.ops.attention if selector is None else selector(self.args["x_hc"].shape[0])
+        trace_event(
+            f"kernel:{self.layer_name}",
+            "pto_kernel_entry_invoke",
+            layer=self.layer_name,
+            tokens=self.args["x_hc"].shape[0],
+            single_m16=int(entry is not self.ops.attention),
+        )
         entry(*self.core_args)
         return self.args["x_out"]
 

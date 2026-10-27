@@ -200,7 +200,15 @@ def dsa_forward(
         from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import (
             native_decode_capacity_views,
         )
+        from vllm_ascend.ops.pypto.trace import trace_event
 
+        trace_event(
+            f"native_dsa_redispatch:{self.prefix}",
+            "native_dsa_redispatch_capacity_views",
+            layer=self.prefix,
+            tokens=hidden_states.shape[0],
+            compress_ratio=self.compress_ratio,
+        )
         attn_metadata = native_decode_capacity_views(
             attn_metadata, hidden_states.shape[0], self.compress_ratio
         )

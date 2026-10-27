@@ -12,6 +12,8 @@
 
 import torch
 
+from vllm_ascend.ops.pypto.trace import trace_event
+
 from ..deepseek_v4_flash_csa.native_adapter import prepare_weights
 from ..deepseek_v4_flash_csa.service import AttentionServiceBase
 from .binding import PreparedDynamicCSA
@@ -98,6 +100,13 @@ class CSAServiceRuntime(AttentionServiceBase):
         if getattr(context, "capturing", False):
             context.additional_kwargs.setdefault("pto_csa_tnd_graph_contracts", {})[self.layer_name] = TNDGraphContract(
                 self, hidden.shape[0], None
+            )
+            trace_event(
+                f"route:{self.layer_name}",
+                "tnd_provisional_contract_recorded",
+                layer=self.layer_name,
+                tokens=hidden.shape[0],
+                variant=type(self).__module__,
             )
 
     def _compact_metadata(self, context, req, tokens):
@@ -211,6 +220,13 @@ class CSAServiceRuntime(AttentionServiceBase):
         if hidden.numel() == 0:
             output.copy_(hidden)
             self.empty_calls += 1
+            trace_event(
+                f"empty:{self.layer_name}:zero_hidden",
+                "tnd_empty_call",
+                layer=self.layer_name,
+                case="zero_hidden",
+                empty_calls=self.empty_calls,
+            )
             return True
         metadata = context.attn_metadata
         if metadata is None or getattr(context, "is_draft_model", False):
@@ -222,16 +238,31 @@ class CSAServiceRuntime(AttentionServiceBase):
         # dummy输出不作为有效token使用；保留输入值便于检查无额外状态副作用。
         output.copy_(hidden)
         self.empty_calls += 1
+        trace_event(
+            f"empty:{self.layer_name}:zero_decode_metadata",
+            "tnd_empty_call",
+            layer=self.layer_name,
+            case="zero_decode_metadata",
+            empty_calls=self.empty_calls,
+        )
         return True
 
     def eligible(self, context, hidden, positions):
         metadata = context.attn_metadata
         if metadata is None or getattr(context, "is_draft_model", False):
-            return False
+            return self._trace_deny(
+                "tnd_metadata_none_or_draft", has_metadata=int(metadata is not None),
+                is_draft=int(getattr(context, "is_draft_model", False)),
+            )
         if hidden.ndim != 3 or hidden.shape[1:] != (4, 4096):
-            return False
+            return self._trace_deny(
+                "tnd_hidden_hc_shape", ndim=hidden.ndim, shape=tuple(hidden.shape),
+            )
         if hidden.dtype != torch.bfloat16 or not hidden.is_contiguous():
-            return False
+            return self._trace_deny(
+                "tnd_hidden_dtype_or_contiguous", dtype=str(hidden.dtype),
+                contiguous=int(hidden.is_contiguous()),
+            )
         tokens = hidden.shape[0]
         if (
             positions.shape != (tokens,)
@@ -239,12 +270,21 @@ class CSAServiceRuntime(AttentionServiceBase):
             or positions.device != hidden.device
             or not positions.is_contiguous()
         ):
-            return False
+            return self._trace_deny(
+                "tnd_positions_layout", shape=tuple(positions.shape),
+                dtype=str(positions.dtype), same_device=int(positions.device == hidden.device),
+                contiguous=int(positions.is_contiguous()),
+            )
         reference_counts = None
         for prefix in self.prefixes.values():
             item = metadata.get(prefix)
             if item is None or item.num_prefills or item.decode is None:
-                return False
+                return self._trace_deny(
+                    "tnd_metadata_prefill_or_no_decode", prefix=prefix,
+                    missing=int(item is None),
+                    num_prefills=(0 if item is None else item.num_prefills),
+                    has_decode=int(item is not None and item.decode is not None),
+                )
             req = item.decode
             requests = req.seq_lens.numel()
             query_bound = native_query_bound(req)
@@ -256,31 +296,56 @@ class CSAServiceRuntime(AttentionServiceBase):
                 max_seq_len=req.max_seq_lens,
                 batch_capacity=self.batch_capacity,
             ):
-                return False
+                return self._trace_deny(
+                    "tnd_unsupported_descriptor", prefix=prefix, tokens=tokens,
+                    requests=requests, actual_tokens=item.num_actual_tokens,
+                    query_bound=query_bound, max_seq_len=req.max_seq_lens,
+                    batch_capacity=self.batch_capacity,
+                )
             if item.num_decodes != requests or req.query_start_loc.shape != (requests + 1,):
-                return False
+                return self._trace_deny(
+                    "tnd_decode_count_or_start_loc", prefix=prefix,
+                    num_decodes=item.num_decodes, requests=requests,
+                    start_loc_shape=tuple(req.query_start_loc.shape),
+                )
             if req.seq_lens.dtype != torch.int32 or req.query_start_loc.dtype != torch.int32:
-                return False
+                return self._trace_deny(
+                    "tnd_metadata_dtype", prefix=prefix,
+                    seq_lens_dtype=str(req.seq_lens.dtype),
+                    start_loc_dtype=str(req.query_start_loc.dtype),
+                )
             if req.seq_lens.device != hidden.device or req.query_start_loc.device != hidden.device:
-                return False
+                return self._trace_deny("tnd_metadata_device", prefix=prefix)
             counts = (requests, item.num_actual_tokens, query_bound, req.max_seq_lens)
             if reference_counts is not None and counts != reference_counts:
-                return False
+                return self._trace_deny(
+                    "tnd_cross_group_counts_mismatch", prefix=prefix, counts=counts,
+                    reference_counts=reference_counts,
+                )
             reference_counts = counts
             if req.num_reqs_actual is not None and not 1 <= req.num_reqs_actual <= requests:
-                return False
+                return self._trace_deny(
+                    "tnd_num_reqs_actual", prefix=prefix,
+                    num_reqs_actual=req.num_reqs_actual, requests=requests,
+                )
             if req.ori_win_right not in (None, 0) or getattr(req, "dspark_swa_indices", None) is not None:
-                return False
+                return self._trace_deny(
+                    "tnd_draft_window_or_swa_indices", prefix=prefix,
+                    ori_win_right=req.ori_win_right,
+                    has_swa_indices=int(getattr(req, "dspark_swa_indices", None) is not None),
+                )
         try:
             _native_token_views(
                 {name: metadata[prefix].decode for name, prefix in self.prefixes.items()},
                 self.layer_name,
                 tokens,
             )
-        except ValueError:
-            return False
+        except ValueError as exc:
+            return self._trace_deny("tnd_native_token_views", error=str(exc))
         swa = metadata[self.prefixes["swa"]].decode
-        return swa.ori_win_left in (None, 127)
+        if swa.ori_win_left not in (None, 127):
+            return self._trace_deny("tnd_swa_left_window_unsupported", ori_win_left=swa.ori_win_left)
+        return True
 
     def __call__(self, context, hidden, positions, output, kv_cache):
         from vllm_ascend.attention.utils import (
@@ -292,6 +357,14 @@ class CSAServiceRuntime(AttentionServiceBase):
 
         metadata = {name: context.attn_metadata[prefix] for name, prefix in self.prefixes.items()}
         capturing = torch.npu.is_current_stream_capturing()
+        trace_event(
+            f"tnd_call_enter:{self.layer_name}",
+            "tnd_call_enter",
+            layer=self.layer_name,
+            tokens=hidden.shape[0],
+            capturing=int(capturing),
+            variant=type(self).__module__,
+        )
         hadamard = metadata["indexer"].hadamard
         if hadamard is None:
             raise ValueError("Native Indexer未提供Hadamard")
@@ -344,8 +417,24 @@ class CSAServiceRuntime(AttentionServiceBase):
                 max_seq_len=maximum,
                 policy=policy,
             )
+            trace_event(
+                f"tnd_binding_new:{self.layer_name}",
+                "tnd_binding_prepared",
+                layer=self.layer_name,
+                tokens=tokens,
+                requests=requests,
+                policy=policy,
+            )
         else:
             self._bindings[key].rebind(native)
+            trace_event(
+                f"tnd_binding_rebind:{self.layer_name}",
+                "tnd_binding_rebind",
+                layer=self.layer_name,
+                tokens=tokens,
+                requests=requests,
+                policy=policy,
+            )
         prepared = self._bindings[key]
         if capturing:
             signature = self.graph_signature(context, tokens)
@@ -354,9 +443,29 @@ class CSAServiceRuntime(AttentionServiceBase):
             context.additional_kwargs.setdefault("pto_csa_tnd_graph_contracts", {})[self.layer_name] = TNDGraphContract(
                 self, tokens, signature
             )
+            trace_event(
+                f"tnd_contract_confirmed:{self.layer_name}",
+                "tnd_contract_confirmed",
+                layer=self.layer_name,
+                token_capacity=tokens,
+            )
         record_attention_compute_start()
+        trace_event(
+            f"tnd_submit:{self.layer_name}",
+            "tnd_kernel_submit",
+            layer=self.layer_name,
+            tokens=tokens,
+            requests=requests,
+            next_submission=self.submissions + 1,
+        )
         prepared()
         self.submissions += 1
+        trace_event(
+            f"tnd_returned:{self.layer_name}",
+            "tnd_kernel_returned",
+            layer=self.layer_name,
+            submissions=self.submissions,
+        )
         self.last_binding = prepared
         notify_kv_cache_written(self.layer_name)
         maybe_save_kv_layer_to_connector(self.layer_name, list(kv_cache))
