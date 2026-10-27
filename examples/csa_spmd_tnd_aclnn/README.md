@@ -1,13 +1,10 @@
 # CSA 单 SPMD TND ACLNN 接入
 
-**动态 shape 版本已构建，ACLNN 设备验证待完成**：已取消固定八场景容量选档，按 Python 默认选择器的 62 种可达策略编译，核内维度与工作区使用实际描述符。3,062 组策略/布局、162 组 Meta 检查及 16 个新增 shape 的 Python PTO 参考验证通过；动态包的 ACLNN 对照尚未完成。原八档结果是旧安装包证据。详见 [DYNAMIC_SHAPES.md](DYNAMIC_SHAPES.md)。
+当前实现按 Python 默认选择器的 62 种可达策略编译；T/B、缓存与页表尺寸来自真实 Tensor 描述符，Host 按实际尺寸计算工作区。动态包的 24 个场景已完成业务/诊断 eager 和 graph replay 验证，output、TopK、score、cache/state 全部与原 Python PTO 逐位一致，保护区通过；另有 10 项同址 metadata 和 4 步连续状态验证通过。
 
+CPU 的 3,062 组策略/布局与 162 组 Meta 检查通过。设备用例覆盖 16/62 个策略，尚未逐策略验收所有边界；独立数学 golden C01 仍未通过，生产服务与整模型尚未验收，动态包性能未测。
 
-此前八场景版本：生成核、Host tiling/workspace、MIX 包装、Torch 绑定和纯 C++ 调用已实现。
-最终安装包八档的 55/57 Tensor eager/graph 均与冻结 c346573 SPMD 逐位一致，
-不初始化 Simpler runtime。最终安装包 C04 的 10 项同址 metadata 与 4 步连续状态验证也已通过。独立数学 golden C01 未通过，主要差异定位到原性能核的
-Indexer 量化/TopK；不能把接入一致性说成数学精度通过。详见
-[适配记录](ADAPTATION_LOG.md)和[验证结果](validation_results.json)。
+当前完整说明见 [复现手册](REPRODUCTION.md)、[动态 shape 范围](DYNAMIC_SHAPES.md)和[动态验证结果](dynamic_validation_results.json)。[适配日志](ADAPTATION_LOG.md)保留过程；[validation_results.json](validation_results.json)与性能表记录此前 csa_final 包的证据。
 
 ## 基线
 
@@ -84,7 +81,7 @@ python examples/csa_spmd_tnd_aclnn/scripts/test_layout.py \
   --build-dir /path/outside/repo/layout_test
 ```
 
-build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8～61 补齐默认选择器的其余可达策略，-1 编译全部；可选第四个参数指定并行任务数（默认 2）。动态完整包已构建；此前八场景包的 55/57 Tensor eager/graph 与冻结 SPMD bitwise 一致，新包须独立复验。
+build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8～61 补齐默认选择器的其余可达策略，-1 编译全部；可选第四个参数指定并行任务数（默认 2）。动态完整包已构建，并完成 24 场景的 55/57 Tensor eager/graph 独立复验，均与冻结 SPMD bitwise 一致。
 `generated/manifest.json` 固定每档完整策略和来源，不能只根据 token 数选择 C02/C04。
 运行前需将独立 vendor 路径加入 `ASCEND_CUSTOM_OPP_PATH`，保留已有 Native vendor。
 
@@ -151,7 +148,7 @@ python generate.py --input /tmp/csa-golden-new-input.pt --output /tmp/csa-golden
 reshape 后喂给 golden。generate.py 可用 --device npu:0，但只生成数学参考结果，
 不执行 ACLNN 或自动判定精度；使用设备前应确认没有其他任务占用。
 
-**当前精度状态：八档接入对照通过，独立 golden C01 未通过，其余七档未运行。**
+**当前精度状态：动态包 24 场景接入对照通过；独立数学 golden C01 未通过，其余场景未做独立数学验收。**
 误差解读与 C++ 对比流程见 ADAPTATION_LOG.md 第 016–017 节。
 物理输入适配、完整对比脚本、输入快照、golden.pt 和日志仍保留在仓外
 `/data00/wangkai/aclnnWorkspace/scripts/`、`build/`、`logs/`，不混入源码目录。

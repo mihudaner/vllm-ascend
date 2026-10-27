@@ -1,6 +1,6 @@
-# 动态 shape 接入（验证进行中）
+# 动态 shape 接入与验证范围
 
-当前代码按上游 `deepseek_v4_flash_csa_spmd_tnd.policy.select_policy` 选择编译策略，取消八个验证场景的 T/B 等值白名单。原八场景仅为回归样例；旧安装包 csa_final 和其性能不代表动态版本已验收。
+当前代码按上游 `deepseek_v4_flash_csa_spmd_tnd.policy.select_policy` 选择编译策略，取消八个验证场景的 T/B 等值白名单。原八场景仅为回归样例。当前 csa_dynamic 包已完成 24 场景与状态验证；性能表仍来自 csa_final，动态包性能尚未采集。
 
 ## 支持合同
 
@@ -23,7 +23,9 @@
 - 3,062 组策略/动态布局检查与 162 组 Torch Meta 检查通过，见 `/data00/wangkai/aclnnWorkspace/build/dynamic_contract/result.json`。
 - 完整 ACLNN 包构建成功；包内 kernelList 核验包含全部 tiling key 0–61。产物为 `/data00/wangkai/aclnnWorkspace/build/csa_dynamic_keys2/csa_spmd_tnd_pto.run`，SHA256 `0096f66c045e64aee907b2b5d7af196043a3ee4a7845f2812c4eb039ab4e0b7f`。
 - 16 个新增 shape 的原 Python PTO eager/graph 参考验证全部通过，记录位于 `build/dynamic_reference_*/result/result.json`。这一步生成比较基准，不代表 ACLNN 通过。
-- 动态包的 16 个新增 shape + 原八场景 ACLNN 设备对照尚未完成；同址元数据/连续状态也需在新包复验。未完成前不得宣称动态接入已全部验收。
+- 动态包的 16 个新增 shape + 原八场景，共 24 项业务/诊断 eager/graph 验证全部与原 PTO 逐位一致，保护区通过；这些 ACLNN 独立进程不初始化 Simpler runtime。
+- 新包 C04 的 10 项同址 metadata 更新、4 步连续状态 graph replay 全部逐位一致，外部地址/保护区检查通过；未直接观测内部 geometry/signal。
+- 设备用例覆盖策略键 0、1、2、3、4、5、6、7、8、10、13、17、25、36、47、59，共 16/62 个。全部策略编译与 CPU 检查通过，不等于全部策略已在 NPU 验收。完整矩阵见 [REPRODUCTION.md](REPRODUCTION.md)，结果与原始报告哈希见 [dynamic_validation_results.json](dynamic_validation_results.json)。
 - 独立数学 golden 与 PTO 基线的已知差异仍保留，本轮检验的是接入与原 Python PTO 的一致性。
 
 ## 当前快照的复现入口

@@ -392,3 +392,15 @@ record_source.py 重建的 SOURCE_MANIFEST 与导入清单完全一致，导入�
 完整范围、构建入口和阶段状态见 DYNAMIC_SHAPES.md、dynamic_validation_results.json。
 
 保存前检查：动态 runtime/布局三项 pytest 通过；动态新增与修改脚本及 UT 的 Ruff 检查通过。全仓 format.sh ci 因缺少 pre-commit 退出，未计为通过；冻结导入的 golden 源码保持原样，保留其已有风格差异。生成器仅做排版调整，重新生成后接口/Host/MIX/Torch/布局文件哈希保持一致。
+
+阶段快照已推送：`4445e3db6a8c16d052276ea7409a413fb1096fe0`，远端 `mihudaner/vllm-ascend:csa_spmd_tnd_aclnn` 的 HEAD 已核对一致。首次推送因导入仓库遗漏原始浅克隆边界导致缺失父提交失败；按原仓 `.git/shallow` 恢复边界后 Git connectivity 检查与推送通过，未修改提交内容、未强推。之后安装独立 `install/csa_dynamic` 开始设备验证，原 csa_final 保留。
+
+## 022. 动态包设备验证与复现文档重写（2026-10-27）
+
+实现快照推送后，安装独立 csa_dynamic 包，24 场景全部完成四条路径（业务/诊断 eager/graph）验证。逐项核对所有 numerical 的 bit_equal=true、status=PASS、全部 guards=true，9 项结果均逐位一致；各进程 simpler_runtime_initialized=false。覆盖 16/62 个策略键，完整列表与原始报告 SHA256 保存到 dynamic_validation_results.json，未将其描述为全部策略 NPU 覆盖。
+
+同一动态包 C04 另做 10 项同址 metadata 更新和 4 步连续状态 graph replay。两侧比较的 numerical 均逐位一致，地址/保护区检查通过；内部 geometry/signal 未直接观测。报告：build/dynamic_state_c04_01/result/result.json。未运行性能采样或 NPU Event 测量。
+
+按用户要求，将 /data00/wangkai/pto_env/REPRODUCTION_LOG.md 整体重写为当前实现说明，删除失效状态、静态 shape 支持结论和过时环境过程。只保留有效的当前合同、验证证据、性能数值与复跑命令；真实测量的性能值明确对应 csa_final，不冒充动态包性能。完整同内容副本保存到本 example 的 REPRODUCTION.md，随验证结果推送远端。README 与 DYNAMIC_SHAPES.md 同步改为当前结果，不继续叠加矛盾状态。
+
+独立数学 golden C01 未通过的结论保留，生产服务和整模型尚未验收。全仓格式检查缺 pre-commit 的限制不变。
