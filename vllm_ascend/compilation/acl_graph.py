@@ -22,6 +22,7 @@ from vllm.platforms import current_platform
 
 from vllm_ascend.ascend_config import get_ascend_config
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX
+from vllm_ascend.ops.pypto.trace import csa_trace_enabled, trace_event
 
 from ..utils import weak_ref_tensors
 
@@ -272,15 +273,48 @@ class ACLGraphWrapper:
             # manage the memory during acl graph capture
             return output
 
-        if entry.csa_tnd_contracts and not all(
-            contract.allows_replay(forward_context) for contract in entry.csa_tnd_contracts.values()
-        ):
+        if entry.csa_tnd_contracts:
+            if csa_trace_enabled():
+                # 调试模式下逐层评估合同（含被 all() 短路掉的层），便于定位
+                # 究竟是哪一层的容量/策略/地址变化导致整图不能重放。
+                replay_decisions = {
+                    layer_name: contract.allows_replay(forward_context)
+                    for layer_name, contract in entry.csa_tnd_contracts.items()
+                }
+                for layer_name, allowed in replay_decisions.items():
+                    trace_event(
+                        f"replay_guard:{layer_name}",
+                        "tnd_replay_guard",
+                        layer=layer_name,
+                        allows_replay=int(allowed),
+                        contracts=len(replay_decisions),
+                    )
+                can_replay = all(replay_decisions.values())
+            else:
+                can_replay = all(
+                    contract.allows_replay(forward_context)
+                    for contract in entry.csa_tnd_contracts.values()
+                )
+        else:
+            can_replay = True
+        if entry.csa_tnd_contracts and not can_replay:
             from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import (
                 TND_PADDED_REDISPATCH,
             )
 
             # 旧图可能捕获了Native/空路径，或请求容量/策略/输入地址已经变化。
             # 走正常Python派发，支持的调用仍可进入SPMD，范围外由服务回退Native。
+            if csa_trace_enabled():
+                blocked = ",".join(
+                    layer_name
+                    for layer_name, allowed in replay_decisions.items()
+                    if not allowed
+                )
+                trace_event(
+                    "replay_guard:redispatch",
+                    "tnd_replay_redispatch_python",
+                    blocked_layers=blocked,
+                )
             previous_mode = forward_context.cudagraph_runtime_mode
             previous_redispatch = forward_context.additional_kwargs.get(TND_PADDED_REDISPATCH)
             forward_context.cudagraph_runtime_mode = CUDAGraphMode.NONE
@@ -298,6 +332,11 @@ class ACLGraphWrapper:
             from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.host_metadata import validate_graph_replay
 
             validate_graph_replay(entry.csa_hbg_host_metadata, forward_context.attn_metadata)
+            trace_event(
+                "replay_guard:hbg",
+                "hbg_replay_metadata_validated",
+                layers=len(entry.csa_hbg_host_metadata),
+            )
 
         if self.is_debugging_mode:
             # check if the input addresses are the same
@@ -322,6 +361,18 @@ class ACLGraphWrapper:
         need_sync = self.runtime_mode == CUDAGraphMode.FULL and not is_draft_eagle
         if not self.enable_enpu and need_sync:
             torch.npu.current_stream().synchronize()
+        if csa_trace_enabled() and (entry.csa_tnd_contracts or entry.csa_hbg_host_metadata):
+            # 图重放不经过 Python，custom op 内不会再有打点；这里是重放已捕获
+            # PTO 图的唯一观测点。performance 多 task 变体没有图上合同对象，
+            # 其 PTO kernel 已直接烘进图里，捕获时刻的 pto_kernel_submit
+            # 即为其执行证据。
+            trace_event(
+                f"graph_replay:{entry.batch_descriptor}",
+                "pto_captured_graph_replay",
+                batch_descriptor=entry.batch_descriptor,
+                tnd_layers=(len(entry.csa_tnd_contracts) if entry.csa_tnd_contracts else 0),
+                hbg_layers=(len(entry.csa_hbg_host_metadata) if entry.csa_hbg_host_metadata else 0),
+            )
         entry.aclgraph.replay()
         return entry.output
 

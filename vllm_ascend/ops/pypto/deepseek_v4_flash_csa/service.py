@@ -3,6 +3,7 @@
 
 import torch
 
+from vllm_ascend.ops.pypto.trace import trace_event
 from vllm_ascend.ops.pypto.variant import csa_runtime
 
 from .host_metadata import CSAHostMetadata
@@ -23,18 +24,40 @@ _COMPACT_METADATA_CACHE = "pto_csa_compact_compressor_metadata"
 class AttentionServiceBase:
     """CSA性能版与HCA共用的入口判定和metadata缓存；不注册算术实现。"""
 
+    def _trace_deny(self, reason, **fields):
+        # eligible 拒绝路径专用：打印原因后仍返回 False，不改变任何判定语义。
+        trace_event(
+            f"deny:{self.layer_name}:{reason}",
+            "eligible_denied",
+            layer=self.layer_name,
+            reason=reason,
+            **fields,
+        )
+        return False
+
     def eligible(self, context, hidden, positions):
         metadata = context.attn_metadata
         if metadata is None or getattr(context, "is_draft_model", False):
-            return False
+            return self._trace_deny(
+                "metadata_none_or_draft", has_metadata=int(metadata is not None),
+                is_draft=int(getattr(context, "is_draft_model", False)),
+            )
         # 整层入口：进出都是层间的 mHC 残差流 [T, HC_MULT, D]。
         if hidden.ndim != 3 or tuple(hidden.shape[1:]) != (4, 4096) or hidden.dtype != torch.bfloat16:
-            return False
+            return self._trace_deny(
+                "hidden_shape_or_dtype", ndim=hidden.ndim,
+                shape=tuple(hidden.shape), dtype=str(hidden.dtype),
+            )
         tokens = hidden.shape[0]
         if tokens % QUERY_TOKENS or not 1 <= tokens // QUERY_TOKENS <= self.batch_capacity:
-            return False
+            return self._trace_deny(
+                "token_bucket", tokens=tokens, batch_capacity=self.batch_capacity,
+            )
         if not hidden.is_contiguous() or positions.dtype != torch.int64 or positions.shape != (tokens,):
-            return False
+            return self._trace_deny(
+                "layout_or_positions", contiguous=int(hidden.is_contiguous()),
+                positions_dtype=str(positions.dtype), positions_shape=tuple(positions.shape),
+            )
         batch = tokens // QUERY_TOKENS
         for prefix in self.prefixes.values():
             item = metadata.get(prefix)
@@ -42,28 +65,56 @@ class AttentionServiceBase:
             # num_decodes 是**补齐后**的请求数（实测 18 与 4，整档 24）。补位请求
             # 由 kernel 内的 seq_lens 判据屏蔽，这里只要求真实部分是完整六行请求。
             if item is None or item.num_prefills or item.num_actual_tokens > tokens:
-                return False
+                return self._trace_deny(
+                    "metadata_prefill_or_capacity", prefix=prefix,
+                    missing=int(item is None),
+                    num_prefills=(0 if item is None else item.num_prefills),
+                    num_actual_tokens=(None if item is None else item.num_actual_tokens),
+                    tokens=tokens,
+                )
             if item.num_actual_tokens % QUERY_TOKENS or item.num_decodes != batch:
-                return False
+                return self._trace_deny(
+                    "decode_count_mismatch", prefix=prefix,
+                    num_actual_tokens=item.num_actual_tokens, num_decodes=item.num_decodes,
+                    batch=batch,
+                )
             req = item.decode
             if req is None or req.seq_lens.numel() != batch or req.query_start_loc.numel() != batch + 1:
-                return False
+                return self._trace_deny(
+                    "request_layout", prefix=prefix, req_none=int(req is None),
+                    seq_lens=(None if req is None else req.seq_lens.numel()),
+                    query_start_loc=(None if req is None else req.query_start_loc.numel()),
+                    batch=batch,
+                )
             actual = item.num_actual_tokens // QUERY_TOKENS
             if req.max_seqlen_q != QUERY_TOKENS or req.num_reqs_actual not in (None, actual):
-                return False
+                return self._trace_deny(
+                    "query_token_contract", prefix=prefix,
+                    max_seqlen_q=req.max_seqlen_q, num_reqs_actual=req.num_reqs_actual,
+                    actual=actual,
+                )
             # xllm 0.26 attaches dspark_swa_indices lazily, so dummy metadata
             # built during graph capture may not carry the attribute at all.
             if req.ori_win_right not in (None, 0) or getattr(req, "dspark_swa_indices", None) is not None:
-                return False
+                return self._trace_deny(
+                    "draft_window_or_swa_indices", prefix=prefix,
+                    ori_win_right=req.ori_win_right,
+                    has_swa_indices=int(getattr(req, "dspark_swa_indices", None) is not None),
+                )
         main = metadata[self.prefixes["compressed"]]
         if main.num_actual_tokens < tokens and main.decode.cos[self.layer_name].shape[0] < tokens:
             # Native 的 decode RoPE 视图按实际 token 切片。图捕获发生在无补位的满档
             # dummy 上，捕获到的就是整档视图，重放不受影响；只有 eager 下真出现补位
             # 才会切短。那种情况下整档算不出来，让本层回退 Native，
             # 而不是另建一份冗余缓冲去凑。
-            return False
+            return self._trace_deny(
+                "rope_view_shorter_than_tokens", num_actual_tokens=main.num_actual_tokens,
+                tokens=tokens,
+            )
         swa = metadata[self.prefixes["swa"]].decode
-        return swa.ori_win_left in (None, 127)
+        if swa.ori_win_left not in (None, 127):
+            return self._trace_deny("swa_left_window_unsupported", ori_win_left=swa.ori_win_left)
+        return True
 
     def _compact_metadata(self, context, req):
         """取这一步该 KV cache group 的 (cos, sin, slot_mapping)，同 step 内跨层复用。
@@ -116,6 +167,14 @@ class CSAServiceRuntime(AttentionServiceBase):
         )
         from vllm_ascend.memcache_comm_fence import record_attention_compute_start
 
+        trace_event(
+            f"pto_call_enter:{self.layer_name}",
+            "pto_call_enter",
+            layer=self.layer_name,
+            tokens=hidden.shape[0],
+            hbg=int(self.is_hbg),
+            capturing=int(torch.npu.is_current_stream_capturing()),
+        )
         metadata = {name: context.attn_metadata[prefix] for name, prefix in self.prefixes.items()}
         # Native creates this Hadamard table when it builds attention metadata.
         # Transform once in an ordinary warmup call, never during capture/replay.
@@ -165,6 +224,19 @@ class CSAServiceRuntime(AttentionServiceBase):
         # A single fused call publishes all KV writes. Notify the connector on
         # the same stream after that call; no global synchronization is needed.
         record_attention_compute_start()
+        trace_event(
+            f"pto_kernel_submit:{self.layer_name}",
+            "pto_kernel_submit",
+            layer=self.layer_name,
+            tokens=tokens,
+            call_type=type(call).__name__,
+        )
         call()
+        trace_event(
+            f"pto_kernel_returned:{self.layer_name}",
+            "pto_kernel_returned",
+            layer=self.layer_name,
+            tokens=tokens,
+        )
         notify_kv_cache_written(self.layer_name)
         maybe_save_kv_layer_to_connector(self.layer_name, list(kv_cache))

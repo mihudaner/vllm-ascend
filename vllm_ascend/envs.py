@@ -103,6 +103,14 @@ env_variables: dict[str, Callable[[], Any]] = {
     # tensormap_and_ringbuffer or host_build_graph. Must be set before runtime
     # initialization and cannot switch within one process.
     "PTO_CSA_RUNTIME": lambda: os.getenv("PTO_CSA_RUNTIME", "tensormap_and_ringbuffer"),
+    # Debug-only execution-path tracing for the PTO CSA layers. Emits
+    # "[PTO_CSA_TRACE]" log lines at every routing boundary (patched layer
+    # entry, custom-op dispatch, empty call, Native fallback with the
+    # ineligibility reason, PTO kernel submit, graph capture/replay guard).
+    # 0: off (default, hot path untouched); 1: throttled (first 16 events per
+    # key, then one every 256); 2: log every call. Must be set before the
+    # worker imports the PTO CSA modules; never enable in perf runs.
+    "PTO_CSA_TRACE": lambda: int(os.getenv("PTO_CSA_TRACE", "0")),
     # Whether to anbale dynamic EPLB
     "DYNAMIC_EPLB": lambda: os.getenv("DYNAMIC_EPLB", "false").lower(),
     # Whether to enable fused MC2 (`dispatch_ffn_combine/mega_moe`).
