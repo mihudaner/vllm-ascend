@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "scope": "Native FULL ACLGraph单dummy padding回归；非正式性能档位",
+  "layer": 4,
+  "correctness": {
+    "integer_index_guard": "exact",
+    "floating_output": {
+      "atol": 0.01,
+      "rtol": 0.01
+    },
+    "floating_cache_state": {
+      "atol": 1e-05,
+      "rtol": 1e-05
+    },
+    "topk_scores": {
+      "atol": 0.0001,
+      "rtol": 1e-05
+    },
+    "nonfinite": "No NaN or Inf; finite minimum sentinel permitted",
+    "also_report_bitwise": true
+  },
+  "cases": [
+    {
+      "name": "native_mixed_padding_t32",
+      "history_label": 131072,
+      "active_requests": 3,
+      "request_capacity": 4,
+      "query_lengths": [
+        2,
+        6,
+        1
+      ],
+      "history_lengths": [
+        131074,
+        131072,
+        131075
+      ],
+      "valid_tokens": 9,
+      "token_capacity": 32,
+      "query_start_loc": [
+        0,
+        2,
+        8,
+        9,
+        32
+      ],
+      "seq_lens": [
+        131076,
+        131078,
+        131076,
+        0
+      ],
+      "seed": 1024,
+      "table_history": 131078,
+      "reverse_pages": false,
+      "indexer_page_pattern": "original"
+    }
+  ]
+}

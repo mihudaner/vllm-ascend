@@ -1,0 +1,35 @@
+{
+  "base_commit": "c346573ab3313fcc71cd58756acd129f34755439",
+  "changes": [
+    "SPMD policy: remove padded-capacity bound",
+    "MPMD policy: remove padded-capacity bound",
+    "case validator: separate active queries and padding"
+  ],
+  "shared_toolchain": {
+    "release": "csa-shared-20261024-group-dims",
+    "status": "validated",
+    "sessions": [
+      "CSA-SPMD",
+      "CSA-SPMD-TND",
+      "CSA-MPMD-TND"
+    ],
+    "pypto": {
+      "source": ".worktrees/pypto-csa-shared-group-dims-20261024",
+      "commit": "d44925c17d9ff7d7fa8e5067e41c4b4f80bf3063"
+    },
+    "ptoas": {
+      "source": ".worktrees/ptoas-csa-mpmd-upstream-20261021",
+      "build": ".worktrees/ptoas-csa-mpmd-upstream-20261021/build",
+      "commit": "914863ed3d0eb3e92a4433a4a706a86cabf4c91f"
+    },
+    "simpler": {
+      "source": ".worktrees/simpler-csa-core-args-256-20261016",
+      "commit": "57e499238fd4ee3548947ad860be456aaeeb16b5"
+    },
+    "evidence": "../csa_tnd_model_validation_20261023/internal_toolchain_upgrade.json",
+    "published_for_validation_at": "2026-10-24T02:59:40+08:00",
+    "validated_at": "2026-10-24T03:45:54+08:00"
+  },
+  "frozen_source": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_aclgraph_padding_20261027/sources",
+  "working_diff": "diff --git a/tests/pypto_test/csa_mpmd_tnd_20261021/run_case.py b/tests/pypto_test/csa_mpmd_tnd_20261021/run_case.py\nindex f69c74454..e74610648 100644\n--- a/tests/pypto_test/csa_mpmd_tnd_20261021/run_case.py\n+++ b/tests/pypto_test/csa_mpmd_tnd_20261021/run_case.py\n@@ -42,9 +42,14 @@ def check_case(case):\n     q, h = case[\"query_lengths\"], case[\"history_lengths\"]\n     assert len(q) == len(h) == b and bc >= b\n     assert all(1 <= n <= 6 for n in q) and all(n >= 0 for n in h)\n-    assert sum(q) == case[\"valid_tokens\"] <= case[\"token_capacity\"] <= 6 * bc\n-    assert len(case[\"query_start_loc\"]) == bc + 1\n-    assert case[\"query_start_loc\"][-1] == case[\"token_capacity\"]\n+    assert sum(q) == case[\"valid_tokens\"] <= case[\"token_capacity\"]\n+    bounds = case[\"query_start_loc\"]\n+    assert len(bounds) == bc + 1 and bounds[0] == 0\n+    assert [end - begin for begin, end in zip(bounds[:b], bounds[1:b + 1])] == q\n+    # Native ACLGraph可用一个失活请求承接任意长度的尾部padding。\n+    # 真实query仍严格为S1～S6，dummy只要求边界单调且落在分配容量内。\n+    assert all(begin <= end for begin, end in zip(bounds, bounds[1:]))\n+    assert bounds[-1] == case[\"token_capacity\"]\n     assert case[\"seq_lens\"] == [a + n for a, n in zip(h, q)] + [0] * (bc - b)\n \n \ndiff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py\nindex 58efc3c45..165a5ada3 100644\n--- a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py\n+++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py\n@@ -132,8 +132,10 @@ def select_policy(\n     values = (tokens, requests, max_query_tokens, max_seq_len)\n     if any(type(v) is not int or v <= 0 for v in values):\n         raise ValueError(\"tokens/requests/max_query_tokens/max_seq_len须为已有的正整数描述符\")\n-    if tokens > requests * max_query_tokens:\n-        raise ValueError(\"token容量超过请求容量×query上界；请绑定Native同一档描述符\")\n+    # tokens是图的行容量，max_query_tokens只约束有效请求。Native可将全部\n+    # padding合并为一个失活请求，因此容量可以超过requests * max_query_tokens。\n+    # 有效token/query的合法性由service_config.supported_descriptor检查；\n+    # 此处只选资源策略，不回读Q/L，也不扩大真实query上界来迁就padding。\n     cache_rows = max_seq_len // 4\n     if cache_rows < 2048:\n         raise NotImplementedError(\"完整动态SPMD的小历史Vector Score路径尚未接入\")\ndiff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_tnd/policy.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_tnd/policy.py\nindex a4a421c58..f2b3b5bab 100644\n--- a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_tnd/policy.py\n+++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_tnd/policy.py\n@@ -87,8 +87,9 @@ def select_policy(\n     values = (tokens, requests, max_query_tokens, max_seq_len)\n     if any(type(v) is not int or v <= 0 for v in values):\n         raise ValueError(\"tokens/requests/max_query_tokens/max_seq_len须为已有的正整数描述符\")\n-    if tokens > requests * max_query_tokens:\n-        raise ValueError(\"token容量超过请求容量×query上界；请绑定Native同一档描述符\")\n+    # Native图可将全部padding合并为一个失活请求；tokens是行容量，不能\n+    # 用有效请求的query上界限制它。有效token/query仍由共享服务入口检查，\n+    # 本层仅选择资源策略，不读取设备Q/L或修改请求容量。\n     cache_rows = max_seq_len // 4\n     if cache_rows < 2048:\n         raise NotImplementedError(\"TND 多 task 的短历史 Vector Score 路径尚未接入\")\n"
+}

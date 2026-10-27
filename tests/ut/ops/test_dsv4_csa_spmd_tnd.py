@@ -342,7 +342,8 @@ def test_mixed_tnd_uses_original_metadata_without_host_reads(monkeypatch):
 @pytest.mark.parametrize(
     "fault", ["request_capacity", "bounds_dtype", "slot_capacity", "rope_capacity", "output_dtype"]
 )
-def test_invalid_native_descriptors_fail_before_launch(fault):
+@pytest.mark.parametrize("package", ["deepseek_v4_flash_csa_spmd_tnd", "deepseek_v4_flash_csa_tnd"])
+def test_invalid_native_descriptors_fail_before_launch(fault, package):
     case = native_case()
     if fault == "request_capacity":
         case["groups"]["state"][0].decode.seq_lens = torch.ones(2, dtype=torch.int32)
@@ -354,8 +355,58 @@ def test_invalid_native_descriptors_fail_before_launch(fault):
         case["groups"]["compressed"][0].decode.cos[case["layer_name"]] = torch.empty((8, 64))
     else:
         case["output"] = case["output"].float()
-    with pytest.raises(ValueError):
-        bind_native_inputs(**case)
+    bind = importlib.import_module(f"vllm_ascend.ops.pypto.{package}.native_adapter").bind_native_inputs
+    with pytest.raises(ValueError) as error:
+        bind(**case)
+    message = str(error.value)
+    assert "actual:" in message
+    assert "shape=" in message and "dtype=" in message and "stride=" in message and "device=cpu" in message
+
+
+@pytest.mark.parametrize("package", ["deepseek_v4_flash_csa_spmd_tnd", "deepseek_v4_flash_csa_tnd"])
+def test_policy_validation_reports_actual_scalars(package):
+    policy = importlib.import_module(f"vllm_ascend.ops.pypto.{package}.policy")
+    with pytest.raises(ValueError) as error:
+        policy.select_policy(tokens=32, requests=4, max_query_tokens=6, max_seq_len=131078, compressed_table_columns=0)
+    message = str(error.value)
+    for expected in (
+        "tokens=32",
+        "requests=4",
+        "max_query_tokens=6",
+        "max_seq_len=131078",
+        "compressed_table_columns=0",
+    ):
+        assert expected in message
+
+
+def test_validation_messages_never_read_or_print_tensor_contents(monkeypatch):
+    from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.validation import validation_error
+
+    value = torch.empty((3, 8), dtype=torch.float32)[:, 2:6]
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("异常参数描述不能回读或repr Tensor")
+
+    for name in ("item", "cpu", "tolist", "numpy", "__repr__"):
+        monkeypatch.setattr(torch.Tensor, name, forbidden)
+    message = validation_error("invalid", request=NS(seq_lens=value, num_reqs_actual=3))
+    assert "num_reqs_actual': 3" in message
+    assert "shape=(3, 4)" in message and "stride=(8, 1)" in message and "storage_offset=2" in message
+
+
+@pytest.mark.parametrize("package", ["deepseek_v4_flash_csa_spmd_tnd", "deepseek_v4_flash_csa_tnd"])
+def test_binding_validation_reports_actual_hidden_dtype(monkeypatch, package):
+    from vllm_ascend import envs
+
+    binding = importlib.import_module(f"vllm_ascend.ops.pypto.{package}.binding").PreparedDynamicCSA
+    monkeypatch.setattr(envs, "VLLM_ASCEND_ENABLE_NZ", 2)
+    native = {
+        "x_hc": torch.empty((32, 4, 4096), dtype=torch.float32),
+        "kv_seq_lens": torch.empty(4, dtype=torch.int32),
+    }
+    with pytest.raises(ValueError) as error:
+        binding(native, max_query_tokens=6, max_seq_len=131078)
+    assert "shape=(32, 4, 4096)" in str(error.value) and "dtype=torch.float32" in str(error.value)
 
 
 @pytest.mark.parametrize(
@@ -386,6 +437,80 @@ def test_host_support_contract(tokens, requests, actual, max_q, length, expected
         )
         is expected
     )
+
+
+@pytest.mark.parametrize("package", ["deepseek_v4_flash_csa_spmd_tnd", "deepseek_v4_flash_csa_tnd"])
+def test_native_aclgraph_padding_can_exceed_request_query_capacity(monkeypatch, package):
+    """执行Native FULL图padding逻辑，覆盖服务判定通过但选策略误抛异常的路径。"""
+    import numpy as np
+    from vllm.config import CUDAGraphMode
+
+    from vllm_ascend.ops import dsa
+    from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import TNDGraphContract
+    from vllm_ascend.worker.model_runner_v1 import NPUModelRunner
+
+    service = importlib.import_module(f"vllm_ascend.ops.pypto.{package}.service")
+    runtime, context, case = service_case(service.CSAServiceRuntime)
+    tokens, actual_requests = 32, 3
+    query_cpu = np.array([0, 2, 8, 9, 0], dtype=np.int32)
+    bounds = torch.empty(5, dtype=torch.int32)
+    query_buffer = NS(np=query_cpu, copy_to_gpu=lambda: bounds.copy_(torch.from_numpy(query_cpu)))
+    runner = NS(
+        compilation_config=NS(cudagraph_mode=CUDAGraphMode.FULL),
+        uniform_decode_query_len=6,
+        arange_np=np.arange(5),
+    )
+    requests = NPUModelRunner._pad_query_start_loc_for_fia(
+        runner, query_buffer, tokens, actual_requests, actual_requests, CUDAGraphMode.FULL
+    )
+    assert requests == 4 and bounds.tolist() == [0, 2, 8, 9, 32]
+    assert tokens > requests * 6  # 最后23行属于失活dummy，并非真实query超长。
+
+    case["hidden"] = torch.empty((tokens, 4, 4096), dtype=torch.bfloat16)
+    case["positions"] = torch.zeros(tokens, dtype=torch.int64)
+    for metadata, _ in case["groups"].values():
+        metadata.num_decodes = requests
+        req = metadata.decode
+        req.query_start_loc = bounds
+        req.seq_lens = torch.cat((req.seq_lens, torch.zeros(1, dtype=torch.int32)))
+        req.block_table = torch.cat((req.block_table, torch.zeros_like(req.block_table[:1])))
+        req.start_pos = torch.cat((req.start_pos, torch.zeros(1, dtype=torch.int32)))
+        req.slot_mapping = torch.full((tokens, 2), -1, dtype=torch.int32)
+        req.cos = {case["layer_name"]: torch.ones((tokens, 64), dtype=torch.float32)}
+        req.sin = {case["layer_name"]: torch.zeros((tokens, 64), dtype=torch.float32)}
+        req.input_positions = case["positions"]
+        req.max_seqlen_q = 23
+        req.max_seqlen_q_actual = 6
+    runtime.wrapper = NS()
+    context.attn_metadata["indexer"].hadamard = torch.eye(128, dtype=torch.bfloat16)
+    cache = tuple(view for _, views in case["groups"].values() for view in views)
+    monkeypatch.setattr(dsa, "_build_kv_cache", lambda *args: cache)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("padding兼容不能引入设备metadata回读")
+
+    for name in ("item", "cpu", "tolist", "numpy"):
+        monkeypatch.setattr(torch.Tensor, name, forbidden)
+    assert runtime.eligible(context, case["hidden"], case["positions"])
+    signature = runtime.graph_signature(context, tokens)
+    assert signature is not None
+    contract = TNDGraphContract(runtime, tokens, signature)
+    assert contract.allows_replay(context)
+    for metadata in context.attn_metadata.values():
+        metadata.num_actual_tokens = 8
+        metadata.decode.query_start_loc.copy_(torch.tensor([0, 1, 7, 8, 32], dtype=torch.int32))
+        metadata.decode.seq_lens[0] -= 1
+        metadata.decode.max_seqlen_q = 24
+    assert contract.allows_replay(context)
+
+    # 放开的是失活padding容量；真实query超长仍必须回退，旧图也不得重放。
+    context.attn_metadata["compressed"].decode.max_seqlen_q_actual = 7
+    assert not runtime.eligible(context, case["hidden"], case["positions"])
+    assert not contract.allows_replay(context)
+    context.attn_metadata["compressed"].decode.max_seqlen_q_actual = 6
+    context.attn_metadata["compressed"].num_actual_tokens = requests * 6 + 1
+    assert not runtime.eligible(context, case["hidden"], case["positions"])
+    assert not contract.allows_replay(context)
 
 
 def service_case(runtime_type=CSAServiceRuntime):

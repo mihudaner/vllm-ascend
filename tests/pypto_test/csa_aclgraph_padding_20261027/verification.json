@@ -1,0 +1,58 @@
+{
+  "status": "PASS",
+  "task": "task_20261027_213315_307426918377",
+  "cpu": {
+    "before_fix": "2 regression failures at policy capacity check",
+    "after_fix": "196 passed",
+    "command": "bash tests/pypto_test/csa_spmd_tnd_20261020/run_cpu.sh --confcutdir=tests/ut/ops tests/ut/ops/test_dsv4_csa_spmd_tnd.py -q --disable-warnings"
+  },
+  "case_validator": {
+    "existing_eight_cases": "PASS",
+    "new_padding_case": "PASS",
+    "invalid_active_query_and_bounds_and_dummy_length": "3 rejected"
+  },
+  "static_checks": {
+    "ruff": "PASS",
+    "shell_syntax": "PASS",
+    "diff_whitespace": "PASS",
+    "format_ci": "unavailable: pre-commit is not installed"
+  },
+  "scope": "Native padding/service CPU regression and pure-PyTorch single-card TND NPUGraph; no full-model/performance claim",
+  "task_exit_code": 0,
+  "device": {
+    "checks": [
+      "spmd_diagnostic_eager",
+      "mpmd_diagnostic_eager",
+      "spmd_normal_eager",
+      "mpmd_normal_eager",
+      "spmd_graph_0",
+      "spmd_graph_1",
+      "mpmd_graph_0",
+      "mpmd_graph_1"
+    ],
+    "all_guards_pass": true,
+    "all_observed_results_bit_equal": true,
+    "replay_per_implementation": 2,
+    "external_workspace_bytes": {
+      "spmd": 0,
+      "mpmd": 0
+    },
+    "raw_result": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_aclgraph_padding_20261027/runs/padding/result.json"
+  },
+  "push": false,
+  "error_context_cpu": {
+    "result": "22 passed, 184 deselected",
+    "scope": "两种TND错误参数、Native padding和图合同的定向CPU回归",
+    "no_device_reads": true,
+    "additional_npu_tests": 0,
+    "device_evidence_scope": "此前单卡结果验证padding修复；随后仅修改异常文本，未重跑NPU"
+  },
+  "rebase": {
+    "onto": "1685da691",
+    "preserved_remote_changes": "三张新增NZ权重与Native直接绑定逻辑；两种TND检查共7张NZ权重",
+    "cpu": "22 passed, 184 deselected",
+    "ruff": "PASS",
+    "npu_rerun": false,
+    "historical_device_evidence": "source.json保留原c346573ab加padding修复的冻结源码，不将旧单卡证据改标为rebase后新NZ版本"
+  }
+}

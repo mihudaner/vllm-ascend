@@ -42,9 +42,14 @@ def check_case(case):
     q, h = case["query_lengths"], case["history_lengths"]
     assert len(q) == len(h) == b and bc >= b
     assert all(1 <= n <= 6 for n in q) and all(n >= 0 for n in h)
-    assert sum(q) == case["valid_tokens"] <= case["token_capacity"] <= 6 * bc
-    assert len(case["query_start_loc"]) == bc + 1
-    assert case["query_start_loc"][-1] == case["token_capacity"]
+    assert sum(q) == case["valid_tokens"] <= case["token_capacity"]
+    bounds = case["query_start_loc"]
+    assert len(bounds) == bc + 1 and bounds[0] == 0
+    assert [end - begin for begin, end in zip(bounds[:b], bounds[1:b + 1])] == q
+    # Native ACLGraph可用一个失活请求承接任意长度的尾部padding。
+    # 真实query仍严格为S1～S6，dummy只要求边界单调且落在分配容量内。
+    assert all(begin <= end for begin, end in zip(bounds, bounds[1:]))
+    assert bounds[-1] == case["token_capacity"]
     assert case["seq_lens"] == [a + n for a, n in zip(h, q)] + [0] * (bc - b)
 
 

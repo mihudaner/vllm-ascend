@@ -24032,3 +24032,48 @@ N/A，其余46格齐全，均为至少10窗中位数。完整样本/原路径/ta
 原有非bit差异另列，不推出新的整模型token/DSpark或答案质量结论。TND两列来自
 同一冻结实现/同一图，L1与Profiler分开采，不能相减冒充精确调度开销。未优化生产
 算法、未重建SDK、未做16卡测试。按用户最新要求仅本地提交，未push。
+
+
+### 735.130 两种TND修复Native ACLGraph集中padding误拒绝（2026-10-27）
+
+用户要求针对policy中的tokens > requests * max_query_tokens构造Native图分档
+padding回归，同时修复MPMD/SPMD，避免扩大测试。CPU回归直接调用Native
+_pad_query_start_loc_for_fia：真实query=[2,6,1]、有效T=9，FULL图补到T=32，
+Q=[0,2,8,9,32]，B容量=4，最后23行是seq_lens=0的dummy。两种服务的
+eligible原本通过，但graph_signature在各自policy内因32>4*6抛ValueError。
+修复前两项定向回归均在该检查失败；修复后相关CPU合同196项全部通过。
+
+两处policy只撤销图容量与有效query上界的错误乘积限制，不扩大实际query上限、
+不修改Native metadata、不增加D2H或设备数据的Host解析。原有service_config
+继续检查真实query<=6、有效token计数和支持范围；回归也验证真实query=7与
+计数不合法时拒绝进入PTO并拒绝重放旧图。同址Q内容从[0,2,8,9,32]更新到
+[0,1,7,8,32]仍能通过图合同。测试输入check_case同步区分有效Q和失活尾区，
+增加有效前缀逐项匹配及单调边界检查，原八档描述符不变。
+
+只排队运行一个128K混长单卡场景，CANN9.2、公共SDK
+csa-shared-20261024-group-dims，冻结源码后提交，不编辑共享SDK。
+任务task_20261027_213315_307426918377已exit0并释放设备2。
+SPMD/MPMD诊断与正常入口、各自两次NPUGraph replay全部通过；有效输出、
+Top-K索引/分数和更新的cache/state逐bit一致，非法页、未写行与只读输入保护通过，
+外部scratch为0。正常入口未暴露Top-K，诊断缓冲未被正常入口写入。
+
+完整证据与复现入口位于csa_aclgraph_padding_20261027：cases.json、source.json、
+result.json、verification.json、README.md、prepare.py和launch.sh。
+CPU验证真实Native padding/服务判定，设备验证纯PyTorch PTO图；不声称已跑
+vLLM整模型图或与Native数值一致。不采性能、不增加其它档位、不做16卡测试。
+Ruff、shell语法与diff检查通过；format.sh ci因未安装pre-commit未能执行，已披露。
+按既有要求详细中文Signed-off-by本地提交，未push。
+
+用户随后要求两种TND所有入口校验异常显示实际参数，并合入同一commit。
+已覆盖两种policy、native_adapter、binding/rebind，以及共享service、graph_contract、
+权重加载和页存储校验。失败信息保留原原因并附actual字段：Host标量值、Tensor
+shape/dtype/device/stride/storage_offset、存储容量和NZ实际format等；仅在异常
+分支格式化，不读取设备内容、不调用Tensor repr、不触发metadata惰性属性。
+新增/扩展反例验证两种适配及设备数据不可回读；22项定向CPU回归通过。
+未重复NPU或性能测试，已有单卡证据仍对应此前padding修复。两项修改合并在同一
+详细中文Signed-off-by本地提交，未push。
+
+用户明确允许push后，先rebase到远端1685da691再形成最终提交。保留远端
+新增三张NZ权重与直接借用Native字节的路径，解决三个文件中与异常参数提示
+重叠的冲突；两种TND均保留七张NZ检查。rebase后22项定向CPU回归通过，
+未重跑NPU；原单卡源码与证据仍标c346573ab加padding修复，不跨版本改标。
