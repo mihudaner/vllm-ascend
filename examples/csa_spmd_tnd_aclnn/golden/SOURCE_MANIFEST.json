@@ -1,0 +1,40 @@
+{
+  "repository": "/data00/wangkai/pto_env/xllm-vllm-ascend",
+  "commit": "0c3c6572e9473ec96cf2688e985408275e0cc023",
+  "read_mode": "git show commit:path",
+  "files": [
+    {
+      "path": "vllm_ascend/models/deepseek_v4.py",
+      "sha256": "b042b9427e27c2e4d09c06cb4d030a58eaf968c8bff80ca2754e688e14791452"
+    },
+    {
+      "path": "vllm_ascend/attention/dsa_v1.py",
+      "sha256": "49a763e66c2c9d4c6d6560e2faafbaa6f28cefd16fdd703d0d1382c5a04b49ec"
+    },
+    {
+      "path": "vllm_ascend/device/device_op.py",
+      "sha256": "e7445c30142c55f17a9905cdc8488fb1ca22caabf82d5d269597cb1339ad157c"
+    },
+    {
+      "path": "vllm_ascend/quantization/methods/w8a8_dynamic.py",
+      "sha256": "6483aac649397aeee97262eeae2cccb67afbc15004b38a539543133bb07e69ab"
+    },
+    {
+      "path": "csrc/attention/compressor/README.md",
+      "sha256": "03f6a7f62ca8f436b0939ca92e50c0319f6d9e7cc4b6a38ad406c9418db98913"
+    },
+    {
+      "path": "csrc/attention/quant_lightning_indexer_v2/README.md",
+      "sha256": "ea37b0ad736a8d0611332f1d6dccda6090809d7bf4108b8a865cd4f2e39e0e14"
+    },
+    {
+      "path": "csrc/attention/sparse_attn_sharedkv/README.md",
+      "sha256": "42a1927c69e67ac8e02883b0a592ec432bd32302d18cbb71c164ac23a46b2623"
+    },
+    {
+      "path": "csrc/attention/rms_norm_dynamic_quant/op_kernel/rms_norm_dynamic_quant_helper.h",
+      "sha256": "b264011ee37b5232e0585051ba3b408a2272ae8eae9165d0ba05e3eae6bc20a6"
+    }
+  ],
+  "status": "source-reviewed, production numerical validation pending"
+}

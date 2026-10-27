@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: Apache-2.0
+# Check upstream policy coverage, runtime workspace descriptors and Torch Meta.
+import argparse
+import importlib.util
+import json
+import random
+import subprocess
+import sys
+from pathlib import Path
+
+p = argparse.ArgumentParser()
+p.add_argument("--build-dir", type=Path, required=True)
+p.add_argument("--library")
+a = p.parse_args()
+root = Path(__file__).resolve().parents[1]
+a.build_dir.mkdir(parents=True, exist_ok=True)
+source = root.parents[1] / "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py"
+spec = importlib.util.spec_from_file_location("csa_policy_test", source)
+m = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = m
+spec.loader.exec_module(m)
+variants = json.loads((root / "generated/manifest.json").read_text())["variants"]
+key = lambda x: json.dumps(x, sort_keys=True)
+lookup = {key(v["policy"]): v["tiling_key"] for v in variants}
+assert len(lookup) == len(variants)
+inputs = []
+for v in variants:
+    if "representative" in v:
+        inputs.append(v["representative"])
+    else:
+        c = v["case"]
+        inputs.append(
+            {
+                "tokens": c["token_capacity"],
+                "requests": c["request_capacity"],
+                "max_query_tokens": max(c["query_lengths"]),
+                "max_seq_len": max(c["seq_lens"]),
+                "compressed_table_columns": v["policy"]["PLAN_TABLE_COLUMNS"],
+            }
+        )
+rng = random.Random(20261027)
+for _ in range(3000):
+    b = rng.randint(1, 256)
+    q = rng.choice([1, 2, 3, 4, 5, 6, 7, 8, 97, 193])
+    t = rng.randint(1, min(b * q, 2048))
+    inputs.append(
+        {
+            "tokens": t,
+            "requests": b,
+            "max_query_tokens": q,
+            "max_seq_len": rng.choice(
+                [8192, 15360, 15364, 32768, 32772, 131072, 196608, 196612, 262144, 262148, 1048576]
+            ),
+            "compressed_table_columns": rng.choice([1, 2048, 2049, 2080, 2081, 4096]),
+        }
+    )
+rows = []
+for v in inputs:
+    policy = m.select_policy(**v).constexprs()
+    assert key(policy) in lookup, (v, policy)
+    rows.append([lookup[key(policy)], v["tokens"], v["requests"], v["compressed_table_columns"]])
+base = json.loads((root / "generated/layout_fixtures.json").read_text())[3]["shapes"]
+params = json.loads((root / "generated/interface.json").read_text())["params"]
+sizes = {"fp32": 4, "fp16": 2, "bfloat16": 2, "int32": 4, "int64": 8, "int8": 1}
+code = [
+    '#include "layout_generated.h"',
+    '#include "contract.h"',
+    "#include <cassert>",
+    "#include <iostream>",
+    "csa::Layout layout(int v,csa::Tensor* ext){switch(v){",
+]
+code += [f"case {v['tiling_key']}:return csa::Layout{v['tiling_key']}(ext);" for v in variants]
+code += ["default:throw 1;}}", "int main(){ csa::Tensor base[57]{};"]
+for i, (param, shape) in enumerate(zip(params, base)):
+    code.append(f"base[{i}].rank={len(shape)};base[{i}].source={i};base[{i}].bytes={sizes[param['dtype']]};")
+    for axis, d in enumerate(shape):
+        code.append(f"base[{i}].shapes[{axis}]={d};")
+code.append("int cases[][4]={" + ",".join("{" + ",".join(map(str, row)) + "}" for row in rows) + "};")
+code += [
+    """for(auto& row:cases){ csa::Tensor ext[57];std::copy(base,base+57,ext);int variant=row[0],t=row[1],b=row[2];
+for(int i:{0,10,11,14,21,24,37,50,51,56})ext[i].shapes[0]=t;
+for(int i:{19,23,33,36,44,45,46})ext[i].shapes[0]=b;
+for(int i:{22,35})ext[i].shapes[0]=b+1;
+ext[45].shapes[1]=ext[46].shapes[1]=row[3];
+auto size=[&](int i,int axis){return int64_t(ext[i].shapes[axis]);};
+assert(csa::ValidDynamicShape(variant,size));
+auto l=layout(variant,ext);assert(l.workspaceBytes>0 && l.workspaceBytes%512==0);
+for(int i=0;i<133;++i){
+assert(l.sources[i]>=-1 && l.sources[i]<57);
+if(l.sources[i]<0)assert(l.offsets[i]<l.workspaceBytes);
+else assert(l.offsets[i]<ext[l.sources[i]].Elements()*ext[l.sources[i]].bytes);
+}
+ext[10].shapes[0]++;assert(!csa::ValidDynamicShape(variant,size));
+}
+std::cout<<"dynamic workspace cases "<<sizeof(cases)/sizeof(cases[0])<<std::endl;
+}"""
+]
+src = a.build_dir / "dynamic_contract.cpp"
+src.write_text("\n".join(code))
+binary = a.build_dir / "dynamic_contract"
+subprocess.run(["g++", "-std=c++17", "-O0", "-I" + str(root / "include"), str(src), "-o", str(binary)], check=True)
+subprocess.run([str(binary)], check=True)
+if a.library:
+    import torch
+
+    torch.ops.load_library(a.library)
+    for variant, t, b, columns in rows[: len(variants)] + rows[-100:]:
+        shapes = [list(s) for s in base]
+        for i in [0, 10, 11, 14, 21, 24, 37, 50, 51, 56]:
+            shapes[i][0] = t
+        for i in [19, 23, 33, 36, 44, 45, 46]:
+            shapes[i][0] = b
+        for i in [22, 35]:
+            shapes[i][0] = b + 1
+        shapes[45][1] = shapes[46][1] = columns
+        dt = {
+            "fp32": torch.float32,
+            "bfloat16": torch.bfloat16,
+            "int8": torch.int8,
+            "int32": torch.int32,
+            "int64": torch.int64,
+        }
+        tensors = [torch.empty(s, dtype=dt[param["dtype"]], device="meta") for param, s in zip(params, shapes)]
+        torch.ops.csa_pto.run(tensors, variant)
+    report_meta = len(variants) + 100
+else:
+    report_meta = 0
+(a.build_dir / "result.json").write_text(
+    json.dumps(
+        {
+            "policy_count": len(variants),
+            "policy_and_layout_cases": len(rows),
+            "meta_cases": report_meta,
+            "passed": True,
+        },
+        indent=2,
+    )
+)

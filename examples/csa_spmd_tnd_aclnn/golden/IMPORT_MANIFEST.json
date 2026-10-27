@@ -1,0 +1,39 @@
+{
+  "source_directory": "/data00/wangkai/pto_env/csa_golden",
+  "import_date": "2026-10-27",
+  "core_matches_validated_frozen_copy": true,
+  "changes": {
+    "record_source.py": "Explicit --repo and --output; refuse overwrite; mathematical reference revision unchanged",
+    "README.md": "Current layout, usage and C01 validation status"
+  },
+  "files": {
+    "golden.py": {
+      "source_sha256": "e57b1ea438361e3ac3a8fde6c5da4d9822f1fb71e0cdb02e9a635cd92c8163d4",
+      "imported_sha256": "e57b1ea438361e3ac3a8fde6c5da4d9822f1fb71e0cdb02e9a635cd92c8163d4"
+    },
+    "generate.py": {
+      "source_sha256": "cbec486d433ff2d94f1c2cad7b11aa05fdd4ec1c80d04261a43f89e8822c9fe4",
+      "imported_sha256": "cbec486d433ff2d94f1c2cad7b11aa05fdd4ec1c80d04261a43f89e8822c9fe4"
+    },
+    "test_golden.py": {
+      "source_sha256": "c46eedc30af9e245e17ba122f1112914e10724aee169eb588474f3d493426164",
+      "imported_sha256": "c46eedc30af9e245e17ba122f1112914e10724aee169eb588474f3d493426164"
+    },
+    "smoke.py": {
+      "source_sha256": "144de952305b1b69ccd1a8dd9f925eb68c910b2c9d10b8cb4738cf9c257c2d29",
+      "imported_sha256": "144de952305b1b69ccd1a8dd9f925eb68c910b2c9d10b8cb4738cf9c257c2d29"
+    },
+    "record_source.py": {
+      "source_sha256": "c1ff5e182395f4c71fc1221346153b8c123ca9a4e6c2a6e64e30919eaf64a5e7",
+      "imported_sha256": "fe9c47e1943bf7349cd6dfeff9d018c708e071556a11726df877f6804403d745"
+    },
+    "SOURCE_MANIFEST.json": {
+      "source_sha256": "732450a1af31387cb59b651de22cce2657ec9dca17db02cd1b9d00fb56e6e728",
+      "imported_sha256": "732450a1af31387cb59b651de22cce2657ec9dca17db02cd1b9d00fb56e6e728"
+    },
+    "README.md": {
+      "source_sha256": "3c614f80adaaac8fad352726134205fcba8da20636a74a8839a6c1f336d0b399",
+      "imported_sha256": "95f82ec4b35e24845cfc67909e8bca4efaccad27b3d6170f7e73956269315cc9"
+    }
+  }
+}

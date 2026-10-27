@@ -1,11 +1,18 @@
 # CSA 单 SPMD TND ACLNN 接入
 
-当前阶段：同步已验证源码、校准接口与实现计划。尚未实现 ACLNN 后端，不能据此声称设备执行或图重放通过。
+**动态 shape 版本已构建，ACLNN 设备验证待完成**：已取消固定八场景容量选档，按 Python 默认选择器的 62 种可达策略编译，核内维度与工作区使用实际描述符。3,062 组策略/布局、162 组 Meta 检查及 16 个新增 shape 的 Python PTO 参考验证通过；动态包的 ACLNN 对照尚未完成。原八档结果是旧安装包证据。详见 [DYNAMIC_SHAPES.md](DYNAMIC_SHAPES.md)。
+
+
+此前八场景版本：生成核、Host tiling/workspace、MIX 包装、Torch 绑定和纯 C++ 调用已实现。
+最终安装包八档的 55/57 Tensor eager/graph 均与冻结 c346573 SPMD 逐位一致，
+不初始化 Simpler runtime。最终安装包 C04 的 10 项同址 metadata 与 4 步连续状态验证也已通过。独立数学 golden C01 未通过，主要差异定位到原性能核的
+Indexer 量化/TopK；不能把接入一致性说成数学精度通过。详见
+[适配记录](ADAPTATION_LOG.md)和[验证结果](validation_results.json)。
 
 ## 基线
 
 - 上游：`nalinaly/vllm-ascend:dsv4-flash-pto-v0.25.1rc1`，固定 `c346573ab3313fcc71cd58756acd129f34755439`。
-- 开发分支：`mihudaner/vllm-ascend:csa_spmd_tnd_aclnn`。
+- 开发分支：[`mihudaner/vllm-ascend:csa_spmd_tnd_aclnn`](https://github.com/mihudaner/vllm-ascend/tree/csa_spmd_tnd_aclnn)，保存当前实现和阶段性验证记录。
 - 模型入口：[`pypto_deepseek_v4.py`](../../vllm_ascend/models/pypto_deepseek_v4.py)。
 - 目标包：`vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd`。
 - HC-pre 参考：[`hc_pre_aclnn/examples/hc_pre_pto_aclnn`](https://github.com/mihudaner/vllm-ascend/tree/a200612dde961e14edb25490b1e92f7bb79b06b7/examples/hc_pre_pto_aclnn)。借鉴离线生成、MIX 包装、host 注册和验证，不直接合并其整条分支。
@@ -61,4 +68,108 @@ bash examples/csa_spmd_tnd_aclnn/scripts/build_generated.sh \
 本机本轮离线编译已完成，结果见 [compilation_result.json](compilation_result.json)。
 正常与诊断入口的四份 AIC/AIV 二进制均与已验证 C04 逐字节一致。
 首次运行仅在预打包清单检查处失败，编译本身成功；已修正为校验实际 cache 二进制，恢复执行后两个入口完成。
-本轮没有运行 ACLNN 或 NPU 正确性测试。
+以上为早期离线编译记录；后续 ACLNN 设备验证结果见 validation_results.json。
+
+
+## ACLNN 工程构建与接口
+
+先加载公共 CANN 环境及 shared-toolchain，再执行：
+
+```bash
+bash examples/csa_spmd_tnd_aclnn/scripts/build.sh \
+  "$CSA_SHARED_SIMPLER_ROOT/build/pto-isa" /path/outside/repo/csa_c04 3
+python examples/csa_spmd_tnd_aclnn/scripts/build_torch.py \
+  --build-dir /path/outside/repo/torch
+python examples/csa_spmd_tnd_aclnn/scripts/test_layout.py \
+  --build-dir /path/outside/repo/layout_test
+```
+
+build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8～61 补齐默认选择器的其余可达策略，-1 编译全部；可选第四个参数指定并行任务数（默认 2）。动态完整包已构建；此前八场景包的 55/57 Tensor eager/graph 与冻结 SPMD bitwise 一致，新包须独立复验。
+`generated/manifest.json` 固定每档完整策略和来源，不能只根据 token 数选择 C02/C04。
+运行前需将独立 vendor 路径加入 `ASCEND_CUSTOM_OPP_PATH`，保留已有 Native vendor。
+
+`runtime.py` 的 `PreparedAclnnCSA(native, library=..., max_query_tokens=..., max_seq_len=...)`
+复用当前 Native 输入准备规则，按完整策略匹配生成核，T/B 使用真实输入容量，不限制为八个场景。业务未提供 TopK 时在准备阶段创建两项诊断输出。
+执行入口 `torch.ops.csa_pto.run(buffers, variant)` 使用固定 57 Tensor 顺序，见 `generated/interface.json`。
+五项缓存/状态通过同址输入输出原地更新；不支持把空的新 Tensor 当作缓存输出。
+内部 70 项临时分配和六项视图由 Host workspace 布局生成，设备核仍接收 133 项指针。
+图捕获前完成准备及库加载；捕获后只能更新原地址内容，rebind 不会改写已有图中的地址。
+
+当前限制：独立数学 golden 的 C01 验证未通过（输出 178/98304 超差，最大绝对误差 0.0234375）；尚不宣称独立精度验收或生产服务验收。Host 布局检查仅覆盖描述符及指针起始范围，不能替代 NPU 精度、保护区与状态验证。
+
+
+## 安装和纯 C++ 验证
+
+构建全部策略时将 build.sh 第三个参数设置为 -1。安装到仓外目录：
+
+```bash
+bash examples/csa_spmd_tnd_aclnn/scripts/install.sh /external/build/csa_spmd_tnd_pto.run /external/install
+cmake -S examples/csa_spmd_tnd_aclnn/aclnn_test -B /external/aclnn_test \
+  -DCSA_VENDOR=/external/install/vendors/csa_spmd_tnd_pto
+cmake --build /external/aclnn_test
+```
+
+导出器 aclnn_test/export_fixture.py 保存 tensors.tsv 和 57 项真实物理字节输入，
+NZ 权重保持物理布局。程序不依赖 Torch、vLLM、PyPTO 或 Simpler：
+
+```bash
+/external/aclnn_test/csa_aclnn_test /fixture/input /fixture/actual /fixture/expected 0 0
+```
+
+最后两项为策略键 0–61 和设备号，策略键须与上游选择器结果一致。expected 传入 `-` 时只导出结果并检查只读输入、
+输入输出保护区和 workspace 保护区；传入目录时比较八项输出文件。
+SPMD expected 仅证明接入一致性，独立 golden expected 才用于数学精度验证。
+所有精度差异保留，不按 HC pre 的超差比例放宽 CSA 阈值。
+
+
+独立调用可额外传入第六个位置参数 WORKSPACE_DUMP，将执行完成后的 workspace
+保存到仓外新文件。该选项只用于中间结果诊断，包含 CANN 系统区，不进入计时；
+解析时必须验证用户区偏移，不能直接假定布局。C01 已用原始 x 的 FP32 副本验证偏移。
+
+
+## 独立数学 golden
+
+独立参考源码已纳入 [golden/](golden/README.md)，来源为
+`/data00/wangkai/pto_env/csa_golden`。关键文件为 golden.py（数学实现）、
+generate.py（CPU/NPU 生成入口）、test_golden.py（自测）、smoke.py（小形状输入）
+及 SOURCE_MANIFEST.json（参考提交和源文件哈希）。
+IMPORT_MANIFEST.json 记录导入哈希；核心数学文件与实际 C01 验证冻结副本一致。
+
+在已配置公共 Python 环境的容器内，执行小形状自测及生成示例：
+
+```bash
+source /data00/wangkai/pto_env/env-dsv4-0251rc1.sh
+cd /data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_spmd_tnd_aclnn/golden
+export PYTHONDONTWRITEBYTECODE=1
+python -m unittest -v test_golden
+# 路径应换成仓库外尚不存在的文件/目录，保留已有验证结果。
+python smoke.py --output /tmp/csa-golden-new-input.pt
+python generate.py --input /tmp/csa-golden-new-input.pt --output /tmp/csa-golden-new-cpu --device cpu
+```
+
+正式输入必须是逻辑 ND 权重及按页表解码的缓存/状态，不能把物理 NZ 字节直接
+reshape 后喂给 golden。generate.py 可用 --device npu:0，但只生成数学参考结果，
+不执行 ACLNN 或自动判定精度；使用设备前应确认没有其他任务占用。
+
+**当前精度状态：八档接入对照通过，独立 golden C01 未通过，其余七档未运行。**
+误差解读与 C++ 对比流程见 ADAPTATION_LOG.md 第 016–017 节。
+物理输入适配、完整对比脚本、输入快照、golden.pt 和日志仍保留在仓外
+`/data00/wangkai/aclnnWorkspace/scripts/`、`build/`、`logs/`，不混入源码目录。
+
+
+### 精度比较的数据文件
+
+`.pt` 是 Python Tensor/字典快照，`.bin` 是独立 C++ 读取的原始 Tensor 字节，
+`.pto` 是 PTO IR 源码。HC-pre 参考压缩包中的 gen_golden.py 直接生成输入和
+参考输出 `.bin`，main.cpp 读取比较；压缩包本身不含 `.pt` 或 `.bin` 数据产物。
+CSA 额外保留 logical_snapshot.pt → golden_input.pt → golden.pt 的 Python
+适配链，再由仓外 scripts/export_golden_expected.py 映射为 expected/*.bin。
+C++ 始终读取 input/*.bin + tensors.tsv，并比较 expected/*.bin；不读取 `.pt`。
+
+完整文件流、实际路径、八项输出清单与复现命令已补入
+[适配记录](ADAPTATION_LOG.md)第 017 节“两条精度比较流程”下的文件说明。
+输入/输出数据继续保留在仓外 build/，未作为源码复制或提交。
+
+## 性能采样
+
+旧 csa_final 安装包八场景的 graph replay / eager 核耗时见 [PERFORMANCE.md](PERFORMANCE.md)。两列均取 CANN Task Duration；不含 Host 开销。NPU Event replay 测量暂缓。

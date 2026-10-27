@@ -1,0 +1,461 @@
+{
+  "c04_eager_graph": {
+    "scope": "C04 only; standalone ACLNN without Simpler runtime initialization",
+    "result": "/data00/wangkai/aclnnWorkspace/build/validate_c04_05/result/result.json",
+    "result_sha256": "29833bbae936e11dbaefaac9055643964b9917b34a2eb5444b65419555d2628c",
+    "passed": true,
+    "checks": {
+      "aclnn_eager": {
+        "guards": 31,
+        "guards_passed": true,
+        "numerical": 9,
+        "all_bit_equal": true
+      },
+      "aclnn_graph": {
+        "guards": 31,
+        "guards_passed": true,
+        "numerical": 9,
+        "all_bit_equal": true
+      }
+    }
+  },
+  "eight_variants": {
+    "passed": true,
+    "status": "complete",
+    "reference": "c346573 SPMD; not independent mathematical golden",
+    "cases": {
+      "h131072_b16_mixed": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h131072_b16_mixed_01/result/result.json",
+        "sha256": "4ec4798e431cfd919ff8d2f04583e305fa7ff87af58a0fe93a08458e5c7a6926",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h131072_b16_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h131072_b16_s6_01/result/result.json",
+        "sha256": "088a7684f2ac6405e720a5f9df69878fc45e41b0da89964068f9693c23ee20e2",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h131072_b1_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h131072_b1_s6_01/result/result.json",
+        "sha256": "d955c7ad99314abef80148d1172154fe6d7cafef26ae92870951fd5ee6aceda2",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h131072_b24_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h131072_b24_s6_01/result/result.json",
+        "sha256": "c154a48b96c3670fcb4ace312c223c65ec7675a1abde3c66e27d42e6ee90c6d5",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h131072_b28_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h131072_b28_s6_01/result/result.json",
+        "sha256": "808f04c66a494ad1a72c79ae250b5719e8d25edada5d3316cfff8c95538a32e3",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h131072_b8_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h131072_b8_s6_01/result/result.json",
+        "sha256": "7ffdb6430133e0a86753fe7a220ba5c7c27af5d1af73fc3673e01f7d1260077e",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h262144_b16_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h262144_b16_s6_01/result/result.json",
+        "sha256": "06c94079b5e9f710cbedf03810e1aa291a87056c06f1ff2fc2e7fc43cdee6126",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      },
+      "h8192_b32_s6": {
+        "result": "/data00/wangkai/aclnnWorkspace/build/matrix_h8192_b32_s6_01/result/result.json",
+        "sha256": "86b2ab48bebf6faee12ef06402aed2ce397e4b86a3bd97463064b4aa42a599e9",
+        "checks": {
+          "aclnn_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "aclnn_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_eager": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          },
+          "normal_graph": {
+            "all_bit_equal": true,
+            "guards_passed": true
+          }
+        }
+      }
+    }
+  },
+  "state_replay": {
+    "passed": true,
+    "case": "C04",
+    "metadata_cases": 10,
+    "continuous_steps": 4,
+    "result": "/data00/wangkai/aclnnWorkspace/build/c04_state_01/result/result.json",
+    "result_sha256": "5fcc834e23f544ca99140981a7f52871bb20c03de47d2dec0414524e80413b9a",
+    "internal_geometry_observed": false,
+    "internal_signal_observed": false
+  },
+  "c04_normal_entry": {
+    "passed": true,
+    "result": "/data00/wangkai/aclnnWorkspace/build/c04_normal_01/result/result.json",
+    "result_sha256": "088a7684f2ac6405e720a5f9df69878fc45e41b0da89964068f9693c23ee20e2",
+    "checks": [
+      "aclnn_eager",
+      "aclnn_graph",
+      "normal_eager",
+      "normal_graph"
+    ]
+  },
+  "independent_golden": {
+    "passed": false,
+    "status": "failed_C01_under_existing_thresholds",
+    "reference": "/data00/wangkai/aclnnWorkspace/reference/csa_golden_20261026/golden.py",
+    "reference_sha256": "e57b1ea438361e3ac3a8fde6c5da4d9822f1fb71e0cdb02e9a635cd92c8163d4",
+    "comparison": "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/comparison.json",
+    "comparison_sha256": "bf87a0b2cab8e13e562f9c4ad38d9db7931e28bbdebe26755e25788c42594045",
+    "score_units_diagnosis": "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/score_units_diagnosis.json",
+    "remaining_variants": "not run after C01 failure",
+    "golden_modified": false,
+    "thresholds_relaxed": false,
+    "diagnostics": [
+      "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/output_quantization_diagnosis.json",
+      "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/workspace_diagnosis.json",
+      "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/attention_arithmetic_diagnosis.json",
+      "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/attention_topk_substitution.json",
+      "/data00/wangkai/aclnnWorkspace/build/golden_c01_01/indexer_query_diagnosis.json"
+    ]
+  },
+  "final_package": {
+    "build": "build/csa_final",
+    "install": "install/csa_final",
+    "torch": "build/torch_final/csa_pto_npu.so",
+    "meta_passed": true,
+    "cpu_layout_pytest_passed": true,
+    "c01_eager_graph_passed": true,
+    "eight_variants": {
+      "passed": true,
+      "cases": {
+        "h131072_b16_mixed": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h131072_b16_mixed_01/result/result.json",
+          "sha256": "27bb061e53cbcbce80853267dcadc60c51f51c8a01fbe700074907a6b961171c",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h131072_b16_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h131072_b16_s6_02/result/result.json",
+          "sha256": "088a7684f2ac6405e720a5f9df69878fc45e41b0da89964068f9693c23ee20e2",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h131072_b1_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h131072_b1_s6_01/result/result.json",
+          "sha256": "969063d083cee1c8abc025edfdd0e400ad1faf908982c91afbab71acb31638e1",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h131072_b24_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h131072_b24_s6_01/result/result.json",
+          "sha256": "cefe4f35a9456a3f5cb129f01c5d627f4db63fdd92ef562aa6e5004ab2744630",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h131072_b28_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h131072_b28_s6_01/result/result.json",
+          "sha256": "7ed22a539650a7cd8ecb969704b6889e9d73531f78d9052bc01e8aa5b8ec811e",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h131072_b8_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h131072_b8_s6_01/result/result.json",
+          "sha256": "0185aa98d603ec3b6f4e23a030dafe4d890aa9206d84507735fc332436d1ee5d",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h262144_b16_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h262144_b16_s6_01/result/result.json",
+          "sha256": "f502196048883afe679e7da12e438c69018f62b4a6bbfa31c47bdd30ae6c51bf",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        },
+        "h8192_b32_s6": {
+          "result": "/data00/wangkai/aclnnWorkspace/build/final_h8192_b32_s6_01/result/result.json",
+          "sha256": "7479cbc782db69db9b5075d4ae12db5cc924f1b4714068d1b341ce73d07b3b43",
+          "checks": {
+            "aclnn_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "aclnn_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_eager": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            },
+            "normal_graph": {
+              "all_bit_equal": true,
+              "guards_passed": true
+            }
+          },
+          "simpler_runtime_initialized": false
+        }
+      }
+    },
+    "state_replay": {
+      "passed": true,
+      "metadata_cases": 10,
+      "continuous_steps": 4,
+      "result": "/data00/wangkai/aclnnWorkspace/build/final_state_c04_01/result/result.json",
+      "sha256": "5fcc834e23f544ca99140981a7f52871bb20c03de47d2dec0414524e80413b9a"
+    }
+  },
+  "direct_cpp": {
+    "passed": true,
+    "case": "C01",
+    "log": "/data00/wangkai/aclnnWorkspace/logs/direct_cpp_c01_01.log",
+    "workspace_bytes": 98800128,
+    "eight_outputs_bitwise_equal": true,
+    "guards_and_readonly_passed": true
+  },
+  "fixture_serialization": {
+    "passed": true,
+    "result": "/data00/wangkai/aclnnWorkspace/build/fixture_c01_01/serialization_checks.json"
+  }
+}

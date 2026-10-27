@@ -1,0 +1,169 @@
+{
+  "status": "dynamic_package_built_aclnn_device_validation_pending",
+  "baseline": "c346573ab3313fcc71cd58756acd129f34755439",
+  "policy_count": 62,
+  "build": {
+    "package": "/data00/wangkai/aclnnWorkspace/build/csa_dynamic_keys2/csa_spmd_tnd_pto.run",
+    "sha256": "0096f66c045e64aee907b2b5d7af196043a3ee4a7845f2812c4eb039ab4e0b7f",
+    "verified_tiling_keys": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61
+    ]
+  },
+  "cpu_contract": {
+    "policy_count": 62,
+    "policy_and_layout_cases": 3062,
+    "meta_cases": 162,
+    "passed": true
+  },
+  "python_pto_references": [
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b15_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b17_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b1_s1_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b1_s5_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b22_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b2_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b33_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b4_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b5_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b6_s6_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b7_mixed_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b8_s5_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_history_192k_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_history_32k_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_short_b24_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    },
+    {
+      "result": "/data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_short_b4_01/result/result.json",
+      "passed": true,
+      "stage": "complete_spmd_reference"
+    }
+  ],
+  "aclnn_device_comparison": {
+    "status": "pending",
+    "planned_cases": 24
+  },
+  "same_address_and_continuous_replay": "pending_on_dynamic_package",
+  "dynamic_performance": "not_measured",
+  "npu_event_replay": "deferred_by_user",
+  "independent_math_golden": "C01_failed_on_original_eight_case_package; not changed by dynamic adaptation"
+}
