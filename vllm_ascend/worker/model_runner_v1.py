@@ -147,6 +147,10 @@ from vllm_ascend.eplb.core.eplb_device_transfer_loader import D2DExpertWeightLoa
 from vllm_ascend.eplb.core.eplb_worker import EplbProcess
 from vllm_ascend.eplb.eplb_updator import EplbUpdator
 from vllm_ascend.model_executor.offloader import create_offloader
+from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.service_config import (
+    can_replay_csa_graph,
+    is_csa_model,
+)
 from vllm_ascend.ops.rotary_embedding import set_cos_and_sin, update_cos_sin
 from vllm_ascend.ops.triton.spec_decode.ngram import triton_ngram_spec_decode
 from vllm_ascend.patch.worker.patch_draft_quarot import patch_load_weights
@@ -2930,12 +2934,13 @@ class NPUModelRunner(GPUModelRunner):
         )
         has_lora = num_active_loras > 0 if force_has_lora is None else force_has_lora
 
+        csa_actual_tokens = num_tokens
         # ruff: noqa: E731
         def dispatch_cudagraph(num_tokens, disable_full=False, valid_modes=None):
             if force_eager:
                 return (CUDAGraphMode.NONE, BatchDescriptor(num_tokens_padded))
 
-            return self.cudagraph_dispatcher.dispatch(
+            mode, descriptor = self.cudagraph_dispatcher.dispatch(
                 num_tokens=num_tokens,
                 has_lora=has_lora,
                 uniform_decode=uniform_decode,
@@ -2943,6 +2948,18 @@ class NPUModelRunner(GPUModelRunner):
                 invalid_modes={CUDAGraphMode.FULL} if disable_full else None,
                 num_active_loras=num_active_loras,
             )
+            # PTO CSA keeps the S6 uniform-decode contract: padded buckets whose
+            # real batch is not whole six-token target requests fall back to
+            # eager, where the service itself decides PTO vs Native per call.
+            if mode == CUDAGraphMode.FULL and is_csa_model(self.vllm_config):
+                if not can_replay_csa_graph(
+                    num_tokens=csa_actual_tokens,
+                    num_reqs=num_reqs,
+                    uniform_decode=uniform_decode,
+                    padded_tokens=descriptor.num_tokens,
+                ):
+                    return CUDAGraphMode.NONE, BatchDescriptor(num_tokens)
+            return mode, descriptor
 
         cudagraph_mode, batch_descriptor = dispatch_cudagraph(num_tokens_padded, use_cascade_attn or has_encoder_output)
         num_tokens_padded = batch_descriptor.num_tokens
@@ -3832,6 +3849,14 @@ class NPUModelRunner(GPUModelRunner):
                 if "sink" in name:
                     self._has_sinks = True
                     break
+            # vLLM 0.26 no longer auto-calls a model-level
+            # process_weights_after_loading() (only quant_method/Attention
+            # hooks). Opt-in models such as the PTO CSA integration finish
+            # their runtime preparation there, so bridge the legacy hook once
+            # after the loader has finalized all weights and NZ casts.
+            model_post_load = getattr(self.model, "process_weights_after_loading", None)
+            if callable(model_post_load):
+                model_post_load()
             if self.drafter:
                 logger.info("Loading drafter model...")
                 if self.vllm_config.quant_config is not None:
