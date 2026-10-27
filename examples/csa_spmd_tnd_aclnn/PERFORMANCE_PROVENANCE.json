@@ -1,0 +1,39 @@
+{
+  "source_commit": "c7aa90bc6db5dc80217811178f8fa1c2cb158eb3",
+  "baseline": "c346573ab3313fcc71cd58756acd129f34755439",
+  "algorithm_paths_unchanged": [
+    "vllm_ascend/models/pypto_deepseek_v4.py",
+    "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd",
+    "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_tnd",
+    "tests/pypto_test/csa_shared_toolchain",
+    "tests/pypto_test/bootstrap.py"
+  ],
+  "vllm_commit": "752a3a504485790a2e8491cacbb35c137339ad34",
+  "harness_sha256": {
+    "/data00/wangkai/aclnnWorkspace/scripts/run_dynamic_case.sh": "517513bd6d440686221311030e5fe645af97086bcb7c061f2abcc40fb74076d3",
+    "/data00/wangkai/aclnnWorkspace/scripts/run_dynamic_performance.py": "1461eff23a7c0c07dc31082c2710b823870a2dee54e583eb29c4ce53c36a65ed",
+    "/data00/wangkai/aclnnWorkspace/scripts/run_extra_dynamic_matrix.py": "a3160f61b2f6e2dfc7cdc008da7fbc735e8b431876198bf705a115f57035aabd",
+    "/data00/wangkai/aclnnWorkspace/scripts/extra_dynamic_cases.json": "e916f9cc39eb02c3dff4854c879e8cbbfed40962a5eae5877f5867f7f81ce8a2",
+    "/data00/wangkai/aclnnWorkspace/scripts/validate_all.py": "458ac977b59def4c32d4194a3fc8d1b2b33f1eb9d90e9f7373a8bbb96ae7f697",
+    "/data00/wangkai/aclnnWorkspace/scripts/validate_dynamic_reference.py": "dc1485721d1c3f9c94b7dbfe5340617b94c917e458f305bc59e4b1710d26f696",
+    "/data00/wangkai/aclnnWorkspace/scripts/benchmark_aclnn.py": "a2ff63edc71adeb21d538d9b27623721cabce72f656a5b418b22a14d347be8d7",
+    "/data00/wangkai/aclnnWorkspace/scripts/profile_aclnn.py": "9af524db80313ee289be5159f27892ef5bac57999ae83de5ce532e04d17314b8",
+    "/data00/wangkai/aclnnWorkspace/scripts/export_aclnn_perf.py": "e245cc9b7c6dc82e855d8d3e5768aacc06736df3e2879223b61cf11c277742b7",
+    "/data00/wangkai/aclnnWorkspace/local-config/env-dynamic.sh": "b083030e3388463115d2c07459bf73f1dd523798d777810c248f8f3f9f6033c8",
+    "/data00/wangkai/aclnnWorkspace/local-config/shared_selection.py": "60ec6a6ef8fd93013f93695d9b620d972ba50ff44a627a450241f2ba465dd055",
+    "/data00/wangkai/aclnnWorkspace/local-config/shared-env.sh": "0f10e08e960028ed79e0d65b8900480c10e8112e4d9695f90d7b4ec2d432d9f4",
+    "/data00/wangkai/aclnnWorkspace/local-config/bootstrap_dynamic.py": "f965eff96708d663cf0df53b89ecb26404d1def3d32cd651ddfa9928ed94bfc7",
+    "/data00/wangkai/aclnnWorkspace/scripts/summarize_dynamic_run.py": "41ed5a1a586d47e72a8d4ca149636649652de5f1858b3c26a9945610018480ea",
+    "/data00/wangkai/aclnnWorkspace/scripts/update_dynamic_run_docs.py": "d5d64b1dbc079253343ef6b4f259961fc7f899886058a35aec1f7a9c6a365e02"
+  },
+  "same_ascend_repo_for_python_pto_and_aclnn": true,
+  "measurement_device": 0,
+  "correctness_devices": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "shared_manifest": "/data00/wangkai/pto_env/vllm-ascend/tests/pypto_test/csa_shared_toolchain/manifest.json",
+  "shared_manifest_matches_current_repo": true
+}

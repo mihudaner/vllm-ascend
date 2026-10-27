@@ -1,10 +1,10 @@
 # CSA 单 SPMD TND ACLNN 接入
 
-当前实现按 Python 默认选择器的 62 种可达策略编译；T/B、缓存与页表尺寸来自真实 Tensor 描述符，Host 按实际尺寸计算工作区。动态包的 24 个场景已完成业务/诊断 eager 和 graph replay 验证，output、TopK、score、cache/state 全部与原 Python PTO 逐位一致，保护区通过；另有 10 项同址 metadata 和 4 步连续状态验证通过。
+当前实现按 Python 默认选择器的 62 种可达策略编译；T/B、缓存与页表尺寸来自真实 Tensor 描述符，Host 按实际尺寸计算工作区。动态包的 36 个场景已完成业务/诊断 eager 和 graph replay 验证，output、TopK、score、cache/state 全部与原 Python PTO 逐位一致，保护区通过；另有 10 项同址 metadata 和 4 步连续状态验证通过。
 
-CPU 的 3,062 组策略/布局与 162 组 Meta 检查通过。设备用例覆盖 16/62 个策略，尚未逐策略验收所有边界；独立数学 golden C01 仍未通过，生产服务与整模型尚未验收，动态包性能未测。
+CPU 的 3,062 组策略/布局与 162 组 Meta 检查通过。设备用例覆盖 18/62 个策略，尚未逐策略验收所有边界；独立数学 golden C01 仍未通过，生产服务与整模型尚未验收，动态包 20 个场景的 replay/eager 核耗时已实测；NPU Event replay 时间未测。
 
-当前完整说明见 [复现手册](REPRODUCTION.md)、[动态 shape 范围](DYNAMIC_SHAPES.md)和[动态验证结果](dynamic_validation_results.json)。[适配日志](ADAPTATION_LOG.md)保留过程；[validation_results.json](validation_results.json)与性能表记录此前 csa_final 包的证据。
+当前完整说明见 [复现手册](REPRODUCTION.md)、[动态 shape 范围](DYNAMIC_SHAPES.md)和[动态验证结果](dynamic_validation_results.json)。[适配日志](ADAPTATION_LOG.md)保留过程；[validation_results.json](validation_results.json)记录此前 csa_final 包的证据，当前动态包实测见 [PERFORMANCE.md](PERFORMANCE.md)。
 
 ## 基线
 
@@ -81,7 +81,7 @@ python examples/csa_spmd_tnd_aclnn/scripts/test_layout.py \
   --build-dir /path/outside/repo/layout_test
 ```
 
-build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8～61 补齐默认选择器的其余可达策略，-1 编译全部；可选第四个参数指定并行任务数（默认 2）。动态完整包已构建，并完成 24 场景的 55/57 Tensor eager/graph 独立复验，均与冻结 SPMD bitwise 一致。
+build.sh 第三个参数为策略键：0～7 保留 C01～C08 的原策略，8～61 补齐默认选择器的其余可达策略，-1 编译全部；可选第四个参数指定并行任务数（默认 2）。动态完整包已构建，并完成 36 场景的 55/57 Tensor eager/graph 独立复验，均与冻结 SPMD bitwise 一致。
 `generated/manifest.json` 固定每档完整策略和来源，不能只根据 token 数选择 C02/C04。
 运行前需将独立 vendor 路径加入 `ASCEND_CUSTOM_OPP_PATH`，保留已有 Native vendor。
 
@@ -192,7 +192,7 @@ IMPORT_MANIFEST.json 记录导入哈希；核心数学文件与实际 C01 验证
 在已配置公共 Python 环境的容器内，执行小形状自测及生成示例：
 
 ```bash
-source /data00/wangkai/pto_env/env-dsv4-0251rc1.sh
+source /data00/wangkai/aclnnWorkspace/local-config/env-dynamic.sh
 cd /data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_spmd_tnd_aclnn/golden
 export PYTHONDONTWRITEBYTECODE=1
 python -m unittest -v test_golden
@@ -205,7 +205,7 @@ python generate.py --input /tmp/csa-golden-new-input.pt --output /tmp/csa-golden
 reshape 后喂给 golden。generate.py 可用 --device npu:0，但只生成数学参考结果，
 不执行 ACLNN 或自动判定精度；使用设备前应确认没有其他任务占用。
 
-**当前精度状态：动态包 24 场景接入对照通过；独立数学 golden C01 未通过，其余场景未做独立数学验收。**
+**当前精度状态：动态包 36 场景接入对照通过；独立数学 golden C01 未通过，其余场景未做独立数学验收。**
 误差解读与 C++ 对比流程见 ADAPTATION_LOG.md 第 016–017 节。
 物理输入适配、完整对比脚本、输入快照、golden.pt 和日志仍保留在仓外
 `/data00/wangkai/aclnnWorkspace/scripts/`、`build/`、`logs/`，不混入源码目录。
@@ -226,4 +226,6 @@ C++ 始终读取 input/*.bin + tensors.tsv，并比较 expected/*.bin；不读�
 
 ## 性能采样
 
-旧 csa_final 安装包八场景的 graph replay / eager 核耗时见 [PERFORMANCE.md](PERFORMANCE.md)。两列均取 CANN Task Duration；不含 Host 开销。NPU Event replay 测量暂缓。
+当前 csa_dynamic 包的原八场景及新增 12 场景 graph replay / eager 核耗时见 [PERFORMANCE.md](PERFORMANCE.md)。两列均取 CANN Task Duration；不含 Host 开销。NPU Event replay 测量暂缓。
+
+本轮新增动态输入包括未对齐历史、混长、容量 padding、碎片化反序页映射与页表宽 2082；精确用例见 [expanded_dynamic_cases.json](expanded_dynamic_cases.json)。新场景的性能表只填 ACLNN 两列，其他列填 `-`。Python PTO 与 ACLNN 共用当前 workspace 中的 Ascend 仓，vLLM 框架依赖位于 `aclnnWorkspace/deps/vllm`，环境入口为 `aclnnWorkspace/local-config/env-dynamic.sh`。

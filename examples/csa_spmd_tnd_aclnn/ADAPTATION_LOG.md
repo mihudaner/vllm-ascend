@@ -404,3 +404,19 @@ record_source.py 重建的 SOURCE_MANIFEST 与导入清单完全一致，导入�
 按用户要求，将 /data00/wangkai/pto_env/REPRODUCTION_LOG.md 整体重写为当前实现说明，删除失效状态、静态 shape 支持结论和过时环境过程。只保留有效的当前合同、验证证据、性能数值与复跑命令；真实测量的性能值明确对应 csa_final，不冒充动态包性能。完整同内容副本保存到本 example 的 REPRODUCTION.md，随验证结果推送远端。README 与 DYNAMIC_SHAPES.md 同步改为当前结果，不继续叠加矛盾状态。
 
 独立数学 golden C01 未通过的结论保留，生产服务和整模型尚未验收。全仓格式检查缺 pre-commit 的限制不变。
+
+## 023. 扩展动态输入与当前包性能重测（2026-10-27）
+
+本轮新增 12 个实际输入场景，覆盖不同 seed、B3/9/11/40、Q1/2/3/4/6、未对齐历史与策略边界、混合历史/查询长度、有效 B5/T16 而容量 B16/T96 的 padding、碎片化反序页映射、compressed/indexer 页表宽 2082。输入定义保存到 expanded_dynamic_cases.json。
+
+先运行原 Python PTO eager/graph 生成参考快照，再以不初始化 Simpler runtime 的 ACLNN 独立进程执行诊断/业务 eager/graph。12 项均逐项核验 numerical.status=PASS、bit_equal=true 和所有外部 guards=true。累计 36 场景、18/62 策略键通过；新增覆盖 key 9、16。同址 metadata 10 项及连续状态 4 步沿用前一轮已验证结果，本轮没有冒充重测。内部 workspace 未增加哨兵，有效请求 Q>6 尚未设备验收。
+
+原八场景及本轮新增 12 场景共 20 项完成当前 csa_dynamic/torch_dynamic 的 replay/eager 核耗时采样。每种模式预热 10 次、取 3 个 CANN Task Duration 样本的中位数；采样后数值与外部保护区复查通过。NPU Event replay 仍按要求暂缓。PERFORMANCE.json 保存原始记录和结果哈希，PERFORMANCE_PROVENANCE.json 保存环境/源码及脚本哈希；新场景其他性能列全部填 -。旧 csa_final 结果仍留在仓外历史目录，但已从当前主表移除。
+
+旧环境入口引用的历史目录缺失，首次性能启动在设备执行前失败，日志保留 logs/benchmark_dynamic_original_01.log 与 logs/perf_dynamic_h131072_b16_s6_01.log。恢复后统一使用 aclnnWorkspace/local-config/env-dynamic.sh 和适配的公共 bootstrap；最终成功测量使用 perf_dynamic_<case>_02。共享 SDK 版本与清单内容不变，原 Native 二进制复用，不重编算法。
+
+依照用户要求，恢复的 vLLM 框架依赖固定在 aclnnWorkspace/deps/vllm（752a3a504485790a2e8491cacbb35c137339ad34）；Python PTO 与 ACLNN 共用 aclnnWorkspace/vllm-ascend，没有保留额外 Ascend 参考 checkout。当前模型入口、CSA 算法与公共工具链目录相对 c346573 的 Git diff 为空。原始参考快照、编译/安装、运行脚本及日志仍在仓外，不提交模型或二进制。
+
+README、DYNAMIC_SHAPES、PERFORMANCE 和当前复现手册已改为本轮有效结果。/data00/wangkai/pto_env/REPRODUCTION_LOG.md 与仓内 REPRODUCTION.md 内容一致；直接更新现行章节和主表，不追加过时结论。独立数学 golden C01 未通过、生产服务尚未验收的结论不变。
+
+保存前复核：36 份设备报告哈希、20 场景共 120 个原始 CSV 样本、两份性能表的中位数及新增行的空缺列全部核对。全仓 `bash format.sh ci` 再次因缺少 pre-commit 退出，未记为通过；本轮未修改算子实现。

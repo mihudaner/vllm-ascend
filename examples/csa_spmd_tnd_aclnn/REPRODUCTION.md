@@ -7,10 +7,11 @@
 CSA 单 SPMD TND 已建立独立 ACLNN 工程，准备阶段复用原 Python 的输入绑定与策略选择，执行阶段通过 `Torch → ACLNN → Host tiling/workspace → MIX PTO 核` 调用。
 
 - **动态 shape**：T/B、缓存与页表尺寸来自真实 Tensor 描述符，工作区按实际尺寸计算。默认 Python 选择器的 62 种可达策略均已编译，包内 tiling key 0–61 已核验。编号代表编译策略，不代表固定 shape。
-- **设备对照**：动态包的 16 个新增场景和原八场景共 24 项全部通过；55/57 Tensor eager 与 graph replay 的 output、TopK、score、cache/state 均与原 Python PTO 逐位一致，保护区检查通过。
+- **设备对照**：动态包的 28 个新增场景和原八场景共 36 项全部通过；55/57 Tensor eager 与 graph replay 的 output、TopK、score、cache/state 均与原 Python PTO 逐位一致，保护区检查通过。
 - **状态与图**：动态包 C04 的 10 项同址 metadata 更新、4 步连续状态 graph replay 全部通过，数值逐位一致。未直接观测内部信号或内部 geometry；结论来自外部数值、地址与保护区检查。
 - **CPU 检查**：3,062 组策略/动态布局、162 组 Torch Meta 通过。
-- **未完成范围**：62 策略尚未逐一做 NPU 数值验证；独立数学 golden C01 未通过；生产 vLLM 服务路径和整模型尚未验收。动态包性能尚未测量，NPU Event replay 时间按用户要求暂缓。
+- **性能**：动态包 20 个场景已采集 replay/eager 核耗时。
+- **未完成范围**：62 策略尚未逐一做 NPU 数值验证；独立数学 golden C01 未通过；生产 vLLM 服务路径和整模型尚未验收；NPU Event replay 时间按用户要求暂缓。
 
 ## 环境与源码
 
@@ -20,7 +21,8 @@ CSA 单 SPMD TND 已建立独立 ACLNN 工程，准备阶段复用原 Python 的
 | 硬件 | Ascend910_9382，24 AIC + 48 AIV |
 | 驱动 / CANN | 26.0.rc1 / 9.1 |
 | 上游基线 | `nalinaly/vllm-ascend:dsv4-flash-pto-v0.25.1rc1`，`c346573ab3313fcc71cd58756acd129f34755439` |
-| 原 Python PTO | `/data00/wangkai/pto_env/vllm-ascend-perf-latest` |
+| 原 Python PTO 与 ACLNN 共用源码 | `/data00/wangkai/aclnnWorkspace/vllm-ascend`，算法目录对 c346573 无差异 |
+| vLLM 框架依赖 | `/data00/wangkai/aclnnWorkspace/deps/vllm`，`752a3a504485790a2e8491cacbb35c137339ad34` |
 | ACLNN 源码 | `/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_spmd_tnd_aclnn` |
 | 开发分支 | [mihudaner/vllm-ascend:csa_spmd_tnd_aclnn](https://github.com/mihudaner/vllm-ascend/tree/csa_spmd_tnd_aclnn) |
 | 实现保存提交 | `4445e3db6a8c16d052276ea7409a413fb1096fe0`；验证文档随后单独更新 |
@@ -28,7 +30,7 @@ CSA 单 SPMD TND 已建立独立 ACLNN 工程，准备阶段复用原 Python 的
 | Torch 库 | `/data00/wangkai/aclnnWorkspace/build/torch_dynamic/csa_pto_npu.so` |
 | 单层权重 | `/data03/public/downloads/models/DeepSeek-V4-Flash-0731-w8a8-dspark-0819-new`，第 4 层 |
 
-公共工具链清单：`/data00/wangkai/pto_env/vllm-ascend-perf-latest/tests/pypto_test/csa_shared_toolchain/manifest.json`，release `csa-shared-20261024-group-dims`。PyPTO 为 `d44925c17d9ff7d7fa8e5067e41c4b4f80bf3063`，Simpler 为 `57e499238fd4ee3548947ad860be456aaeeb16b5`，PTOAS 为 `914863ed3d0eb3e92a4433a4a706a86cabf4c91f`。加载公共环境和 bootstrap 统一绑定，不另选 SDK。
+公共工具链清单：`/data00/wangkai/pto_env/vllm-ascend/tests/pypto_test/csa_shared_toolchain/manifest.json`，release `csa-shared-20261024-group-dims`。PyPTO 为 `d44925c17d9ff7d7fa8e5067e41c4b4f80bf3063`，Simpler 为 `57e499238fd4ee3548947ad860be456aaeeb16b5`，PTOAS 为 `914863ed3d0eb3e92a4433a4a706a86cabf4c91f`。加载公共环境和 bootstrap 统一绑定，不另选 SDK。
 
 ## 动态 shape 合同
 
@@ -79,15 +81,28 @@ CSA 单 SPMD TND 已建立独立 ACLNN 工程，准备阶段复用原 Python 的
 | h131072_b28_s6 | 131072 | 28 | 168 | 6 | 5 | 逐位一致 |
 | h8192_b32_s6 | 8192 | 32 | 192 | 6 | 6 | 逐位一致 |
 | h131072_b16_mixed | 131072 | 16 | 56 | 混长 | 7 | 逐位一致 |
+| extra_b3_s2 | 131071 | 3 | 6 | 2 | 10 | 逐位一致 |
+| extra_b9_s3 | 65533 | 9 | 27 | 3 | 10 | 逐位一致 |
+| extra_b11_s4 | 131070 | 11 | 44 | 4 | 17 | 逐位一致 |
+| extra_b40_s1 | 32767 | 40 | 40 | 1 | 16 | 逐位一致 |
+| extra_short_lower_edge | 8191 | 2 | 2 | 1 | 8 | 逐位一致 |
+| extra_prefetch_lower | 15356 | 4 | 16 | 4 | 8 | 逐位一致 |
+| extra_prefetch_upper | 15360 | 4 | 16 | 4 | 9 | 逐位一致 |
+| extra_history_edge | 32762 | 4 | 24 | 6 | 9 | 逐位一致 |
+| extra_padded_b16 | 131072 | 16 | 96 | 1,2,3,4,6（有效 B5/T16） | 3 | 逐位一致 |
+| extra_mixed_history | 混合历史 | 5 | 16 | 1,2,3,4,6 | 10 | 逐位一致 |
+| extra_fragmented | 65536 | 9 | 36 | 4 | 17 | 逐位一致 |
+| extra_wide_table | 131072 | 6 | 36 | 6 | 2 | 逐位一致 |
 
-已在设备验证的策略键为 `[0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 17, 25, 36, 47, 59]`，共 16/62 个；全部 62 策略均已编译并完成 CPU 布局检查。后续应补足未测策略、更多 query/页表边界，不能把 24 场景通过外推为任意输入已验收。
+已在设备验证的策略键为 `[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 16, 17, 25, 36, 47, 59]`，共 18/62 个；全部 62 策略均已编译并完成 CPU 布局检查。36 场景通过不等同于任意输入或全部策略已经验收。新增用例精确 seed、页表布局与 padding 见 example 的 `expanded_dynamic_cases.json`。实际有效请求 Q 测到 1–6；更大 Q 未做设备验收。
 
-每次比较前恢复相同输入和缓存状态。24 场景的 ACLNN 验证使用冻结的 Python PTO 参考快照，独立进程不初始化 Simpler runtime。状态验证为同时运行两种后端的独立测试，不采集性能。
+每次比较前恢复相同输入和缓存状态。36 场景的 ACLNN 验证使用冻结的 Python PTO 参考快照，独立进程不初始化 Simpler runtime。状态验证为同时运行两种后端的独立测试，不采集性能。
 
 证据路径均位于 `/data00/wangkai/aclnnWorkspace/`：
 
 - 汇总：`vllm-ascend/examples/csa_spmd_tnd_aclnn/dynamic_validation_results.json`。
 - 每场景：`build/dynamic_<case>_01/result/result.json`，原始日志 `logs/dynamic_<case>_01.log`。
+- 本轮新增 12 场景：`build/expanded_reference_<case>_01/result/result.json` 与 `build/expanded_aclnn_<case>_01/result/result.json`。
 - 同址/连续状态：`build/dynamic_state_c04_01/result/result.json`。
 - CPU：`build/dynamic_contract/result.json`；策略审计：`build/dynamic_policy_symbolic_audit.json`。
 - 动态包：`build/csa_dynamic_keys2/csa_spmd_tnd_pto.run`，SHA256 `0096f66c045e64aee907b2b5d7af196043a3ee4a7845f2812c4eb039ab4e0b7f`。
@@ -109,31 +124,45 @@ logical_snapshot.pt → golden_input.pt → golden.py → golden.pt → expected
 input/*.bin + tensors.tsv → C++ ACLNN runner → actual/*.bin ↔ expected/*.bin
 ```
 
-expected 可以来自原 PTO，也可以来自数学 golden；格式本身不决定参考的数学含义。`aclnn_test/main.cpp` 直接调用 `aclnnCsaSpmdTndPtoGetWorkspaceSize` 与 `aclnnCsaSpmdTndPto`，不读取 `.pt`。此前 C01 纯 C++ 八项输出与 PTO 逐位一致；本轮动态 24 场景使用 Torch → ACLNN 路径。数学差异报告在 `build/golden_c01_01/`。
+expected 可以来自原 PTO，也可以来自数学 golden；格式本身不决定参考的数学含义。`aclnn_test/main.cpp` 直接调用 `aclnnCsaSpmdTndPtoGetWorkspaceSize` 与 `aclnnCsaSpmdTndPto`，不读取 `.pt`。此前 C01 纯 C++ 八项输出与 PTO 逐位一致；本轮动态 36 场景使用 Torch → ACLNN 路径。数学差异报告在 `build/golden_c01_01/`。
 
 ## 已测性能与计时范围
 
-下表保留真实采集值：原 PTO 为 2026-10-26 的 c346573 单层结果；ACLNN 两列为 2026-10-27 的 `csa_final`/`torch_final` 测量。当前 `csa_dynamic` 尚未重新采样，这些数值不标作动态新包性能。
+原 PTO 列保留 2026-10-26 的 c346573 单层结果；ACLNN 两列已替换为 2026-10-27 当前 `csa_dynamic`/`torch_dynamic` 的新实测值。新增 12 个场景仅采集 ACLNN 两列，其余列按要求填 `-`。旧 csa_final 数值不作为当前性能。
 
 单位 μs，中位数；`-` 表示未测或不适用。
 
 | 场景 | Native | BSH-MPMD-L1 | BSH-SPMD | TND-MPMD-AICPU | TND-MPMD-L1 | TND-SPMD-AICPU | TND-SPMD-L1 | TND-SPMD-ACLNN核耗时（replay） | TND-SPMD-ACLNN核耗时（eager） |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 128K/B1/S6 | - | - | - | 551.39 | 409.62 | 562.82 | 367.72 | 370.41 | 374.87 |
-| 256K/B16/S6 | - | - | - | 1220.20 | 1140.53 | 1084.54 | 953.90 | 945.38 | 946.18 |
-| 128K/B8/S6 | - | - | - | 836.06 | 738.21 | 769.20 | 627.22 | 622.21 | 627.25 |
-| 128K/B16/S6 | - | 831.65 | 785.35 | 1070.32 | 998.66 | 912.31 | 783.73 | 800.68 | 801.42 |
-| 128K/B24/S6 | - | - | - | 1342.88 | 1282.66 | 1159.54 | 1020.86 | 1007.60 | 1006.86 |
-| 128K/B28/S6 | - | - | - | 1506.03 | 1452.00 | 1300.19 | 1174.01 | 1180.94 | 1178.74 |
-| 8K/B32/S6 | - | - | - | 1285.92 | 1239.91 | 1063.75 | 967.04 | 945.06 | 940.32 |
-| 128K/B16/混长 T56 | - | - | - | 965.48 | 872.45 | 894.57 | 763.47 | 737.88 | 736.12 |
+| 128K/B1/S6 | - | - | - | 551.39 | 409.62 | 562.82 | 367.72 | 381.05 | 380.45 |
+| 256K/B16/S6 | - | - | - | 1220.20 | 1140.53 | 1084.54 | 953.90 | 952.74 | 951.06 |
+| 128K/B8/S6 | - | - | - | 836.06 | 738.21 | 769.20 | 627.22 | 625.31 | 628.03 |
+| 128K/B16/S6 | - | 831.65 | 785.35 | 1070.32 | 998.66 | 912.31 | 783.73 | 787.86 | 778.42 |
+| 128K/B24/S6 | - | - | - | 1342.88 | 1282.66 | 1159.54 | 1020.86 | 999.00 | 998.56 |
+| 128K/B28/S6 | - | - | - | 1506.03 | 1452.00 | 1300.19 | 1174.01 | 1168.16 | 1178.52 |
+| 8K/B32/S6 | - | - | - | 1285.92 | 1239.91 | 1063.75 | 967.04 | 949.92 | 941.64 |
+| 128K/B16/混长 T56 | - | - | - | 965.48 | 872.45 | 894.57 | 763.47 | 757.96 | 751.50 |
+| H131071/B3/S2 | - | - | - | - | - | - | - | 400.37 | 401.25 |
+| H65533/B9/S3 | - | - | - | - | - | - | - | 585.87 | 585.81 |
+| H131070/B11/S4 | - | - | - | - | - | - | - | 752.44 | 743.53 |
+| H32767/B40/S1 | - | - | - | - | - | - | - | 656.15 | 656.03 |
+| H8191/B2/S1 | - | - | - | - | - | - | - | 328.33 | 324.61 |
+| H15356/B4/S4 | - | - | - | - | - | - | - | 377.71 | 376.27 |
+| H15360/B4/S4 | - | - | - | - | - | - | - | 388.29 | 386.79 |
+| H32762/B4/S6 | - | - | - | - | - | - | - | 507.93 | 509.13 |
+| H131072/B16/T96（有效 B5/T16） | - | - | - | - | - | - | - | 572.59 | 574.31 |
+| 混合 H/B5/T16 | - | - | - | - | - | - | - | 452.05 | 441.75 |
+| H65536/B9/S4（碎片化、反序页） | - | - | - | - | - | - | - | 607.47 | 603.95 |
+| H131072/B6/S6（页表宽 2082） | - | - | - | - | - | - | - | 580.95 | 582.51 |
 
-- 原 PTO 表使用 graph replay。L1 每项 10 个有效窗口，取核内起止跨度；AICPU 每项 30 次独立 Profiler 图重放，取包含设备调度的完整设备跨度，不是 AICPU 自身耗时。
-- ACLNN replay/eager 分别由 graph replay 与直接调用触发，均取 CANN `Task Duration(us)`，预热 10 次、各采 3 次中位数；采样后数值和保护区复查通过。
-- 不包含 Python 端到端耗时、Host 准备和输入恢复。PTO L1 与 CANN Task Duration 起止不同，不能由差值推算精确接入开销。
-- NPU Event 包住一次 replay 的时间未测。Native 及其余 BSH 未测项保持空缺。
-- PTO 证据：`/data00/wangkai/pto_env/performance-20261026/PERFORMANCE.json` 和 `runs/`。
-- ACLNN 证据：`/data00/wangkai/aclnnWorkspace/build/aclnn_performance_20261027/PERFORMANCE.json`、`PROVENANCE.json`。
+- 单位 μs。诊断 57 Tensor 入口，与原 PTO 表的输出范围一致；目标 `OP Type=CsaSpmdTndPto`。
+- replay 列由捕获后的图重放触发；eager 列直接执行 Torch → ACLNN。两列都读取 CANN op_summary 的 `Task Duration(us)`，预热 10 次、各采 3 个样本并取中位数。
+- 20 个场景均在 NPU 0 逐个采样；其他设备的正确性任务可并行。每次调用前恢复同一输入/cache；采样后及业务/诊断 eager/graph 的数值逐位一致，外部输入/cache 保护区通过。此处未设置内部 workspace 哨兵。
+- 不包含 Host 检查、tiling/分配、编译、图捕获、数据拷贝、状态恢复或同步等待。NPU Event 包住一次 replay 的时间按用户要求暂缓，未测。
+- 原 PTO 表使用 graph replay；L1 为核内时间戳，AICPU 列为包含设备调度的完整设备跨度。两者与 CANN Task Duration 的起止不同，不由表中差值计算精确接入开销。
+- 独立数学 golden C01 仍未通过；本轮验证的是与原 Python PTO 的接入一致性。
+
+PTO 证据：`/data00/wangkai/pto_env/performance-20261026/PERFORMANCE.json`。当前 ACLNN 证据：`/data00/wangkai/aclnnWorkspace/build/aclnn_dynamic_performance_20261027/PERFORMANCE.json`，同内容已保存到 example 的 `PERFORMANCE.json`；完整输入和复现命令见 `PERFORMANCE.md`。
 
 ## 构建、安装和复跑
 
@@ -147,8 +176,7 @@ docker exec -it -w /data00/wangkai/aclnnWorkspace wangkai_vllm026_dev72 bash
 容器内加载公共环境，用仓内生成源码构建。下列输出路径替换为仓外新目录：
 
 ```bash
-source /data00/wangkai/pto_env/env-dsv4-0251rc1.sh
-source /data00/wangkai/pto_env/vllm-ascend-perf-latest/tests/pypto_test/csa_shared_toolchain/env.sh
+source /data00/wangkai/aclnnWorkspace/local-config/env-dynamic.sh
 cd /data00/wangkai/aclnnWorkspace/vllm-ascend
 bash examples/csa_spmd_tnd_aclnn/scripts/build.sh \
   "$CSA_SHARED_SIMPLER_ROOT/build/pto-isa" /external/new_csa_dynamic -1 16
@@ -165,12 +193,14 @@ build.sh 第三个参数 `-1` 编译全部策略，第四个参数是并行数�
 
 ```bash
 cd /data00/wangkai/aclnnWorkspace
-TASK_DEVICE=0 bash scripts/validate_dynamic.sh dynamic_b1_s1 dynamic_b1_s1_rerun_02 \
-  /data00/wangkai/aclnnWorkspace/install/csa_dynamic/vendors/csa_spmd_tnd_pto \
-  --library /data00/wangkai/aclnnWorkspace/build/torch_dynamic/csa_pto_npu.so \
+TASK_DEVICE=0 bash scripts/run_dynamic_case.sh validate dynamic_b1_s1 dynamic_b1_s1_rerun_02 \
   --reference-state /data00/wangkai/aclnnWorkspace/build/dynamic_reference_dynamic_b1_s1_01/result/reference_state.pt
 ```
 
-服务器仓外 `scripts/dynamic_cases.json` 定义 24 场景；`scripts/validate_dynamic_matrix.py` 在 0–3 号设备分别排队，跳过已有通过结果、拒绝覆盖失败证据。启动器使用公共 bootstrap 和每设备 flock。同址/连续状态单独使用 C04 加 `--state-validation` 执行，不复用普通场景参考快照。
+服务器仓外 `scripts/dynamic_cases.json` 定义此前 24 场景；`scripts/extra_dynamic_cases.json` 定义本轮 12 场景，已在 example 保存同内容副本。`scripts/run_extra_dynamic_matrix.py` 在 1–4 号设备分别排队生成参考与校验；性能由 `scripts/run_dynamic_performance.py`（原八场景）及 `--extra`（新增 12 场景）在设备 0 串行采集。脚本跳过已有通过结果，拒绝覆盖失败证据；重测使用新输出目录。
+
+启动器 `scripts/run_dynamic_case.sh` 加载 `local-config/env-dynamic.sh` 与适配后的公共 bootstrap，使用每设备 flock。Python PTO 与 ACLNN 都从当前同一个 Ascend 仓加载。vLLM 框架是独立依赖，不是另一份 Ascend 算子参考仓；恢复的依赖放在 aclnnWorkspace/deps。共享 PyPTO/PTOAS/Simpler 清单和已有版本保持不变，旧缺失目录不再作为当前入口。
+
+同址/连续状态单独使用 C04 加 `--state-validation` 执行，不复用普通场景参考快照。
 
 源码与生成 C++/PTO 保存在 Git；构建、安装、模型数据、`.pt`/`.bin` 和原始日志保存在仓外。`/data00` 是宿主挂载，仅保存 Docker 镜像不包含这些工作数据。
