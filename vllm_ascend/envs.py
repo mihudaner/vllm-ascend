@@ -89,6 +89,20 @@ env_variables: dict[str, Callable[[], Any]] = {
     # 1: only quant case enable nz;
     # 2: enable nz as long as possible.
     "VLLM_ASCEND_ENABLE_NZ": lambda: int(os.getenv("VLLM_ASCEND_ENABLE_NZ", 1)),
+    # PTO CSA cross-core reduction: 0 uses a single K-shard fixed reduction;
+    # 1 uses split-K atomic add. Only accepts 0/1 and must be set before the
+    # operator is imported/compiled; never switched during graph replay.
+    "VLLM_ASCEND_PTO_CSA_ATOMIC_ADD": lambda: int(os.getenv("VLLM_ASCEND_PTO_CSA_ATOMIC_ADD", "0")),
+    # CSA implementation selector: default performance/perf (the maintained
+    # multi-task performance package); spmd_tnd/mpmd_tnd select TND variants
+    # when those packages are available; pkg:<name> selects a private copy.
+    # precision/prec are retired and rejected explicitly. Non-sensitive; fix
+    # before operator import/compile.
+    "PTO_CSA_VARIANT": lambda: os.getenv("PTO_CSA_VARIANT", "performance"),
+    # Runtime shared by the PTO CSA/HCA service. Only accepts
+    # tensormap_and_ringbuffer or host_build_graph. Must be set before runtime
+    # initialization and cannot switch within one process.
+    "PTO_CSA_RUNTIME": lambda: os.getenv("PTO_CSA_RUNTIME", "tensormap_and_ringbuffer"),
     # Whether to anbale dynamic EPLB
     "DYNAMIC_EPLB": lambda: os.getenv("DYNAMIC_EPLB", "false").lower(),
     # Whether to enable fused MC2 (`dispatch_ffn_combine/mega_moe`).
