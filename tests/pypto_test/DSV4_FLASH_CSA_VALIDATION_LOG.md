@@ -24077,3 +24077,58 @@ shape/dtype/device/stride/storage_offset、存储容量和NZ实际format等；�
 新增三张NZ权重与直接借用Native字节的路径，解决三个文件中与异常参数提示
 重叠的冲突；两种TND均保留七张NZ检查。rebase后22项定向CPU回归通过，
 未重跑NPU；原单卡源码与证据仍标c346573ab加padding修复，不跨版本改标。
+
+
+### 735.131 全policy首次编译计时完成，逐策略Native功能对照启动（2026-10-28）
+
+按用户要求，将测试从八档扩展为两种policy.py的全部不同constexpr组合。
+冻结6acb0ce9d及公共SDK csa-shared-20261024-group-dims，CANN9.2；
+SPMD94项、MPMD55项正常kernel ABI全部编译成功，无NPU执行或卡占用。
+首次生成与完整二进制装配分开计时，关闭持久缓存，每项唯一目录；同进程重复
+请求确认相同artifact、generation_builds仅一次。前8路后增至32路并发。
+
+SPMD单项min/mean/max=143.85/164.29/210.20秒，逐项合计15443.37秒
+（4小时17分23秒）；MPMD=16.07/24.88/55.93秒，逐项合计1368.64秒
+（22分49秒）。生成/二进制均值分别27.17/137.12秒与15.70/9.19秒。
+实际阶段墙钟937.19秒/62.01秒，总墙钟999.22秒。逐项耗时包含并发竞争，
+相加不等于严格串行实测；没有测一次只编译一个policy的串行总耗时。
+SPMD产生AIC/AIV两份设备kernel，MPMD每项43/44份，均另含AICPU编排。
+
+证据见csa_policy_compile_20261027/COMPILE_RESULTS.md、compile_times.csv、
+compile_results.json及source.json。两CPU任务task_20261027_234401_15880699778、
+task_20261027_235127_195008130054全部exit0。枚举按冻结选择器的谓词等价区间，
+query1..96及>=97尾区给出同一全集；可选Z3脚本未执行，不作为证明。
+旧ACLNN62策略保留T<=B*query限制，不能代表修复集中padding后的94策略全集。
+
+用户追加逐policy功能/Native粗精度检查，并明确保留非Native入口的额外容量场景。
+已固定149项场景，其中SPMD20/MPMD9项单请求额外容量单独标识。
+Native仅计算有效token，PTO保留capacity，复用本轮正常二进制；不再额外编译
+149个debug入口，不宣称直接比较隐藏Top-K。代表单卡任务
+ task_20261028_002301_343852321019已提交；功能结果仍待完成，编译通过不等于数值通过。
+
+
+逐策略对照现已完成：SPMD94项、MPMD55项正常执行，输出及更新状态无NaN/Inf，
+缓存越界、输出前后保护区检查全部通过。Native仅计算有效token，PTO保留容量；
+第4层真实权重+合成历史，CANN9.2，共享SDK，确定性level1、PTO atomic_add=0。
+SPMD/MPMD输出最坏相对RMSE分别0.5395%/0.5397%，最大绝对差0.03222656/0.03125，
+最低cosine约0.99998545/0.99998544。INT8 Indexer cache最大差2/1个整数级；
+严格逐元素检查未全部通过，原容差失败完整保留，不判成与Native bit一致或模型token通过。
+更新状态只比较本轮写入行，避免长历史未变化元素稀释误差；全部非法写保护仍覆盖缓存。
+
+用户追问29项的含义后，直接提取执行当前Native _pad_query_start_loc_for_fia的
+CPU函数本体核对：120项Q/B可相同，29项必须追加dummy令B从1变2。
+Native能模拟同样padding，但requests==1的专用policy随B改变，因此29项仅属于
+未归属额外行容量的健壮性覆盖，不能称为29项真实模型入口。初稿另有16项冗余
+失活请求槽，按Native函数修正并只补测受影响16项，复用133项完全相同场景。
+首批2项只检查原Native metadata；后续147项同时检查PTO扩容后的metadata不变。
+证据为function_cases.json、native_padding_contract.json、FUNCTION_RESULTS.md、
+function_results.json。正常入口不暴露Top-K，未增加149个debug编译。
+
+代表任务task_20261028_002301_343852321019、全量任务
+ task_20261028_002831_370256729381、16项合同修正任务
+ task_20261028_003342_39602208428均exit0。代表任务首次误用新建KernelArtifact.load，
+导致两项再次编译；后续改用SDK load_prebuilt只读加载，未修改SDK或生产缓存路径。
+不将这些运行耗时作为新的编译收益或CSA性能数据。原始计时与失败/修正过程保留。
+
+测试脚本Ruff、shell语法、diff检查通过；format.sh ci仍因未安装pre-commit未能执行。
+按要求详细中文Signed-off-by本地提交；本轮没有push授权，不推送。

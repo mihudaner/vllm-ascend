@@ -1,0 +1,5 @@
+sources/
+runs/
+__pycache__/
+*.log
+progress.json
