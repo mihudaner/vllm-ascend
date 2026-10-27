@@ -14,11 +14,12 @@ from vllm_ascend.ops.pypto.deepseek_v4_flash_hca.service_config import validate_
 def hca_layer_forward(layer, positions, hidden_states, residual, llama_4_scaling=None):
     output = torch.empty_like(hidden_states)
     torch.ops.vllm.dsv4_hca_forward(hidden_states, positions, output, layer.self_attn.dsa_attn.prefix)
-    # attention 半层完成后，按 Native 的顺序执行 FFN 半层。
+    # attention 半层完成后，按 xllm 0.26 Native 的顺序执行 FFN 半层，
+    # 包括 rms_norm_cast 给出的精确 FP32 router 输入；PTO 只接管 attention 半边。
     residual = output.clone()
     hidden_states, post, comb = layer.hc_pre(output, layer.hc_ffn_fn, layer.hc_ffn_scale, layer.hc_ffn_base)
-    hidden_states = layer.post_attention_layernorm(hidden_states)
-    hidden_states = layer.mlp(hidden_states)
+    hidden_states, hidden_states_fp32 = layer.rms_norm_cast(hidden_states)
+    hidden_states = layer.mlp(hidden_states, hidden_states_fp32=hidden_states_fp32)
     hidden_states = layer.hc_post(hidden_states, residual, post, comb)
     return hidden_states, residual
 

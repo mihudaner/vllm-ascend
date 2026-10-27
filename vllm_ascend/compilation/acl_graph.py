@@ -69,6 +69,10 @@ class ACLGraphEntry:
     # for aclgraph debugging, track the input addresses
     # during capture, and check if they are the same during replay
     input_addresses: list[int] | None = None
+    # Populated only by the opt-in CSA HBG service while capturing this graph.
+    csa_hbg_host_metadata: dict[str, Any] | None = None
+    # TND routes/policy/root addresses must still match before Python is bypassed.
+    csa_tnd_contracts: dict[str, Any] | None = None
 
 
 class ACLGraphWrapper:
@@ -254,6 +258,12 @@ class ACLGraphWrapper:
             # to save memory
             entry.output = weak_ref_tensors(output)
             entry.aclgraph = aclgraph
+            host_metadata = forward_context.additional_kwargs.get("pto_csa_hbg_graph_metadata")
+            if host_metadata:
+                entry.csa_hbg_host_metadata = dict(host_metadata)
+            tnd_contracts = forward_context.additional_kwargs.get("pto_csa_tnd_graph_contracts")
+            if tnd_contracts:
+                entry.csa_tnd_contracts = dict(tnd_contracts)
 
             compilation_counter.num_cudagraph_captured += 1
 
@@ -261,6 +271,33 @@ class ACLGraphWrapper:
             # the weak ref of the output, so that pytorch can correctly
             # manage the memory during acl graph capture
             return output
+
+        if entry.csa_tnd_contracts and not all(
+            contract.allows_replay(forward_context) for contract in entry.csa_tnd_contracts.values()
+        ):
+            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import (
+                TND_PADDED_REDISPATCH,
+            )
+
+            # 旧图可能捕获了Native/空路径，或请求容量/策略/输入地址已经变化。
+            # 走正常Python派发，支持的调用仍可进入SPMD，范围外由服务回退Native。
+            previous_mode = forward_context.cudagraph_runtime_mode
+            previous_redispatch = forward_context.additional_kwargs.get(TND_PADDED_REDISPATCH)
+            forward_context.cudagraph_runtime_mode = CUDAGraphMode.NONE
+            forward_context.additional_kwargs[TND_PADDED_REDISPATCH] = True
+            try:
+                return self.runnable(*args, **kwargs)
+            finally:
+                forward_context.cudagraph_runtime_mode = previous_mode
+                if previous_redispatch is None:
+                    forward_context.additional_kwargs.pop(TND_PADDED_REDISPATCH, None)
+                else:
+                    forward_context.additional_kwargs[TND_PADDED_REDISPATCH] = previous_redispatch
+
+        if entry.csa_hbg_host_metadata:
+            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.host_metadata import validate_graph_replay
+
+            validate_graph_replay(entry.csa_hbg_host_metadata, forward_context.attn_metadata)
 
         if self.is_debugging_mode:
             # check if the input addresses are the same
