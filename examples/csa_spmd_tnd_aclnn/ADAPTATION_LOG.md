@@ -473,3 +473,13 @@ C04 导出脚本改为从 generated/manifest.json 的 key 3 读取策略，已�
 
 
 用户要求历史数据不能仅用 Git 链接替代。已将 c346573 的完整 20 场景性能表恢复到 PERFORMANCE.md 和 REPRODUCTION.md 的独立历史章节；PERFORMANCE.json、PERFORMANCE_PROVENANCE.json、dynamic_validation_results.json 的 historical_versions 保存 1bc8c87f 时的完整原始记录（包括 36 场景、状态验证、20 场景各次样本与报告哈希），不只保留摘要。原始报告、参考快照、旧包与采样文件未删除。新版结果位于顶层，旧基线按版本独立保留，未测项不拿历史值冒充。
+
+## 028. HC-pre 风格 wheel 分发（2026-10-27）
+
+参考 `/data00/wangkai/pto_env/bytenn-ascend/examples/hc_pre_pto_aclnn/python`，新增 `python/` 下的 wheel 构建、启动环境 hook、vendor 加载、Python API 和安装后测试。包名 `csa_pto_ops`；OPP vendor 保持 `csa_spmd_tnd_pto`。复用已验证 NZ1685 `.run` / Torch `.so`，未改核、tiling 或 workspace。构建到仓外新目录，wheel 内同时包含解包 vendor、原始 `.run`、扩展、runtime 和两个接口/策略 JSON。
+
+保留匹配的 vLLM Ascend 输入绑定与策略依赖，并在准备阶段核对 binding.py/policy.py SHA256 及 Torch/TorchNPU 版本。常规安装无需运行时解包，多个 worker 只读导入；损坏安装明确报错。不同于 HC-pre 的缓存解包兜底，本包不在共享用户缓存静默替换算子。
+
+已独立安装 wheel，4 项安装检查通过；设备 4 的 C04 四条业务/诊断 eager/replay 路径所有 9 项数值逐位一致，保护区/只读检查通过。包 SHA256 `1708cbeafe37a8262abc44ff8aceb806af4f0da6b27ad2e1edfcdb4c817d938a`，84619325 字节；详细证据见 `python/validation_results.json`。未覆盖共享环境，未更改原性能数据，未重跑独立数学 golden。
+
+提交前检查：历史三份 JSON 的完整原记录与 1bc8c87f 一致；REPRODUCTION.md 与服务器镜像文档一致；wheel 包内源码与本次提交源码一致；Python 语法及 git diff --check 通过。format.sh ci 因环境未安装 pre-commit 未完成。

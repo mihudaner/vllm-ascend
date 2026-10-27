@@ -66,6 +66,7 @@ csa_spmd_tnd_aclnn/
 ├── op_kernel/
 │   ├── CMakeLists.txt
 │   └── csa_spmd_tnd_pto.cpp          # MIX 入口、133 指针还原和 key 分派
+├── python/                         # wheel 打包、自动加载与安装后检查，见 python/README.md
 ├── torch/binding.cpp                # Torch 注册、Meta、输入检查和 ACLNN 调用
 ├── aclnn_test/
 │   ├── CMakeLists.txt
@@ -100,7 +101,7 @@ csa_spmd_tnd_aclnn/
 └── 接口与参数说明.md                 # 当前参数表、动态约束与存储/调用合同
 ```
 
-服务器上还可能看到 `__pycache__/`（Python 缓存）及空的 `python/`、`tests/` 占位目录；这些不是已提交的包或测试入口。当前没有 HC-pre 那样的 Python wheel 包，使用 `runtime.py` 或 `torch.ops` 调用。
+服务器上还可能看到 `__pycache__/`（Python 缓存）及空的 `tests/` 占位目录。`python/` 现在提供 HC-pre 风格的 wheel 打包：随包分发 OPP vendor、Torch 扩展和 Python 接口，安装与使用见 [wheel 说明](python/README.md)。原 `runtime.py` / `torch.ops` 调用方式仍可使用。
 
 构建产物和大数据统一放在仓外，不放入此 example：
 
@@ -157,6 +158,8 @@ python scripts/build_torch.py --build-dir /external/csa_torch
 当前设备二进制位于 vendor 的 `op_impl/ai_core/tbe/kernel/ascend910_93/csa_spmd_tnd_pto/`：62 个 key 的实际代码合并为一个 `.o`，含 62 个 AIC 和 62 个 AIV 非空函数入口。当前 binary 大小及 SHA256 见 `dynamic_validation_results.json` 的 build 字段；完整 `.run` 为 43.03 MiB。文件大小与 workspace 申请量是不同指标。
 
 ## 5. 配置运行环境与 Torch 调用
+
+推荐分发使用 [csa_pto_ops wheel](python/README.md)：`pip install --no-deps` 后，在新进程中 `from csa_pto_ops import PreparedAclnnCSA`，无需指定 `.so` 路径。下文保留源码开发时分开安装 `.run` / `.so` 的方式。
 
 在导入 `torch_npu` 前，将本次安装的 vendor 和 ACLNN 库加入环境；保留输入准备/对照所需的 Native vendor：
 
