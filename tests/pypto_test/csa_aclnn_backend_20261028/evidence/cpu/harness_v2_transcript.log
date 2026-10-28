@@ -1,0 +1,15 @@
+Copied execution transcript (not a fresh rerun)
+IWT=/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028
+Original unified exec session: 13148
+Command:
+source /data/pyptouser/qinchuanyu/pto-eager/env-dsv4-0251rc1.sh
+source /data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_shared_toolchain/env.sh
+python /data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_toolchain_repro_20261019/bootstrap.py --workspace-root /data/pyptouser/qinchuanyu/pto-eager --shared-toolchain --vllm-root /data/pyptouser/qinchuanyu/pto-eager/.cache/migration-v0.25.1rc1/vllm /tmp/csa_aclnn_harness_pytest_20261028.py -q /data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_aclnn_backend_20261028/test_harness.py
+Result:
+.................                                                        [100%]
+17 passed in 2.20s
+Exit code: 0
+Shared release: csa-shared-20261024-group-dims (validated)
+Ruff on top-level harness *.py: All checks passed!
+py_compile of four modified Python scripts: exit 0
+bash -n launch.sh: exit 0

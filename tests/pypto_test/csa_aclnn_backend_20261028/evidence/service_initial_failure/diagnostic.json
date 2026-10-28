@@ -1,0 +1,823 @@
+{
+  "diagnostic_only": true,
+  "alters_original_return_values": false,
+  "wrapper_path": "/tmp/csa-aclnn-service-diagnostic-20261028/runner.py",
+  "wrapper_sha256": "0d0590281e8e52dd4fa1369b0fb98abe6a8b7fda14fe79bb133d9d044608d273",
+  "original_runner": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_aclnn_backend_20261028/run_case.py",
+  "arguments": [
+    "--backend",
+    "python",
+    "--case",
+    "h131072_b16_s6",
+    "--output",
+    "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_aclnn_backend_20261028/runs/python_h131072_b16_s6_service_diag_first",
+    "--frozen",
+    "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_aclnn_backend_20261028/frozen/v1",
+    "--reference",
+    "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_aclnn_backend_20261028/runs/python_h131072_b16_s6_first",
+    "--service-only",
+    "--skip-performance",
+    "--device",
+    "8"
+  ],
+  "events": [
+    {
+      "kind": "snapshot",
+      "index": 0,
+      "failed_guards": {},
+      "guard_differences": {},
+      "state_shapes": {
+        "output": [
+          96,
+          4,
+          4096
+        ],
+        "swa.0": [
+          96,
+          1,
+          512
+        ],
+        "compressed.0": [
+          16,
+          1,
+          512
+        ],
+        "state.0": [
+          96,
+          1,
+          2048
+        ],
+        "indexer.0": [
+          16,
+          1,
+          128
+        ],
+        "indexer.1": [
+          16,
+          1,
+          1
+        ],
+        "indexer_state.0": [
+          96,
+          1,
+          512
+        ]
+      }
+    },
+    {
+      "kind": "compare_states",
+      "index": 0,
+      "failed": {},
+      "checks": {
+        "output": {
+          "status": "PASS",
+          "shape": [
+            96,
+            4,
+            4096
+          ],
+          "dtype": "torch.bfloat16",
+          "expected_shape": [
+            96,
+            4,
+            4096
+          ],
+          "expected_dtype": "torch.bfloat16",
+          "atol": 0.01,
+          "rtol": 0.01,
+          "elements": 1572864,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "swa.0": {
+          "status": "PASS",
+          "shape": [
+            96,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "expected_shape": [
+            96,
+            1,
+            512
+          ],
+          "expected_dtype": "torch.bfloat16",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 49152,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "compressed.0": {
+          "status": "PASS",
+          "shape": [
+            16,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "expected_shape": [
+            16,
+            1,
+            512
+          ],
+          "expected_dtype": "torch.bfloat16",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 8192,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "state.0": {
+          "status": "PASS",
+          "shape": [
+            96,
+            1,
+            2048
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            96,
+            1,
+            2048
+          ],
+          "expected_dtype": "torch.float32",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 196608,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "indexer.0": {
+          "status": "PASS",
+          "shape": [
+            16,
+            1,
+            128
+          ],
+          "dtype": "torch.int8",
+          "expected_shape": [
+            16,
+            1,
+            128
+          ],
+          "expected_dtype": "torch.int8",
+          "atol": 0,
+          "rtol": 0,
+          "elements": 2048,
+          "comparison": "exact",
+          "nonfinite": 0,
+          "max_abs": null,
+          "rmse": null,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "indexer.1": {
+          "status": "PASS",
+          "shape": [
+            16,
+            1,
+            1
+          ],
+          "dtype": "torch.float16",
+          "expected_shape": [
+            16,
+            1,
+            1
+          ],
+          "expected_dtype": "torch.float16",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 16,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "indexer_state.0": {
+          "status": "PASS",
+          "shape": [
+            96,
+            1,
+            512
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            96,
+            1,
+            512
+          ],
+          "expected_dtype": "torch.float32",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 49152,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        }
+      },
+      "differences": {}
+    },
+    {
+      "kind": "snapshot",
+      "index": 1,
+      "failed_guards": {
+        "readonly/cmp_slot_mapping": false,
+        "readonly/idx_slot_mapping": false,
+        "readonly/cmp_freqs_cos": false,
+        "readonly/cmp_freqs_sin": false,
+        "readonly/inner_freqs_cos": false,
+        "readonly/inner_freqs_sin": false
+      },
+      "guard_differences": {
+        "readonly/cmp_slot_mapping": {
+          "shape": [
+            40,
+            2
+          ],
+          "dtype": "torch.int32",
+          "expected_shape": [
+            40,
+            2
+          ],
+          "expected_dtype": "torch.int32",
+          "different_bytes": 151,
+          "first_differences": [
+            {
+              "flat_index": 0,
+              "actual": 2,
+              "expected": 0
+            },
+            {
+              "flat_index": 2,
+              "actual": 1028,
+              "expected": 0
+            },
+            {
+              "flat_index": 4,
+              "actual": 2054,
+              "expected": 0
+            },
+            {
+              "flat_index": 6,
+              "actual": 3080,
+              "expected": 0
+            },
+            {
+              "flat_index": 8,
+              "actual": 4106,
+              "expected": 0
+            },
+            {
+              "flat_index": 10,
+              "actual": 5132,
+              "expected": 0
+            },
+            {
+              "flat_index": 12,
+              "actual": 6158,
+              "expected": 0
+            },
+            {
+              "flat_index": 14,
+              "actual": 7184,
+              "expected": 0
+            }
+          ]
+        },
+        "readonly/idx_slot_mapping": {
+          "shape": [
+            40,
+            2
+          ],
+          "dtype": "torch.int32",
+          "expected_shape": [
+            40,
+            2
+          ],
+          "expected_dtype": "torch.int32",
+          "different_bytes": 151,
+          "first_differences": [
+            {
+              "flat_index": 0,
+              "actual": 2,
+              "expected": 0
+            },
+            {
+              "flat_index": 2,
+              "actual": 1028,
+              "expected": 0
+            },
+            {
+              "flat_index": 4,
+              "actual": 2054,
+              "expected": 0
+            },
+            {
+              "flat_index": 6,
+              "actual": 3080,
+              "expected": 0
+            },
+            {
+              "flat_index": 8,
+              "actual": 4106,
+              "expected": 0
+            },
+            {
+              "flat_index": 10,
+              "actual": 5132,
+              "expected": 0
+            },
+            {
+              "flat_index": 12,
+              "actual": 6158,
+              "expected": 0
+            },
+            {
+              "flat_index": 14,
+              "actual": 7184,
+              "expected": 0
+            }
+          ]
+        },
+        "readonly/cmp_freqs_cos": {
+          "shape": [
+            40,
+            64
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            40,
+            64
+          ],
+          "expected_dtype": "torch.float32",
+          "different_bytes": 7136,
+          "first_differences": [
+            {
+              "flat_index": 0,
+              "actual": 0.04209081456065178,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 1,
+              "actual": 0.04209081456065178,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 2,
+              "actual": 0.987244188785553,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 3,
+              "actual": 0.987244188785553,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 4,
+              "actual": -0.9357668161392212,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 5,
+              "actual": -0.9357668161392212,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 6,
+              "actual": -0.554008424282074,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 7,
+              "actual": -0.554008424282074,
+              "expected": 0.0
+            }
+          ],
+          "actual_nonfinite": 0,
+          "expected_nonfinite": 0
+        },
+        "readonly/cmp_freqs_sin": {
+          "shape": [
+            40,
+            64
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            40,
+            64
+          ],
+          "expected_dtype": "torch.float32",
+          "different_bytes": 4096,
+          "first_differences": [
+            {
+              "flat_index": 0,
+              "actual": -0.9991138577461243,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 1,
+              "actual": -0.9991138577461243,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 2,
+              "actual": 0.1592130810022354,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 3,
+              "actual": 0.1592130810022354,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 4,
+              "actual": 0.352619469165802,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 5,
+              "actual": 0.352619469165802,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 6,
+              "actual": 0.8325110673904419,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 7,
+              "actual": 0.8325110673904419,
+              "expected": 0.0
+            }
+          ],
+          "actual_nonfinite": 0,
+          "expected_nonfinite": 0
+        },
+        "readonly/inner_freqs_cos": {
+          "shape": [
+            40,
+            64
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            40,
+            64
+          ],
+          "expected_dtype": "torch.float32",
+          "different_bytes": 7136,
+          "first_differences": [
+            {
+              "flat_index": 0,
+              "actual": 0.04209081456065178,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 1,
+              "actual": 0.04209081456065178,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 2,
+              "actual": 0.987244188785553,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 3,
+              "actual": 0.987244188785553,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 4,
+              "actual": -0.9357668161392212,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 5,
+              "actual": -0.9357668161392212,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 6,
+              "actual": -0.554008424282074,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 7,
+              "actual": -0.554008424282074,
+              "expected": 0.0
+            }
+          ],
+          "actual_nonfinite": 0,
+          "expected_nonfinite": 0
+        },
+        "readonly/inner_freqs_sin": {
+          "shape": [
+            40,
+            64
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            40,
+            64
+          ],
+          "expected_dtype": "torch.float32",
+          "different_bytes": 4096,
+          "first_differences": [
+            {
+              "flat_index": 0,
+              "actual": -0.9991138577461243,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 1,
+              "actual": -0.9991138577461243,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 2,
+              "actual": 0.1592130810022354,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 3,
+              "actual": 0.1592130810022354,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 4,
+              "actual": 0.352619469165802,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 5,
+              "actual": 0.352619469165802,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 6,
+              "actual": 0.8325110673904419,
+              "expected": 0.0
+            },
+            {
+              "flat_index": 7,
+              "actual": 0.8325110673904419,
+              "expected": 0.0
+            }
+          ],
+          "actual_nonfinite": 0,
+          "expected_nonfinite": 0
+        }
+      },
+      "state_shapes": {
+        "output": [
+          96,
+          4,
+          4096
+        ],
+        "swa.0": [
+          96,
+          1,
+          512
+        ],
+        "compressed.0": [
+          16,
+          1,
+          512
+        ],
+        "state.0": [
+          96,
+          1,
+          2048
+        ],
+        "indexer.0": [
+          16,
+          1,
+          128
+        ],
+        "indexer.1": [
+          16,
+          1,
+          1
+        ],
+        "indexer_state.0": [
+          96,
+          1,
+          512
+        ]
+      }
+    },
+    {
+      "kind": "compare_states",
+      "index": 1,
+      "failed": {},
+      "checks": {
+        "output": {
+          "status": "PASS",
+          "shape": [
+            96,
+            4,
+            4096
+          ],
+          "dtype": "torch.bfloat16",
+          "expected_shape": [
+            96,
+            4,
+            4096
+          ],
+          "expected_dtype": "torch.bfloat16",
+          "atol": 0.01,
+          "rtol": 0.01,
+          "elements": 1572864,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "swa.0": {
+          "status": "PASS",
+          "shape": [
+            96,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "expected_shape": [
+            96,
+            1,
+            512
+          ],
+          "expected_dtype": "torch.bfloat16",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 49152,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "compressed.0": {
+          "status": "PASS",
+          "shape": [
+            16,
+            1,
+            512
+          ],
+          "dtype": "torch.bfloat16",
+          "expected_shape": [
+            16,
+            1,
+            512
+          ],
+          "expected_dtype": "torch.bfloat16",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 8192,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "state.0": {
+          "status": "PASS",
+          "shape": [
+            96,
+            1,
+            2048
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            96,
+            1,
+            2048
+          ],
+          "expected_dtype": "torch.float32",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 196608,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "indexer.0": {
+          "status": "PASS",
+          "shape": [
+            16,
+            1,
+            128
+          ],
+          "dtype": "torch.int8",
+          "expected_shape": [
+            16,
+            1,
+            128
+          ],
+          "expected_dtype": "torch.int8",
+          "atol": 0,
+          "rtol": 0,
+          "elements": 2048,
+          "comparison": "exact",
+          "nonfinite": 0,
+          "max_abs": null,
+          "rmse": null,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "indexer.1": {
+          "status": "PASS",
+          "shape": [
+            16,
+            1,
+            1
+          ],
+          "dtype": "torch.float16",
+          "expected_shape": [
+            16,
+            1,
+            1
+          ],
+          "expected_dtype": "torch.float16",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 16,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        },
+        "indexer_state.0": {
+          "status": "PASS",
+          "shape": [
+            96,
+            1,
+            512
+          ],
+          "dtype": "torch.float32",
+          "expected_shape": [
+            96,
+            1,
+            512
+          ],
+          "expected_dtype": "torch.float32",
+          "atol": 1e-05,
+          "rtol": 1e-05,
+          "elements": 49152,
+          "comparison": "tolerance",
+          "nonfinite": 0,
+          "max_abs": 0.0,
+          "rmse": 0.0,
+          "mismatches": 0,
+          "first_mismatches": [],
+          "bit_equal": true
+        }
+      },
+      "differences": {}
+    }
+  ]
+}

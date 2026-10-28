@@ -20,7 +20,7 @@ from checks import (
     stage_metadata,
 )
 from measurement import L1_WINDOWS, PROFILE_WINDOWS, profile_graph, profile_python_l1
-from provenance import loaded_aclnn_files, verify_freeze
+from provenance import loaded_aclnn_files, verify_freeze, verify_reference_sources
 
 
 def main():
@@ -35,11 +35,20 @@ def main():
     parser.add_argument("--normal", action="store_true", help="仅55业务参数；明确不验显式Top-K/score")
     parser.add_argument("--service-only", action="store_true", help="独立进程走真实vLLM模型准备与ACLGraphWrapper")
     parser.add_argument("--skip-performance", action="store_true")
+    parser.add_argument(
+        "--allow-service-harness-reference-update",
+        action="store_true",
+        help="仅服务/normal补验允许已审查的测试管理文件变化，完整保存旧/新清单",
+    )
     args = parser.parse_args()
     if args.backend == "aclnn" and args.reference is None:
         parser.error("ACLNN必须读取独立Python进程已验证的参考快照")
     if args.service_only and args.reference is None:
         parser.error("服务冒烟需要主验证进程的base_eager参考")
+    if args.allow_service_harness_reference_update and not (
+        args.reference and args.skip_performance and (args.service_only or args.normal)
+    ):
+        parser.error("历史harness参考复用只允许有reference的service/normal功能补验，必须skip-performance")
     if os.environ.get("VLLM_ASCEND_PTO_CSA_BACKEND") != args.backend:
         parser.error("backend须与进程启动时的环境变量一致")
     device_id = int(os.environ["TASK_DEVICE"])
@@ -57,6 +66,7 @@ def main():
     states = args.output / "states"
     states.mkdir()
     reference_report = None
+    reference_compatibility = None
     if args.reference:
         reference_report = json.loads((args.reference / "result.json").read_text())
         if (
@@ -65,8 +75,9 @@ def main():
             or reference_report["case"] != case
         ):
             raise ValueError("需要同一固定场景已通过的Python参考")
-        if reference_report["sources"] != frozen["sources"]:
-            raise ValueError("Python/ACLNN参考使用不同的冻结接入源码")
+        reference_compatibility = verify_reference_sources(
+            reference_report, frozen, allow_service_update=args.allow_service_harness_reference_update
+        )
     report = {
         "passed": False,
         "device_execution": False,
@@ -78,6 +89,7 @@ def main():
         "sources": frozen["sources"],
         "freeze_commit": frozen["commit"],
         "reference": None if args.reference is None else str(args.reference.resolve()),
+        "reference_compatibility": reference_compatibility,
         "checks": {},
         "statistics": {},
         "sampling": {"warmup": 3, "device_windows": PROFILE_WINDOWS, "python_l1_windows": L1_WINDOWS},
@@ -119,6 +131,8 @@ def main():
 
         pypto.configure_cache(pypto.CacheConfig(enabled=False))
         report["shared_toolchain"] = capture_toolchain(frozen["shared_toolchain"])
+        if reference_report and report["shared_toolchain"] != reference_report["shared_toolchain"]:
+            raise ValueError("参考与本次执行的公共SDK不一致，禁止复用")
         torch.npu.set_device(device_id)
         torch.npu.config.allow_internal_format = True
         torch_npu.npu.set_deterministic_level(0)
@@ -231,7 +245,12 @@ def main():
                 from service_smoke import validate
 
                 expected = torch.load(args.reference / "states/base_eager.pt", weights_only=True)
-                report["service"] = validate(layer, config, fixture, output, protected, expected, save)
+
+                def save_service(stage, result):
+                    report["service"] = result
+                    save(stage)
+
+                report["service"] = validate(layer, config, fixture, output, protected, expected, save_service)
                 report["device_execution"] = True
                 if not report["service"]["passed"]:
                     raise AssertionError("真实vLLM服务接入失败")

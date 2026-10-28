@@ -40,6 +40,11 @@ C05（128K/B24/S6）的完整L1十窗中位为995.01μs；其他七档代码与�
 export PTO_CSA_VARIANT=spmd_tnd
 ```
 
+执行后端默认是 Python PTO；预编译的原 62 档 ACLNN wheel 可通过
+`VLLM_ASCEND_PTO_CSA_BACKEND=aclnn` 选择，仍复用同一服务入口、Meta 和输入
+绑定。安装、支持策略与独立验收见
+[ACLNN 后端接入说明](../../../../tests/pypto_test/csa_aclnn_backend_20261028/README.md)。
+
 模型架构继续使用 `PyptoCSADeepseekV4ForCausalLM`。当前要求单卡TP1/PP1、
 DeepSeek V4 Flash、BF16激活、Native W8A8、NZ2权重、32-token ND分页KV，
 以及 `tensormap_and_ringbuffer` 运行时。DSpark上限保持5个投机token，
@@ -61,8 +66,9 @@ DeepSeek V4 Flash、BF16激活、Native W8A8、NZ2权重、32-token ND分页KV�
   更短的整个batch及范围外请求回退Native。短历史Vector Score没有在本轮新增。
 - 空token或全dummy调用不启动SPMD、不更新cache/state。dummy输出不作为有效
   token使用；有效写入范围和整个cache/state分配都参与验证。
-- prefill、混合prefill/decode、draft侧、HCA组合模型、新并行方式、
-  ACLNN/SuperKernel不在本轮范围。
+- prefill、混合prefill/decode、draft侧、HCA组合模型、新并行方式和
+  SuperKernel 不在本模块原 TND 服务验收范围。ACLNN 后端为后续独立接入，
+  其范围与证据以上面的 ACLNN 后端接入说明为准。
 
 实际设备已验证范围、尚待完成的边界和性能见独立
 [实现记录](../DSV4_CSA_SPMD_TND_IMPLEMENTATION_LOG.md)，不能仅凭上述策略上限

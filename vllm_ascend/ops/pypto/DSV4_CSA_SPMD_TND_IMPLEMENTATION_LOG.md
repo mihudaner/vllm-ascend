@@ -6938,3 +6938,52 @@ cache/state逐bit一致。ACLNN独立进程的禁止执行探针显示没有初�
 （10窗），ACLNN TaskDuration为805.63μs（30窗），边界不同，不能直接相减
 作为纯调度开销。首档记录见测试目录evidence/C04。其余七档与真实vLLM
 服务入口/图重放仍待完成，本节不声明整个接入已验收。
+
+### 2026-10-28 补充：62 档完整接入验收完成
+
+阶段实现已提交为 `f589dc848`。随后其余七档均完成，固定八档共16份
+Python/ACLNN独立进程报告全部通过；每档同卡，均为冻结v1。176个检查阶段、
+1,584项数值对照和5,280项保护区/只读检查全部通过，ACLNN与Python输出、
+Top-K、score及cache/state逐bit一致。16侧共480个完整device窗口、Python
+另80个L1窗口及全部样本保留在报告中；没有选择最快实验或重跑取优。
+
+真实服务的首次图重放曾因测试错误失败：harness将六个图内Native compact
+metadata producer输出当作只读输入。专项诊断确认，仅这些buffer由捕获后的
+零值变成有效metadata；输出/cache/state及其他guards全部通过。修复只修改
+测试：producer改为与图外Native fixture完整逐bit比较（包括容量尾部），
+其他只读、保护区与数值检查保持不变，并在抛错前保存失败行。
+
+补验冻结v2仅有五个测试管理文件变化。复用原v1/C04参考时显式验证差异
+白名单，保留新旧清单、hash及原因；算法、binding、model、fixture、数值/
+计时检查和公共SDK均不变。原八档与性能未重跑，失败与诊断记录没有覆盖。
+
+最终两项task-submit任务均completed(exit=0)：
+
+- `task_20261028_130340_345398626123`：Python真实模型准备、统一CustomOp、
+  共享Fake/Meta、eager与两次ACLGraphWrapper图重放全部通过。
+- `task_20261028_130340_345414732657`：ACLNN同样的服务检查全部通过；
+  后续普通55参数业务入口10个阶段也全部通过，包括同址输入/metadata更新和
+  四步连续状态。辅助Top-K由执行适配准备，未改变对外接口。
+
+所有ACLNN进程均通过禁止PyPTO/JIT/Simpler执行探针，实际加载wheel中的
+Torch扩展和OPP库，没有创建Simpler worker或生成新核配置。最终CPU检查为
+后端/初始化55项、已有回归242项、harness17项，共314项；Ruff、Python编译
+和shell语法检查通过。后续补验没有修改生产实现或重新生成设备核。
+
+完整证据见
+[NPU_gate.json](../../../tests/pypto_test/csa_aclnn_backend_20261028/NPU_gate.json)、
+[证据索引](../../../tests/pypto_test/csa_aclnn_backend_20261028/evidence/README.md)及
+[八档计时表](../../../tests/pypto_test/csa_aclnn_backend_20261028/evidence/final_summary/SUMMARY.md)。
+八档完整device中位数在本轮采样中ACLNN较Python短8.02%～24.43%，但未做
+跨轮稳定加速评估；Python L1和ACLNN Task Duration仍按不同边界单列。
+
+接入说明补全了安装、同版本wheel重装、模型架构选择、环境变量切换和实际
+调用关系图。当前两后端共用`CSAServiceRuntime`与`PreparedDynamicCSA`，
+分叉在绑定对象的执行层：Python调用PyPTO根函数；ACLNN调用`AclnnExecutor`
+再进入`torch.ops.csa_pto.run`和`aclnnCsaSpmdTndPto`。没有实例化原包旧的
+`PreparedAclnnCSA`。模型准备时另行选择初始化Simpler或加载ACLNN包；图
+重放通过共享graph contract后，直接重放已捕获任务，不重新走完整Python派发。
+
+本轮范围是本机A3、原62档、真实单层服务入口；不宣称整模型生成质量、长稳
+服务或新增32档已验收。PyPTO Python类型依赖仍保留，ACLNN执行不使用其
+运行时。本轮完成后本地详细中文提交，不push。

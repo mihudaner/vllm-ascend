@@ -1,0 +1,110 @@
+CSA_SHARED_TOOLCHAIN {"release": "csa-shared-20261024-group-dims", "status": "validated", "manifest": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_shared_toolchain/manifest.json", "pypto": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024", "ptoas": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/ptoas-csa-mpmd-upstream-20261021/build", "simpler": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/simpler-csa-core-args-256-20261016"}
+........................................................................ [ 29%]
+........................................................................ [ 59%]
+........................................................................ [ 89%]
+..........................                                               [100%]
+=============================== warnings summary ===============================
+../../.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch_npu/utils/collect_env.py:58
+../../.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch_npu/utils/collect_env.py:58
+  /data/pyptouser/qinchuanyu/pto-eager/.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch_npu/utils/collect_env.py:58: UserWarning: Warning: The /data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2 owner does not match the current owner.
+    warnings.warn(f"Warning: The {path} owner does not match the current owner.")
+
+../../.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch_npu/utils/collect_env.py:58
+../../.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch_npu/utils/collect_env.py:58
+  /data/pyptouser/qinchuanyu/pto-eager/.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch_npu/utils/collect_env.py:58: UserWarning: Warning: The /data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/aarch64-linux/ascend_toolkit_install.info owner does not match the current owner.
+    warnings.warn(f"Warning: The {path} owner does not match the current owner.")
+
+../../.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch/jit/_script.py:362: 14 warnings
+  /data/pyptouser/qinchuanyu/pto-eager/.venv-dsv4-0251rc1/lib/python3.10/site-packages/torch/jit/_script.py:362: DeprecationWarning: `torch.jit.script_method` is deprecated. Please switch to `torch.compile` or `torch.export`.
+    warnings.warn(
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'build_compact_row_offsets' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['offsets']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'compressor_ratio4_pool_projected' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['pooled_kv', 'kv_proj_pad', 'score_proj_pad']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'compressor_ratio4_pool' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['pooled_kv', 'kv_proj_pad', 'score_proj_pad']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_compressor_pool_projected' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['pooled_kv', 'normed_kv']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_compressor_pool' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['normed_kv']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_qr_rope' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['qr_bf16']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_qr_hadamard_mm' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['qr_hadamard_i8', 'qr_hadamard_scale_dq']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_qr_hadamard' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['qr_hadamard_i8', 'qr_hadamard_scale_dq']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_score_topk_forest' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['topk_scores', 'topk_idxs']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer_weights_score' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['topk_scores', 'topk_idxs']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'indexer' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['topk_scores', 'topk_idxs']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'hc_post_block' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['y_flat']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py: 12 warnings
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper '_decode_o_proj_tp1_tiled' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['x_out']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'decode_o_proj_tp1' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['x_out']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+tests/ut/ops/test_dsv4_csa_hbg.py::test_separate_torch_schemas_preserve_legacy_tensor_abi
+  /data/pyptouser/qinchuanyu/pto-eager/.worktrees/pypto-csa-shared-group-dims-20261024/python/pypto/jit/specializer.py:1957: DeprecationWarning: @pl.jit.inline helper 'prove_scale_layout' uses pl.Out[...]/pl.InOut[...] on parameter(s) ['workspace']. Direction annotations are deprecated for inline helpers because the body is spliced at the call site before SSA conversion — the parameter is already an in-place alias of the caller's variable. Drop the wrapper; bare pl.Tensor[...] works the same.
+    method_lines = self._specialize_function(ctx)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+242 passed, 72 warnings in 25.63s

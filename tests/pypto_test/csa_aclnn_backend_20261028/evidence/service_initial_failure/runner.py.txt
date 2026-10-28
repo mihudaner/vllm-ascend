@@ -1,0 +1,99 @@
+"""Observe existing service smoke checks without changing returns or source freeze."""
+import hashlib
+import json
+import runpy
+import sys
+from pathlib import Path
+
+ORIGINAL = Path('/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-aclnn-backend-20261028/tests/pypto_test/csa_aclnn_backend_20261028/run_case.py')
+sys.path.insert(0, str(ORIGINAL.parent))
+import service_smoke
+
+arguments = sys.argv[1:]
+output = Path(arguments[arguments.index('--output') + 1])
+diagnostic = output.parent / (output.name + '_diagnostic')
+diagnostic.mkdir(parents=True, exist_ok=False)
+own_path = Path(__file__).resolve()
+own_bytes = own_path.read_bytes()
+(diagnostic / 'runner.py').write_bytes(own_bytes)
+record = {'diagnostic_only': True, 'alters_original_return_values': False,
+          'wrapper_path': str(own_path), 'wrapper_sha256': hashlib.sha256(own_bytes).hexdigest(),
+          'original_runner': str(ORIGINAL), 'arguments': arguments, 'events': []}
+
+def save():
+    (diagnostic / 'diagnostic.json').write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str) + '\n')
+
+def differences(actual, expected):
+    import torch
+    actual = actual.detach().cpu().contiguous()
+    expected = expected.detach().cpu().contiguous()
+    result = {'shape': list(actual.shape), 'dtype': str(actual.dtype),
+              'expected_shape': list(expected.shape), 'expected_dtype': str(expected.dtype)}
+    if actual.shape != expected.shape or actual.dtype != expected.dtype:
+        return result
+    a, b = actual.view(torch.uint8).view(-1), expected.view(torch.uint8).view(-1)
+    byte_indices = (a != b).nonzero().view(-1)
+    result['different_bytes'] = int(byte_indices.numel())
+    elements = sorted({int(i) // actual.element_size() for i in byte_indices[:64].tolist()})[:8]
+    av, bv = actual.view(-1), expected.view(-1)
+    result['first_differences'] = [{'flat_index': i, 'actual': av[i].item(), 'expected': bv[i].item()} for i in elements]
+    if actual.is_floating_point():
+        result['actual_nonfinite'] = int((~torch.isfinite(actual)).sum())
+        result['expected_nonfinite'] = int((~torch.isfinite(expected)).sum())
+    return result
+
+original_compare = service_smoke.compare_states
+original_snapshot = service_smoke.snapshot
+
+def compare_states(actual, expected, **kwargs):
+    result = original_compare(actual, expected, **kwargs)
+    failures = {name: row for name, row in result.items() if row.get('status') != 'PASS'}
+    event = {'kind': 'compare_states', 'index': sum(e['kind'] == 'compare_states' for e in record['events']),
+             'failed': failures, 'checks': result,
+             'differences': {name: differences(actual[name], expected[name]) for name in failures}}
+    record['events'].append(event)
+    save()
+    print('CSA_SERVICE_DIAG_COMPARE ' + json.dumps({'index': event['index'], 'failed': failures,
+          'differences': event['differences']}, ensure_ascii=False, default=str), flush=True)
+    return result
+
+def snapshot(fixture, native, protected, before=None, readonly=None):
+    result = original_snapshot(fixture, native, protected, before=before, readonly=readonly)
+    state, guards, caches = result
+    failures = {name: value for name, value in guards.items() if not value}
+    detail = {}
+    for key in failures:
+        if key.startswith('readonly/'):
+            name = key.removeprefix('readonly/')
+            detail[key] = differences(native[name], readonly[name])
+        elif key.startswith('external/'):
+            import torch
+            name = key.removeprefix('external/')
+            storage, padding = protected[name]
+            actual = torch.cat((storage[:padding].cpu(), storage[-padding:].cpu()))
+            detail[key] = differences(actual, torch.full_like(actual, 37))
+        elif key.startswith('cache/'):
+            import torch
+            name = key.removeprefix('cache/')
+            group = fixture['groups'][name]
+            prior = group['initial'] if before is None else before[name]
+            outside = (caches[name] != prior) & ~group['allowed']
+            indices = outside.nonzero().view(-1)
+            detail[key] = {'outside_bytes': int(indices.numel()), 'first_offsets': indices[:12].tolist(),
+                           'actual': caches[name][indices[:12]].tolist(), 'expected': prior[indices[:12]].tolist()}
+    event = {'kind': 'snapshot', 'index': sum(e['kind'] == 'snapshot' for e in record['events']),
+             'failed_guards': failures, 'guard_differences': detail,
+             'state_shapes': {name: list(value.shape) for name, value in state.items()}}
+    record['events'].append(event)
+    save()
+    print('CSA_SERVICE_DIAG_SNAPSHOT ' + json.dumps(event, ensure_ascii=False, default=str), flush=True)
+    return result
+
+service_smoke.compare_states = compare_states
+service_smoke.snapshot = snapshot
+save()
+sys.argv = [str(ORIGINAL), *arguments]
+try:
+    runpy.run_path(str(ORIGINAL), run_name='__main__')
+finally:
+    save()

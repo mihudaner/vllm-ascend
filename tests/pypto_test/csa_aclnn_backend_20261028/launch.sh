@@ -23,7 +23,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --reference) [[ $# -ge 2 ]] || exit 2; reference=$2; shift 2 ;;
         --wheel-site) [[ $# -ge 2 ]] || exit 2; wheel_site=$2; shift 2 ;;
-        --normal|--service-only|--skip-performance) extra+=("$1"); shift ;;
+        --normal|--service-only|--skip-performance|--allow-service-harness-reference-update) extra+=("$1"); shift ;;
         --device) [[ $# -ge 2 && "$2" == "${TASK_DEVICE:?通过task-submit提交}" ]] || exit 2; shift 2 ;;
         *) printf '未知参数：%s\n' "$1" >&2; exit 2 ;;
     esac

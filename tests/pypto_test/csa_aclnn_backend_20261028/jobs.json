@@ -1,0 +1,33 @@
+{
+  "frozen": "v1",
+  "implementation_commit": "f589dc848",
+  "paired_device_processes": "每个任务内按Python→ACLNN运行两个独立进程，共用TASK_DEVICE",
+  "paired_cases": {
+    "C04": "task_20261028_122344_13695004994",
+    "C01": "task_20261028_123823_211181628630",
+    "C02": "task_20261028_123823_21119662341",
+    "C03": "task_20261028_123823_21120741387",
+    "C05": "task_20261028_123823_21121767845",
+    "C06": "task_20261028_123823_211227820402",
+    "C07": "task_20261028_123823_211242327226",
+    "C08": "task_20261028_123823_211107521630"
+  },
+  "service_and_normal": "task_20261028_123316_185563327833",
+  "initial_service_status": "failed: harness误将图内metadata生产者输出当只读；ACLNN与normal未开始",
+  "service_diagnostic": {
+    "task": "task_20261028_125511_309135218291",
+    "status": "completed(exit=1)，仅诊断，不计验收",
+    "conclusion": "numerical/其余guards全部PASS；仅6个图内producer字段readonly断言失败"
+  },
+  "formal_service_v2": {
+    "frozen": "v2",
+    "python_service": "task_20261028_130340_345398626123",
+    "aclnn_service_and_normal": "task_20261028_130340_345414732657",
+    "reference": "v1/C04/python",
+    "changes": "仅5个测试管理/服务检查文件；算法、输入准备、fixture、SDK和数值/性能检查不变"
+  },
+  "final_status": {
+    "paired_cases": "8 tasks completed(exit=0)，16 reports全部通过",
+    "formal_service_v2": "2 tasks completed(exit=0)，两个service与1个normal全部通过"
+  }
+}

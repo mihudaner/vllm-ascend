@@ -1,0 +1,71 @@
+{
+  "passed": true,
+  "scope": "原62档CSA ACLNN wheel接入；真实vLLM单层CustomOp/共享Meta/图重放；不是整模型生成或长稳验收",
+  "implementation_commit": "f589dc848",
+  "device_code_source": "caed2c32896ddefdbcfab180b253d777bfab11e0",
+  "wheel_sha256": "c0e183ccd23764a1d8774ede306fb796784afac206c1fc1606e53d5371986611",
+  "main": {
+    "cases": 8,
+    "reports": [
+      "evidence/C01/aclnn_result.json",
+      "evidence/C01/python_result.json",
+      "evidence/C02/aclnn_result.json",
+      "evidence/C02/python_result.json",
+      "evidence/C03/aclnn_result.json",
+      "evidence/C03/python_result.json",
+      "evidence/C04/aclnn_result.json",
+      "evidence/C04/python_result.json",
+      "evidence/C05/aclnn_result.json",
+      "evidence/C05/python_result.json",
+      "evidence/C06/aclnn_result.json",
+      "evidence/C06/python_result.json",
+      "evidence/C07/aclnn_result.json",
+      "evidence/C07/python_result.json",
+      "evidence/C08/aclnn_result.json",
+      "evidence/C08/python_result.json"
+    ],
+    "stages": 176,
+    "numerical_checks": 1584,
+    "guards": 5280,
+    "device_windows": 480,
+    "python_l1_windows": 80,
+    "freeze": "evidence/freeze_v1_manifest.json",
+    "report_count": 16
+  },
+  "service": {
+    "backends": [
+      "python",
+      "aclnn"
+    ],
+    "eager_each": 1,
+    "graph_replays_each": 2,
+    "reports": [
+      "evidence/service/python_result.json",
+      "evidence/service/aclnn_result.json"
+    ],
+    "freeze": "evidence/freeze_v2_manifest.json"
+  },
+  "normal": {
+    "backend": "aclnn",
+    "stages": 10,
+    "report": "evidence/normal/aclnn_result.json",
+    "diagnostic_outputs": false
+  },
+  "aclnn_no_simpler_or_jit": true,
+  "shared_external_interface": "vllm::dsv4_csa_forward",
+  "shared_fake_meta": "dsv4_csa_forward_fake",
+  "historical_reference_reuse": "仅已审查的5个测试管理文件；保留旧新清单，算法/binding/model/fixture/检查/计时/公共SDK不变；未重跑8档",
+  "cpu": {
+    "backend_and_init": 55,
+    "existing_regression": 242,
+    "harness_v1": 9,
+    "harness_v2": 17,
+    "unique_final_checks": 314
+  },
+  "limitations": [
+    "原62档，不支持当前选择器新增32档；命中时显式报错",
+    "本机A3/Python3.10/aarch64/Torch2.10.0+cpu/TorchNPU2.10.0.post2/CANN9.2.0-beta.2",
+    "PyPTO Python类型仍需安装，ACLNN执行不启动其运行时",
+    "八档验证是与Python后端逐bit等价，不替代独立数学精度审计"
+  ]
+}

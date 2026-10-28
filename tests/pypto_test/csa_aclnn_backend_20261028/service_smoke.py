@@ -5,6 +5,51 @@ from types import SimpleNamespace
 
 from checks import compare_states, poison, readonly_snapshot, snapshot
 
+COMPACT_PRODUCER_NAMES = (
+    "cmp_slot_mapping",
+    "idx_slot_mapping",
+    "cmp_freqs_cos",
+    "cmp_freqs_sin",
+    "inner_freqs_cos",
+    "inner_freqs_sin",
+)
+
+
+def compact_reference(fixture):
+    """使用图外已执行的Native producer参考，完整保留有效行和容量填充行。"""
+    result = {}
+    for group, prefix, slot_prefix in (("compressed", "cmp", "cmp"), ("indexer", "inner", "idx")):
+        cos, sin, slots = fixture["compact"][group]
+        result[prefix + "_freqs_cos"] = cos.detach().reshape(-1, 64).cpu().clone()
+        result[prefix + "_freqs_sin"] = sin.detach().reshape(-1, 64).cpu().clone()
+        result[slot_prefix + "_slot_mapping"] = slots.detach().cpu().clone()
+    return result
+
+
+def external_readonly_snapshot(native):
+    # 捕获只登记producer节点，不保证其输出已执行初始化。重放会正常改写这6项；
+    # 它们由compact_reference逐值检查，其余根输入继续执行原来的只读检查。
+    return {name: value for name, value in readonly_snapshot(native).items() if name not in COMPACT_PRODUCER_NAMES}
+
+
+def compare_compact_producers(native, expected):
+    result = {}
+    for name in COMPACT_PRODUCER_NAMES:
+        value = native[name].detach().cpu()
+        if value.shape != expected[name].shape or value.dtype != expected[name].dtype:
+            result[name] = {
+                "status": "FAIL",
+                "bit_equal": False,
+                "reason": "服务compact producer描述符与Native fixture不同",
+                "actual_shape": list(value.shape),
+                "expected_shape": list(expected[name].shape),
+                "actual_dtype": str(value.dtype),
+                "expected_dtype": str(expected[name].dtype),
+            }
+        else:
+            result.update(compare_states({name: value}, {name: expected[name]}))
+    return result
+
 
 def validate(layer, config, fixture, output, protected, reference, save):
     import torch
@@ -51,6 +96,7 @@ def validate(layer, config, fixture, output, protected, reference, save):
         "backend": __import__("os").environ["VLLM_ASCEND_PTO_CSA_BACKEND"],
         "checks": {},
     }
+    producer_reference = compact_reference(fixture)
 
     def check(label, before=None):
         prepared = runtime.last_binding
@@ -58,17 +104,22 @@ def validate(layer, config, fixture, output, protected, reference, save):
         actual, guards, _ = snapshot(fixture, native, protected, readonly=before)
         expected = {name: reference[name] for name in actual}
         numerical = compare_states(actual, expected)
+        producers = compare_compact_producers(native, producer_reference)
         row = {
             "guards": guards,
             "numerical": numerical,
+            "compact_producers": producers,
             "backend_executor": type(getattr(prepared, "_executor", prepared)).__name__,
         }
-        row["passed"] = all(guards.values()) and all(x["status"] == "PASS" for x in numerical.values())
+        row["passed"] = all(guards.values()) and all(
+            x["status"] == "PASS" for x in (*numerical.values(), *producers.values())
+        )
         result["checks"][label] = row
+        save(f"service_check_{label}", result)
         if not row["passed"]:
             raise AssertionError(f"服务检查失败：{label}")
 
-    save("service_eager")
+    save("service_eager", result)
     restore(fixture)
     output.fill_(float("nan"))
     before = runtime.submissions
@@ -95,7 +146,7 @@ def validate(layer, config, fixture, output, protected, reference, save):
         "output_in_place": True,
     }
 
-    save("service_graph_capture")
+    save("service_graph_capture", result)
     restore(fixture)
     call(graph=True)
     torch.npu.synchronize()
@@ -106,7 +157,7 @@ def validate(layer, config, fixture, output, protected, reference, save):
     for step in range(2):
         restore(fixture)
         poison(runtime.last_binding.native)
-        readonly = readonly_snapshot(runtime.last_binding.native)
+        readonly = external_readonly_snapshot(runtime.last_binding.native)
         eligible, context = call(graph=True)
         torch.npu.synchronize()
         if not eligible or runtime.submissions != captures:

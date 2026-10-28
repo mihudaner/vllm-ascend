@@ -25,6 +25,42 @@ FILES = (
     "tests/pypto_test/csa_tnd_nz_weights_20261027/l1.py",
 )
 
+_HARNESS = "tests/pypto_test/csa_aclnn_backend_20261028/"
+SERVICE_REFERENCE_CHANGES = {
+    _HARNESS + "service_smoke.py": "区分外部只读输入与图内compact producer；后者完整逐bit核对；失败结果及时保存",
+    _HARNESS + "provenance.py": "明确限定历史参考复用的测试文件差异，并保留旧/新清单及原因",
+    _HARNESS + "run_case.py": "接入显式参考复用门禁与service失败结果持久化；不改变算子、fixture或性能流程",
+    _HARNESS + "launch.sh": "透传显式服务参考复用开关；环境及设备入口不变",
+    _HARNESS + "test_harness.py": "增加producer/外部输入边界及历史参考复用的CPU门禁测试",
+}
+
+
+def verify_reference_sources(reference, frozen, *, allow_service_update=False):
+    """仅本次经过审查的harness修复可以复用v1结果，不改写原始参考记录。"""
+    old, new = reference["sources"], frozen["sources"]
+    changed = sorted(name for name in old.keys() | new.keys() if old.get(name) != new.get(name))
+    if changed and not allow_service_update:
+        raise ValueError("Python/ACLNN参考使用不同的冻结接入源码；测试修复须显式申请限定复用")
+    rejected = [name for name in changed if name not in SERVICE_REFERENCE_CHANGES or name not in old or name not in new]
+    if rejected:
+        raise ValueError(f"参考复用包含未批准变更（算法、binding、模型、fixture、检查和计时必须不变）：{rejected}")
+    return {
+        "enabled": allow_service_update,
+        "same_sources": not changed,
+        "scope": "仅服务/normal补验；不跨版本合并性能或替换原v1八档报告",
+        "old_manifest": {
+            "commit": reference["freeze_commit"],
+            "sources": old,
+            "shared_toolchain": reference["shared_toolchain"],
+        },
+        "new_manifest": frozen,
+        "changes": {
+            name: {"old_sha256": old[name], "new_sha256": new[name], "reason": SERVICE_REFERENCE_CHANGES[name]}
+            for name in changed
+        },
+        "shared_toolchain": "运行时仍须与原参考完整一致",
+    }
+
 
 def sha256(path):
     digest = hashlib.sha256()
