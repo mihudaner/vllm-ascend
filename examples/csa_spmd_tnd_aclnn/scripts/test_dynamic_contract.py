@@ -6,6 +6,7 @@ import json
 import random
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 p = argparse.ArgumentParser()
@@ -15,10 +16,12 @@ a = p.parse_args()
 root = Path(__file__).resolve().parents[1]
 a.build_dir.mkdir(parents=True, exist_ok=True)
 source = root.parents[1] / "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py"
-spec = importlib.util.spec_from_file_location("csa_policy_test", source)
-m = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = m
-spec.loader.exec_module(m)
+# Load the policy with its sibling validation module without importing vLLM.
+namespace = "_csa_policy_source"
+package = types.ModuleType(namespace)
+package.__path__ = [str(Path(source).resolve().parents[1])]
+sys.modules[namespace] = package
+m = importlib.import_module(namespace + ".deepseek_v4_flash_csa_spmd_tnd.policy")
 variants = json.loads((root / "generated/manifest.json").read_text())["variants"]
 key = lambda x: json.dumps(x, sort_keys=True)
 lookup = {key(v["policy"]): v["tiling_key"] for v in variants}

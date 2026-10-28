@@ -4,6 +4,7 @@ import ast
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
@@ -16,10 +17,12 @@ if args.deps:
 import z3  # noqa: E402 - optional development dependency path is selected above.
 
 p = str(args.source)
-spec = importlib.util.spec_from_file_location("policy", p)
-m = importlib.util.module_from_spec(spec)
-sys.modules["policy"] = m
-spec.loader.exec_module(m)
+# Load the policy with its sibling validation module without importing vLLM.
+namespace = "_csa_policy_source"
+package = types.ModuleType(namespace)
+package.__path__ = [str(Path(args.source).resolve().parents[1])]
+sys.modules[namespace] = package
+m = importlib.import_module(namespace + ".deepseek_v4_flash_csa_spmd_tnd.policy")
 f = next(x for x in ast.parse(Path(p).read_text()).body if isinstance(x, ast.FunctionDef) and x.name == "select_policy")
 names = ["tokens", "requests", "max_query_tokens", "max_seq_len", "compressed_table_columns"]
 vs = {n: z3.Int(n) for n in names}
