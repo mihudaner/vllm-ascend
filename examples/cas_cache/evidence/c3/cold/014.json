@@ -1,0 +1,26 @@
+{
+  "index": 14,
+  "status": "FAIL",
+  "pid": 1032752,
+  "started": 1793167530.638077,
+  "entry_file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/entry.py",
+  "device_execution": false,
+  "error": "Traceback (most recent call last):\n  File \"/data00/wangkai/csa-cache-c3-20261028/scripts/precompile.py\", line 38, in worker\n    assert identity.usable, str(identity.failures)\n           ^^^^^^^^^^^^^^^\nAssertionError: (IdentityFailure(component='pypto', reason='Implicit dependency override requires a cache adapter: LD_PRELOAD'), IdentityFailure(component='runtime', reason='Implicit dependency override requires a cache adapter: LD_PRELOAD'), IdentityFailure(component='pto_isa', reason='Implicit dependency override requires a cache adapter: LD_PRELOAD'), IdentityFailure(component='ptoas', reason='Implicit dependency override requires a cache adapter: LD_PRELOAD'), IdentityFailure(component='device_toolchain', reason='Implicit dependency override requires a cache adapter: LD_PRELOAD'))\n",
+  "stats": {
+    "requests": 0,
+    "object_hits": 0,
+    "ready_hits": 0,
+    "generated_hits": 0,
+    "misses": 0,
+    "disabled_requests": 0,
+    "forced_rebuilds": 0,
+    "bypasses": 0,
+    "last_bypass_reason": null,
+    "invalid_entries": 0,
+    "storage_errors": 0,
+    "generation_builds": 0,
+    "binary_builds": 0,
+    "lookup_ns": 0,
+    "build_ns": 0
+  }
+}

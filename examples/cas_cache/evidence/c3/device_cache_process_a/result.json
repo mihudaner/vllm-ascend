@@ -1,0 +1,94 @@
+{
+  "case": "process_a",
+  "device": 0,
+  "passed": true,
+  "entry": "normal",
+  "policy": {
+    "QUERY_GROUP": 2,
+    "QK_PANEL": 128,
+    "SCORE_TILE": 1024,
+    "PREFETCH": 1,
+    "TO_L0": true,
+    "BALANCED": true,
+    "ROOTS": 1,
+    "OA_COLS": 128,
+    "OA_ROWS": 128,
+    "OB_ROWS": 32,
+    "OUTPUT_GROUP_PIPELINE": true,
+    "HC_ROW_DEPENDENCIES": true,
+    "ATTENTION_QUERY_METADATA": false,
+    "HC_CONSUMER_REDUCE": false,
+    "QA_M16_PARALLEL": false,
+    "COOPERATIVE_PREFIX": true,
+    "EARLY_ATTENTION_GEOMETRY": false,
+    "LOCAL_ATTENTION_STATS": false,
+    "SCALE_PAGE_COALESCING": false,
+    "LEAF_SCALE_LAYOUT": false,
+    "PLAN_PHYSICAL_ROWS": false,
+    "SPLIT_SCORE_ROWS": false,
+    "OUTPUT_WORK_BALANCE": true,
+    "SHORT_TOPK_PREFIX": false,
+    "SHORT_HALF_SCORE_UB": false,
+    "QB_WIDE_N": false,
+    "PREFIX_BRANCH_GROUPS": 4,
+    "JOINT_BF16_PREFIX": false,
+    "PREFIX_PROJECTION_ROWS": 128,
+    "SCORE_GROUP_ORDER": false,
+    "PLAN_TABLE_COLUMNS": 2048,
+    "FUSED_INDEXER_COEFF": false
+  },
+  "eager_first_seconds": 15.421387191992835,
+  "eager_first": {
+    "outputs_bitwise": {
+      "cache_rows": true,
+      "main_state": true,
+      "main_cache": true,
+      "idx_state": true,
+      "idx_cache": true,
+      "output": true
+    },
+    "readonly": true,
+    "guards": true
+  },
+  "eager_repeat_seconds": 0.025640074993134476,
+  "eager_repeat": {
+    "outputs_bitwise": {
+      "cache_rows": true,
+      "main_state": true,
+      "main_cache": true,
+      "idx_state": true,
+      "idx_cache": true,
+      "output": true
+    },
+    "readonly": true,
+    "guards": true
+  },
+  "graph_replay": {
+    "outputs_bitwise": {
+      "cache_rows": true,
+      "main_state": true,
+      "main_cache": true,
+      "idx_state": true,
+      "idx_cache": true,
+      "output": true
+    },
+    "readonly": true,
+    "guards": true
+  },
+  "cache_delta": {
+    "requests": 3,
+    "object_hits": 1,
+    "ready_hits": 1,
+    "generated_hits": 0,
+    "misses": 0,
+    "disabled_requests": 0,
+    "forced_rebuilds": 0,
+    "bypasses": 0,
+    "invalid_entries": 0,
+    "storage_errors": 0,
+    "generation_builds": 0,
+    "binary_builds": 0,
+    "lookup_ns": 9556796999,
+    "build_ns": 0
+  }
+}

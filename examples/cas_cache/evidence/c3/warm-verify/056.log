@@ -1,0 +1,6 @@
+[W1028 14:20:53.383397674 FunctionLoader.cpp:48] Warning: LD_PRELOAD detected, FunctionLoader prefers RTLD_DEFAULT for symbol resolution. (function operator())
+INFO 10-28 14:20:58 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 14:20:58 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 14:20:58 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 14:20:58 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 14:20:58 [platform.py:61] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.

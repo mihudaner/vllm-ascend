@@ -1,0 +1,28 @@
+{
+  "index": 59,
+  "status": "PASS",
+  "pid": 1150713,
+  "started": 1793168466.4415205,
+  "entry_file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/entry.py",
+  "device_execution": false,
+  "generate_seconds": 4.904942530003609,
+  "artifact": "/data00/zgj/scripts/npu_3_decode/runtime/decode/csa_cache/artifacts/32c9387fffef7e7c94057d1725eb4cc9574b979ce47d8a196ed8fb241657b7d8/cad2c5516d05401d83b3a408e1ede0ba7f19fa53f41a40c51f07520174b45562/972a2eab8091e3ef43e202eefa0470551c897136ca6dc550e4b0867db99078ce/ready",
+  "seconds": 4.96973053200054,
+  "stats": {
+    "requests": 1,
+    "object_hits": 0,
+    "ready_hits": 1,
+    "generated_hits": 0,
+    "misses": 0,
+    "disabled_requests": 0,
+    "forced_rebuilds": 0,
+    "bypasses": 0,
+    "last_bypass_reason": null,
+    "invalid_entries": 0,
+    "storage_errors": 0,
+    "generation_builds": 0,
+    "binary_builds": 0,
+    "lookup_ns": 106188494,
+    "build_ns": 0
+  }
+}

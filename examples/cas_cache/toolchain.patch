@@ -1,0 +1,62 @@
+--- a/python/pypto/jit/_toolchain.py
++++ b/python/pypto/jit/_toolchain.py
+@@ -417,6 +417,24 @@
+             *_elf_inputs(_executable("bash")),
+             *_ptoas_inputs(Path(forwarding[1]), ancestors | {launcher}),
+         }
++    # CSA native release wrapper: inventory exactly what its loader uses.
++    # Reject arbitrary shell scripts; never execute a launcher to discover paths.
++    if lines == [
++        'root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)',
++        'export LD_LIBRARY_PATH="$root/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"',
++        'exec "$root/bin/ptoas.bin" "$@"',
++    ]:
++        root = launcher.parent.parent
++        binary = (root / "bin/ptoas.bin").resolve(strict=True)
++        library_path = str(root / "lib") + os.pathsep + os.environ.get("LD_LIBRARY_PATH", "")
++        paths = {
++            launcher,
++            *_elf_inputs(_executable("bash")),
++            *_elf_inputs(_executable("dirname")),
++            *_elf_inputs(binary, library_path),
++        }
++        paths.update(child for child in (root / "lib", root / "share", root / "include") if child.exists())
++        return paths
+     if len(lines) != 5:
+         raise ValueError(f"Unsupported PTOAS launcher dependency grammar: {launcher}")
+     root_match = re.fullmatch(r'PTOAS_ROOT="([^"$]+)"', lines[0])
+@@ -478,6 +496,10 @@
+         raise ValueError(f"Unsupported dependency discovery platform: {sys.platform}")
+     ptoas_paths = _ptoas_inputs(Path(ptoas))
+     pypto = _package("pypto")
++    # The CSA service preloads this allocator. Hash its ELF dependency closure;
++    # all other preload specifications are still rejected by capture_toolchain.
++    if os.environ.get("LD_PRELOAD"):
++        pypto.update(_elf_inputs(Path("/usr/lib/aarch64-linux-gnu/libjemalloc.so.2").resolve(strict=True)))
+     pypto.update(_elf_inputs(Path(sys.executable).resolve()))
+     stdlib = Path(sysconfig.get_path("stdlib"))
+     # Top-level stdlib resources, excluding separately installed third-party
+@@ -552,7 +574,14 @@
+             "COMPILER_PATH": os.environ.get("COMPILER_PATH"),
+             "GCC_EXEC_PREFIX": os.environ.get("GCC_EXEC_PREFIX"),
+             "LIBRARY_PATH": os.environ.get("LIBRARY_PATH"),
+-            "LD_PRELOAD": os.environ.get("LD_PRELOAD"),
++            "LD_PRELOAD": (
++                None
++                if os.environ.get("LD_PRELOAD") in (
++                    "/usr/lib/aarch64-linux-gnu/libjemalloc.so.2",
++                    "/usr/lib/aarch64-linux-gnu/libjemalloc.so.2:",
++                )
++                else os.environ.get("LD_PRELOAD")
++            ),
+             "LD_AUDIT": os.environ.get("LD_AUDIT"),
+         }
+         for name, value in unsupported.items():
+@@ -577,6 +606,7 @@
+             os.environ.get("ASCEND_HOME_PATH"),
+             os.environ.get("PTOAS_ROOT"),
+             os.environ.get("LD_LIBRARY_PATH"),
++            os.environ.get("LD_PRELOAD"),
+             os.environ.get("PTOAS_PYTHON"),
+             os.environ.get("PYTHONPATH"),
+             os.environ.get("PYTHONHOME"),

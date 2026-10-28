@@ -1,0 +1,56 @@
+{
+  "timestamp_beijing": "2026-10-28T14:23:33.597729+08:00",
+  "scope": "normal CSA Python/PyPTO kernel compilation and fresh-process binary cache reuse; no NPU execution/full-model restart",
+  "cold-fixed": {
+    "passed": 94,
+    "stats_totals": {
+      "generation_builds": 94,
+      "binary_builds": 94,
+      "ready_hits": 0,
+      "bypasses": 0,
+      "forced_rebuilds": 0,
+      "storage_errors": 0,
+      "invalid_entries": 0
+    },
+    "wall_seconds": 572.2891204357147,
+    "seconds_min": 120.20281447999878,
+    "seconds_median": 134.49404919749213,
+    "seconds_max": 179.0780032009934
+  },
+  "warm-verify": {
+    "passed": 94,
+    "stats_totals": {
+      "generation_builds": 0,
+      "binary_builds": 0,
+      "ready_hits": 94,
+      "bypasses": 0,
+      "forced_rebuilds": 0,
+      "storage_errors": 0,
+      "invalid_entries": 0
+    },
+    "wall_seconds": 235.60898685455322,
+    "seconds_min": 4.9029565090022516,
+    "seconds_median": 5.114275189996988,
+    "seconds_max": 5.5202069810038665
+  },
+  "startup_script_unchanged": true,
+  "patch_tests": {
+    "status": "PASS",
+    "apply_restore_roundtrip": true,
+    "idempotent_apply": true,
+    "later_changes_protected": true,
+    "native_wrapper_inputs": 317,
+    "unknown_launcher_rejected": true,
+    "jemalloc_changes_identity": true,
+    "arbitrary_preload_rejected": true,
+    "original_sha256": "3c4aaf8e5524290f458b5e18b97c3d4fd6f95f64b5c1eafc41859ce03e978dbf",
+    "patched_sha256": "dda46af352c07d348f75d27caceffad800e2ac1c84f7472739e4d54159494ff0"
+  },
+  "negative_miss": {
+    "expected_failure": true,
+    "exit_code": 1,
+    "generation_builds": 0,
+    "binary_builds": 0
+  },
+  "cache_dir": "/data00/zgj/scripts/npu_3_decode/runtime/decode/csa_cache"
+}

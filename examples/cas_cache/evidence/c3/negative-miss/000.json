@@ -1,0 +1,26 @@
+{
+  "index": 0,
+  "status": "FAIL",
+  "pid": 1149225,
+  "started": 1793168451.438352,
+  "entry_file": "/vllm-workspace/vllm-ascend/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/entry.py",
+  "device_execution": false,
+  "error": "Traceback (most recent call last):\n  File \"/data00/wangkai/csa-cache-c3-20261028/scripts/precompile.py\", line 56, in worker\n    artifact = decode_csa_spmd._resolve_kernel_artifact(\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/contextlib.py\", line 81, in inner\n    return func(*args, **kwds)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/decorator.py\", line 3396, in _resolve_kernel_artifact\n    artifact, _, _ = self._resolve_compiled(args, kwargs, allow_signature_mode, _kernel=True)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/python3.12.13/lib/python3.12/contextlib.py\", line 81, in inner\n    return func(*args, **kwds)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/decorator.py\", line 3373, in _resolve_compiled\n    compiled = resolve_persistent(\n               ^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/_persistent.py\", line 274, in resolve_persistent\n    result = store.get_or_build(key, spec, generate)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/_persistent.py\", line 118, in get_or_build\n    result = super().get_or_build(key, spec, measured)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data00/wangkai/csa-cache-c3-20261028/scripts/precompile.py\", line 48, in guarded\n    return original(self, key, spec, reject)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/artifact_cache.py\", line 318, in get_or_build\n    result, leader = _build_flights.run(request, lambda: self._get_or_build(key, spec, builder))\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/artifact_cache.py\", line 172, in run\n    result = operation()\n             ^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/artifact_cache.py\", line 318, in <lambda>\n    result, leader = _build_flights.run(request, lambda: self._get_or_build(key, spec, builder))\n                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/artifact_cache.py\", line 347, in _get_or_build\n    built = self._build_private(key, spec, builder, None)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/opt/csa-pto/pypto/python/pypto/jit/artifact_cache.py\", line 368, in _build_private\n    value = builder(directory)\n            ^^^^^^^^^^^^^^^^^^\n  File \"/data00/wangkai/csa-cache-c3-20261028/scripts/precompile.py\", line 47, in reject\n    raise RuntimeError('VERIFY_CACHE_MISS: build forbidden')\nRuntimeError: VERIFY_CACHE_MISS: build forbidden\n",
+  "stats": {
+    "requests": 1,
+    "object_hits": 0,
+    "ready_hits": 0,
+    "generated_hits": 0,
+    "misses": 1,
+    "disabled_requests": 0,
+    "forced_rebuilds": 0,
+    "bypasses": 0,
+    "last_bypass_reason": null,
+    "invalid_entries": 0,
+    "storage_errors": 0,
+    "generation_builds": 0,
+    "binary_builds": 0,
+    "lookup_ns": 20304817,
+    "build_ns": 0
+  }
+}

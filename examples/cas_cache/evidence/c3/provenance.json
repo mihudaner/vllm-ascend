@@ -1,0 +1,10 @@
+{
+  "beijing": "2026-10-28T14:20:42.690048+08:00",
+  "service_checkout": "/vllm-workspace/vllm-ascend",
+  "service_commit": "d544a09a4c920d038d00e04310b798abfcc8c2d5",
+  "service_git_status": "",
+  "startup_script_unchanged": true,
+  "startup_sha256": "a899cd8f0d34e865a370907da354a540437b13b23b8990b349e36df197d75f3c",
+  "ptoas_binary_sha256": "f095d330f0523f081a334e037f05ecba2ea92b4a97da9779cc189c756a77c2a7",
+  "pypto_git_diff_stat": " python/pypto/jit/_toolchain.py | 32 +++++++++++++++++++++++++++++++-\n python/pypto/torch/shutdown.py |  2 +-\n 2 files changed, 32 insertions(+), 2 deletions(-)\n"
+}

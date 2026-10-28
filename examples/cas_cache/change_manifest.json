@@ -1,0 +1,8 @@
+{
+  "source": "/opt/csa-pto/pypto/python/pypto/jit/_toolchain.py",
+  "before_sha256": "3c4aaf8e5524290f458b5e18b97c3d4fd6f95f64b5c1eafc41859ce03e978dbf",
+  "after_sha256": "dda46af352c07d348f75d27caceffad800e2ac1c84f7472739e4d54159494ff0",
+  "backup": "/data00/wangkai/csa-cache-c3-20261028/backups/_toolchain.py.3c4aaf8e5524290f458b5e18b97c3d4fd6f95f64b5c1eafc41859ce03e978dbf.bak",
+  "startup_script_unchanged": true,
+  "scope": "one PyPTO identity adapter file; no compiler/kernel/service logic changes"
+}
