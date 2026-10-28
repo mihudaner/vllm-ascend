@@ -99,6 +99,10 @@ env_variables: dict[str, Callable[[], Any]] = {
     # precision/prec are retired and rejected explicitly. Non-sensitive; fix
     # before operator import/compile.
     "PTO_CSA_VARIANT": lambda: os.getenv("PTO_CSA_VARIANT", "performance"),
+    # CSA execution backend: python (default) or aclnn (spmd_tnd only).
+    # Non-sensitive. Set before worker initialization; fixed for warmup,
+    # capture and replay. ACLNN requires the matching CSA bytenn_pto_ops wheel.
+    "VLLM_ASCEND_PTO_CSA_BACKEND": lambda: os.getenv("VLLM_ASCEND_PTO_CSA_BACKEND", "python"),
     # Runtime shared by the PTO CSA/HCA service. Only accepts
     # tensormap_and_ringbuffer or host_build_graph. Must be set before runtime
     # initialization and cannot switch within one process.
