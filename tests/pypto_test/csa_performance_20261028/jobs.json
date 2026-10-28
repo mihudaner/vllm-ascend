@@ -1,0 +1,18 @@
+{
+  "task": "task_20261028_154849_277065232239",
+  "status": "completed(exit=0)",
+  "device": 9,
+  "command": "bash tests/pypto_test/csa_performance_20261028/launch.sh",
+  "max_time_s": 1800,
+  "cases": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "C08"
+  ],
+  "new_measurement": "仅TND-MPMD-AICPU，每档30窗"
+}

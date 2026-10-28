@@ -1,0 +1,270 @@
+{
+  "source_commit": "85cd04f405f28db035407edd51394572f43af1a2",
+  "shared_toolchain": {
+    "release": "csa-shared-20261024-group-dims",
+    "status": "validated",
+    "sessions": [
+      "CSA-SPMD",
+      "CSA-SPMD-TND",
+      "CSA-MPMD-TND"
+    ],
+    "pypto": {
+      "source": ".worktrees/pypto-csa-shared-group-dims-20261024",
+      "commit": "d44925c17d9ff7d7fa8e5067e41c4b4f80bf3063"
+    },
+    "ptoas": {
+      "source": ".worktrees/ptoas-csa-mpmd-upstream-20261021",
+      "build": ".worktrees/ptoas-csa-mpmd-upstream-20261021/build",
+      "commit": "914863ed3d0eb3e92a4433a4a706a86cabf4c91f"
+    },
+    "simpler": {
+      "source": ".worktrees/simpler-csa-core-args-256-20261016",
+      "commit": "57e499238fd4ee3548947ad860be456aaeeb16b5"
+    },
+    "evidence": "../csa_tnd_model_validation_20261023/internal_toolchain_upgrade.json",
+    "published_for_validation_at": "2026-10-24T02:59:40+08:00",
+    "validated_at": "2026-10-24T03:45:54+08:00"
+  },
+  "mpmd_artifacts": {
+    "C01": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h131072_b1_s6_candidate03_r1/build_output/decode_csa_tnd_debug_emc4ewzm",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C01/result.json",
+      "policy": {
+        "QUERY_GROUP": 2,
+        "QK_PANEL": 128,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 128,
+        "OB_ROWS": 32,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": false,
+        "LOCAL_ATTENTION_STATS": false,
+        "SCALE_PAGE_COALESCING": false,
+        "PLAN_PHYSICAL_ROWS": false,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": false,
+        "LIMIT_EMPTY_WORKERS": true,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_004316_34304274626",
+      "l1_device": 9
+    },
+    "C02": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h262144_b16_s6_candidate03_r1/build_output/decode_csa_tnd_debug_hilepn0o",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C02/result.json",
+      "policy": {
+        "QUERY_GROUP": 6,
+        "QK_PANEL": 64,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 128,
+        "OB_ROWS": 96,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": true,
+        "LOCAL_ATTENTION_STATS": true,
+        "SCALE_PAGE_COALESCING": false,
+        "PLAN_PHYSICAL_ROWS": true,
+        "PLAN_TABLE_COLUMNS": 2080,
+        "SPLIT_SCORE_ROWS": true,
+        "LIMIT_EMPTY_WORKERS": false,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_004316_343053916210",
+      "l1_device": 12
+    },
+    "C03": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h131072_b8_s6_candidate03_r1/build_output/decode_csa_tnd_debug_tvmds7o1",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C03/result.json",
+      "policy": {
+        "QUERY_GROUP": 6,
+        "QK_PANEL": 64,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 128,
+        "OB_ROWS": 96,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": false,
+        "LOCAL_ATTENTION_STATS": true,
+        "SCALE_PAGE_COALESCING": false,
+        "PLAN_PHYSICAL_ROWS": false,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": true,
+        "LIMIT_EMPTY_WORKERS": true,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_004316_34292448537",
+      "l1_device": 13
+    },
+    "C04": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h131072_b16_s6_candidate02_r1/build_output/decode_csa_tnd_debug_tmt01e02",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C04/result.json",
+      "policy": {
+        "QUERY_GROUP": 6,
+        "QK_PANEL": 64,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 128,
+        "OB_ROWS": 96,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": true,
+        "LOCAL_ATTENTION_STATS": true,
+        "SCALE_PAGE_COALESCING": false,
+        "PLAN_PHYSICAL_ROWS": true,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": true,
+        "LIMIT_EMPTY_WORKERS": false,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_003909_32302636230",
+      "l1_device": 9
+    },
+    "C05": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h131072_b24_s6_candidate03_r1/build_output/decode_csa_tnd_debug_kavmks0_",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C05/result.json",
+      "policy": {
+        "QUERY_GROUP": 6,
+        "QK_PANEL": 64,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 192,
+        "OB_ROWS": 128,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": true,
+        "LOCAL_ATTENTION_STATS": false,
+        "SCALE_PAGE_COALESCING": true,
+        "PLAN_PHYSICAL_ROWS": true,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": true,
+        "LIMIT_EMPTY_WORKERS": false,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_005258_391493514383",
+      "l1_device": 9
+    },
+    "C06": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h131072_b28_s6_candidate03_r1/build_output/decode_csa_tnd_debug_v8e3wcnc",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C06/result.json",
+      "policy": {
+        "QUERY_GROUP": 6,
+        "QK_PANEL": 64,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 256,
+        "OB_ROWS": 128,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": true,
+        "LOCAL_ATTENTION_STATS": false,
+        "SCALE_PAGE_COALESCING": true,
+        "PLAN_PHYSICAL_ROWS": true,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": true,
+        "LIMIT_EMPTY_WORKERS": false,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_005409_397527323125",
+      "l1_device": 11
+    },
+    "C07": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h8192_b32_s6_candidate03_r1/build_output/decode_csa_tnd_debug_qfy1cqb5",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C07/result.json",
+      "policy": {
+        "QUERY_GROUP": 2,
+        "QK_PANEL": 128,
+        "SCORE_TILE": 768,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": false,
+        "ROOTS": 2,
+        "OA_COLS": 256,
+        "OB_ROWS": 128,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": true,
+        "LOCAL_ATTENTION_STATS": false,
+        "SCALE_PAGE_COALESCING": false,
+        "PLAN_PHYSICAL_ROWS": true,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": false,
+        "LIMIT_EMPTY_WORKERS": false,
+        "BSH_PROJECTION_ORDER": true
+      },
+      "l1_task": "task_20261027_005600_407080415432",
+      "l1_device": 1
+    },
+    "C08": {
+      "path": "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/csa-spmd-tnd-20261020/tests/pypto_test/csa_tnd_nz_weights_20261027/runs/mpmd_h131072_b16_mixed_candidate03_r1/build_output/decode_csa_tnd_debug_v6unf_rr",
+      "validated_report": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_tnd_nz_weights_20261027/evidence/npu/mpmd_C08/result.json",
+      "policy": {
+        "QUERY_GROUP": 6,
+        "QK_PANEL": 64,
+        "SCORE_TILE": 1024,
+        "PREFETCH": 1,
+        "TO_L0": true,
+        "BALANCED": true,
+        "ROOTS": 1,
+        "OA_COLS": 128,
+        "OB_ROWS": 96,
+        "ATTENTION_QUERY_METADATA": false,
+        "HC_CONSUMER_REDUCE": false,
+        "QA_M16_PARALLEL": false,
+        "EARLY_ATTENTION_GEOMETRY": false,
+        "LOCAL_ATTENTION_STATS": true,
+        "SCALE_PAGE_COALESCING": false,
+        "PLAN_PHYSICAL_ROWS": false,
+        "PLAN_TABLE_COLUMNS": 2048,
+        "SPLIT_SCORE_ROWS": true,
+        "LIMIT_EMPTY_WORKERS": true,
+        "BSH_PROJECTION_ORDER": false
+      },
+      "l1_task": "task_20261027_005752_416228027208",
+      "l1_device": 1
+    }
+  },
+  "scope": "五列八档：Native/SPMD两列/MPMD L1复用；只补七NZ MPMD全device跨度",
+  "sampling": {
+    "warmup": 3,
+    "outer_windows": 30,
+    "device_jobs": 1
+  },
+  "ring_config": {
+    "heap_mb": [
+      16,
+      256,
+      16,
+      16
+    ],
+    "task_window": 4096
+  },
+  "percentage": "100*(Native-TND-SPMD-L1)/TND-SPMD-L1"
+}

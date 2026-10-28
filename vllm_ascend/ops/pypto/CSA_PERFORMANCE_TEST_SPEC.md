@@ -1,13 +1,13 @@
-# CSA 性能测试与汇总规范：八档业务场景、六种计时
+# CSA 性能测试与汇总规范：八档业务场景、五种计时
 
-口径确认日期：2026-10-22。后续可直接使用以下指令：
+口径修订日期：2026-10-28。后续可直接使用以下指令：
 
 > 按 `vllm_ascend/ops/pypto/CSA_PERFORMANCE_TEST_SPEC.md` 汇总 CSA 性能。
 > 优先复用最新已验证版本的合格历史数据，只补测缺项；每项至少 10 个有效窗口，
 > 取中位数并保留全部样本。结果只展示八行逐档对比表及指定百分比列。
 
-本文定义今后调用本规范时的测试口径。编写本文不启动设备测试，也不恢复已暂停的
-优化 Goal；历史九档优化目标、基线和验收记录保持原有含义。
+本文定义今后调用本规范时的测试与汇总口径，不自动恢复已暂停的优化Goal；
+历史优化目标、基线和验收记录保持原有含义。
 
 ## 1. 固定业务场景
 
@@ -38,18 +38,17 @@ C08 的 query 长度及请求顺序固定为：
 不添加业务 dummy/padding token，不以 B×6 的输入替代混长，不通过 `token // 6`
 推导请求归属。核内 tile 对齐所需的物理 padding 可保留，并记录实际分档。
 
-混长档的 `BSH-MPMD-L1`、`BSH-SPMD` 不测试，填 `N/A`。
-历史 BSH 内核经 TND binding 消费混长输入的记录，不代表原 BSH 接口支持混长，
-不能拿来填这两格。其他实现缺少数据时标为待采集，不等同于不支持。
+全部五列均覆盖这八档；混长档使用真实TND请求边界。缺少数据时标为待采集，
+不等同于不支持。
 
 ## 2. 共同执行范围
 
 - 单卡、TP1，正式第 4 层 W8A8/NZ2 权重、BF16 激活，测量完整
   `HC_pre → input RMSNorm → CSA → HC_post`。
-- 沿用已验证 fixture 的输入构造：seed=1024 的 hidden/history KV 等测试数据。
+- 沿用已验证场景的输入构造：seed=1024 的 hidden/history KV 等测试数据。
   记录权重标识、生成方法和初始 cache/state；这是单层完整链路测试。
 - 同一行各实现使用相同的有效输入、请求顺序、metadata、历史长度、物理页映射、
-  状态起点、权重和容量。BSH/TND 可以使用各自布局，业务计算必须等价。
+  状态起点、权重和容量。Native与PTO均使用对应TND路径，业务计算必须等价。
 - Native 使用选定已验证版本的实际执行路径，保留其静态编译、SuperKernel、
   多 stream、NZ 等配置及生效证据；不能悄悄回退到另一条路径后沿用原标签。
 - 256K 必须按 H=262144 配置实际缓存、页表、compact metadata 及各实现容量上界。
@@ -58,18 +57,17 @@ C08 的 query 长度及请求顺序固定为：
 - 正确性检查覆盖输出及实际链路的 TopK/score、cache/state、图重放和保护区。
   原有 Native 精度差异单列到证据中，沿用既有验收边界，要求无新增回归。
 
-## 3. 六列性能的定义
+## 3. 五列性能的定义
 
 单位统一为 μs，每格展示至少 10 个有效窗口的中位数，列顺序固定如下。
 
 | 列名 | 测量边界 |
 |---|---|
 | Native | Profiler 中，一次完整链路执行涉及的所有 device stream 活动的最早开始至最晚结束。包含链路内必要搬运、依赖及间隙。 |
-| BSH-MPMD-L1 | BSH 多 task 完整链路内，所有实际 incore task 的 L1 最早开始至最晚结束。 |
-| BSH-SPMD | BSH 单 MIX incore task 的完整 L1 首尾跨度，覆盖全部 24 AIC + 48 AIV。 |
 | TND-MPMD-AICPU | TND 多 task 完整链路的 device 执行跨度，包含 AICPU 调度及 AICore 执行；用 Profiler/trace 中所有相关活动的最早开始至最晚结束。 |
 | TND-MPMD-L1 | TND 多 task 完整链路内，所有实际 incore task 的 L1 最早开始至最晚结束，包含核内 metadata 推导。 |
-| TND-SPMD | TND-SPMD 实现完整调用的 L1 首尾跨度，覆盖初始化和全部 24 AIC + 48 AIV 的业务计算。证据必须说明实际 task 数。 |
+| TND-SPMD-AICPU | TND单SPMD完整链路的device执行跨度，包含AICPU运行时及AICore执行；用Profiler/trace中所有相关活动的最早开始至最晚结束。 |
+| TND-SPMD-L1 | TND-SPMD实现完整调用的L1首尾跨度，覆盖初始化和全部24 AIC + 48 AIV的业务计算。证据必须说明实际task数。 |
 
 `SPMD` 列名不能代替实际 task 数证明。早期外部持久工作区在准备绑定时清零一次，
 后续调用用代际推进；迁入内部临时工作区后的历史版本曾有“独立清零SPMD＋主MIX SPMD”
@@ -84,10 +82,11 @@ C08 的 query 长度及请求顺序固定为：
   task 耗时。单 SPMD 同样保留内部等待和阶段间隙，不能只挑一个核或局部阶段。
 - L1 不单独纳入其首尾之外的 AICPU 活动，但区间内由调度造成的等待仍在其中；
   不能将其解释成“完全扣除了调度开销的纯计算时间”。
-- `TND-MPMD-AICPU` 是包含调度的完整跨度，不是 AICPU 自身运行时长，
+- `TND-MPMD-AICPU` 和 `TND-SPMD-AICPU` 都是包含调度的完整跨度，不是 AICPU 自身运行时长，
   也不是 L1 加一个估算常数。必须保留支持该边界的 AICPU/AICore 记录。
-- TND-MPMD 的两列属于同一实现、同一业务路径。优先从同一次执行的配套记录
-  提取两种计时；若需分开采集，保持源码、fixture 和执行配置一致并记录原因。
+- 每种TND实现的AICPU与L1两列必须对应同一实现版本、同一业务路径。优先从
+  同一次执行的配套记录提取两种计时；若需分开采集，保持源码、测试场景和执行配置
+  一致并记录原因。单SPMD同样保留调用首尾的运行时开销，不能直接把L1复制到AICPU列。
 - Native 和含 AICPU 列不能用各 kernel 时长之和、host wall time、NPU Event
   或单个 stream 的时间替代。L1 列不能以外层 Profiler 时间替代。
 - 编译、warmup、测试专用输入/状态复位、输出污染及验后读回在计时区间之外；
@@ -108,13 +107,13 @@ C08 的 query 长度及请求顺序固定为：
 4. **先重新汇总，后补测。** 若旧报告只展示 5 个窗口，但原始记录有至少 10 个
    合格窗口，直接从已有样本重新计算，无需设备执行。只有找不到合格记录的格子
    才补测。已存在数据但与新口径不符时，保留旧记录并说明缺少哪项条件。
-5. **核对可比性。** 记录每格采集日期、设备、CANN/框架和工具链、fixture 与配置。
+5. **核对可比性。** 记录每格采集日期、设备、CANN/框架和工具链、测试场景 与配置。
    PTO 各列应绑定同一个已验证公共 SDK 快照；历史数据保留原始工具链信息，
    不跨 SDK 版本计算性能收益。Native 不依赖的 SDK 项可标为不适用。
    不同轮次但条件一致的数据可以复用，不能将不同硬件、权重、输入或计时口径
    混成可比结果。无法对齐时保留证据、列明缺项，百分比留空。
-6. **只补必要项。** 例如 TND-MPMD 已有合格 L1 数据而缺 AICPU 完整跨度时，
-   先查同任务 trace；找不到才补采该指标，不因此重测全部六列。
+6. **只补必要项。** 例如某种TND实现已有合格L1数据而缺AICPU完整跨度时，
+   先查同任务 trace；找不到才补采该指标，不因此重测全部五列。
 
 “没有数据才测试”指缺少满足以上条件的数据。不能因历史样本不足而降低
 10 窗口要求，也不能把旧工具链的数值改标成新环境结果。
@@ -157,31 +156,32 @@ source /data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/p
 最终性能展示只包含以下八行逐档表，数值单位为 μs；不增加几何平均、均值、
 合计、每 token 指标或“整体提升”行。下面是空白模板，不是已采集的性能结果。
 
-| 场景 | Native (μs) | BSH-MPMD-L1 (μs) | BSH-SPMD (μs) | TND-MPMD-AICPU (μs) | TND-MPMD-L1 (μs) | TND-SPMD (μs) | (Native − TND-SPMD) / TND-SPMD |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| 128K/B1/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 256K/B16/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 128K/B8/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 128K/B16/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 128K/B24/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 128K/B28/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 8K/B32/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
-| 128K/B16/混长 T56 | 待采集 | N/A | N/A | 待采集 | 待采集 | 待采集 | — |
+| 场景 | Native (μs) | TND-MPMD-AICPU (μs) | TND-MPMD-L1 (μs) | TND-SPMD-AICPU (μs) | TND-SPMD-L1 (μs) | (Native − TND-SPMD-L1) / TND-SPMD-L1 |
+|---|---:|---:|---:|---:|---:|---:|
+| 128K/B1/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 256K/B16/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 128K/B8/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 128K/B16/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 128K/B24/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 128K/B28/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 8K/B32/S6 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
+| 128K/B16/混长 T56 | 待采集 | 待采集 | 待采集 | 待采集 | 待采集 | — |
 
 百分比按未四舍五入的中位数计算：
 
 ```text
-百分比 = 100 × (median_native - median_tnd_spmd) / median_tnd_spmd
+百分比 = 100 × (median_native - median_tnd_spmd_l1) / median_tnd_spmd_l1
 ```
 
 耗时显示两位小数，百分比显示两位小数并带 `%`。正值表示 Native 耗时比
-TND-SPMD 耗时高出的比例，分母是 TND-SPMD，不是 Native。
-该列按用户指定比较 Native 外层 device 跨度与 TND-SPMD incore L1 跨度，
+TND-SPMD-L1耗时高出的比例，分母是TND-SPMD-L1，不是Native。
+该列沿用用户确认的旧口径：比较Native外层device跨度与TND-SPMD-L1；
+新增TND-SPMD-AICPU不改变百分比的比较对象。
 不解释为同口径的端到端延迟降低率或服务吞吐提升。
 
 `待采集` 表示缺少合格数据；`N/A` 表示确认不支持；`FAIL` 表示已尝试但执行或
 验收失败。三者不能互换，均不得填 0。具体原因进入证据文件，可在对应表格单元格
-附链接。Native 或 TND-SPMD 缺失、失败或条件不可比时，百分比填 `—`。
+附链接。Native或TND-SPMD-L1缺失、失败或条件不可比时，百分比填 `—`。
 
 ## 7. 查找记录与复用入口
 
@@ -191,10 +191,11 @@ TND-SPMD 耗时高出的比例，分母是 TND-SPMD，不是 Native。
 | 实现/用途 | 源码或记录入口 |
 |---|---|
 | Native | `vllm_ascend/ops/dsv4_csa.py`；`tests/pypto_test/csa_native_b1_20261021/README.md` |
-| BSH-MPMD | `vllm_ascend/ops/pypto/deepseek_v4_flash_csa/`；`tests/pypto_test/csa_five_way_latest_20261020/PERFORMANCE.md` 及配套原始结果 |
-| BSH-SPMD | `vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd/`；`tests/pypto_test/csa_roofline_optimization_20261020/` |
 | TND-MPMD | `vllm_ascend/ops/pypto/deepseek_v4_flash_csa_tnd/README.md`；`tests/pypto_test/csa_mpmd_tnd_20261021/` |
 | TND-SPMD | `vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/`；`tests/pypto_test/csa_spmd_tnd_20261020/`、`tests/pypto_test/csa_spmd_tnd_opt_20261022/` |
+| 最新TND七张NZ权重L1 | `tests/pypto_test/csa_tnd_nz_weights_20261027/NPU_gate.json`及`evidence/npu/`；两种TND各八档10窗 |
+| TND-SPMD两种计时 | `tests/pypto_test/csa_aclnn_backend_20261028/evidence/`中的Python后端结果；含30个device窗口和10个L1窗口，不能拿ACLNN TaskDuration代替 |
+| 最新五列汇总 | `tests/pypto_test/csa_performance_20261028/README.md`、`PERFORMANCE.json`及逐格原始来源 |
 | 公共环境 | 主检出的 `tests/pypto_test/csa_shared_toolchain/README.md` 和 `manifest.json`；`tests/pypto_test/csa_toolchain_repro_20261019/bootstrap.py` |
 
 启动器只是复用基础。执行前核实实际导入包、冻结源码、场景列表、样本数和计时边界，

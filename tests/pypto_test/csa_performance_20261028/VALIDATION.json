@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "cases": 8,
+  "cells": 40,
+  "sample_counts": {
+    "Native": 240,
+    "TND-MPMD-AICPU": 240,
+    "TND-MPMD-L1": 80,
+    "TND-SPMD-AICPU": 240,
+    "TND-SPMD-L1": 80
+  },
+  "new_samples": 240,
+  "reused_samples": 640,
+  "percentage": "Native vs TND-SPMD-L1，分母SPMD-L1",
+  "new_device_task": {
+    "task": "task_20261028_154849_277065232239",
+    "status": "completed(exit=0)",
+    "device": 9,
+    "command": "bash tests/pypto_test/csa_performance_20261028/launch.sh",
+    "max_time_s": 1800,
+    "cases": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07",
+      "C08"
+    ],
+    "new_measurement": "仅TND-MPMD-AICPU，每档30窗"
+  }
+}

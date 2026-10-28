@@ -24163,3 +24163,37 @@ profile_063_normal_binary.json及两份CCEC timer摘录。任务
 完成正常二进制计时。中间测试脚本的参数名遮蔽导致一次启动失败，保留失败记录，
 修正后只重跑二进制，不修改SDK。Ruff、shell语法和diff检查通过；完整format.sh ci
 仍受既有未安装pre-commit限制。本轮按要求本地中文Signed-off-by提交，不push。
+
+
+### 735.133 性能规范去除BSH，拆分TND-SPMD的AICPU/L1并完成八档五列（2026-10-28）
+
+用户修订规范：去除两列BSH测试，TND-SPMD改为TND-SPMD-AICPU和TND-SPMD-L1。
+八档业务场景不变，用户再次明确最后百分比保持(Native−TND-SPMD-L1)/TND-SPMD-L1，
+分母不是Native，也不改成新AICPU列。已同步规范定义、边界、输出模板、公式和来源入口。
+
+先快进至已发布85cd04f40，读取另一会话最新SPMD八档证据。复用该ACLNN接入验收中
+Python/PyPTO后端的30个完整device窗口和10个L1窗口，不拿ACLNN TaskDuration填表。
+这批数据对应七NZ单MIX源码；freeze_commit1574ed593只是冻结时HEAD，完整工作树身份
+包含后续f589dc848的后端接入改动，保留原manifest及sources字段而不只报HEAD。
+Native复用CANN9.2、npugraph_ex dynamic=False、static kernel、SK、多stream、NZ2
+八档合格原始Profiler记录，各30窗，并再次核验实际路径。MPMD L1复用8985d58fb七NZ
+上卡验收candidate的八档各10窗，从归档L1原始记录重算，不混入旧ND reference。
+
+旧2026-10-25 MPMD外层计时对应三张权重仍为ND，不能改标为新版。本轮仅补8格
+TND-MPMD-AICPU，任务task_20261028_154849_277065232239在设备9同进程依次完成
+C01～C08，exit0。复用已验证57参数七NZ诊断二进制，无重复编译或L1采样；公共SDK
+csa-shared-20261024-group-dims保持不变。ring heap[16,256,16,16]MiB/window4096。
+每档eager、图重放和采样后output/TopK/scores/cache/state逐bit及保护/只读检查通过，
+3次预热、30次完整device跨度。输入复位、输出毒化、warmup和D2H均在计时区间外。
+
+五列40格齐全：Native240窗、MPMD-AICPU240窗、MPMD-L1 80窗、SPMD-AICPU240窗、
+SPMD-L1 80窗，共880个有效窗口；本轮只新增240窗，其余640窗复用。全部原始有效样本
+求中位数，不按速度筛选。Profiler采用Decimal先减大绝对时间戳，修正float微小舍入，
+保留旧float样本，不改变原过滤或stream/model归组。AICPU列必须有AICPU+AICore证据，
+L1保留区间内等待；不同轮次/卡号都记录，不以两列相减声称纯调度成本。
+
+结果及可复算证据位于tests/pypto_test/csa_performance_20261028/：PERFORMANCE.md/json、
+SPEC.md、manifest、cases、jobs、VALIDATION、原始补采报告、collect.py及单卡补采入口。
+保留Native既有非bit差异，不新增整模型token/DSpark验收结论。本轮不优化算法、不改SDK、
+不做BSH或16卡测试。Ruff、shell、JSON/窗口数量/公式和diff检查通过；format.sh ci因
+未安装pre-commit未能执行。按要求详细中文Signed-off-by本地提交，未经新授权不push。
