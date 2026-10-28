@@ -36,6 +36,21 @@ def selected_variant() -> str:
     return "performance"
 
 
+def selected_csa_backend() -> str:
+    """选择CSA执行后端；ACLNN只接单SPMD TND，不改变算法包选择。"""
+    from vllm_ascend import envs
+
+    backend = envs.VLLM_ASCEND_PTO_CSA_BACKEND.strip().lower()
+    if backend not in ("python", "aclnn"):
+        raise ValueError(
+            "VLLM_ASCEND_PTO_CSA_BACKEND只接受python或aclnn，"
+            f"得到{envs.VLLM_ASCEND_PTO_CSA_BACKEND!r}"
+        )
+    if backend == "aclnn" and selected_variant() != "spmd_tnd":
+        raise ValueError("VLLM_ASCEND_PTO_CSA_BACKEND=aclnn仅支持PTO_CSA_VARIANT=spmd_tnd")
+    return backend
+
+
 def variant_package() -> str:
     """定位实现包。
 

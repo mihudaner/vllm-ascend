@@ -1,0 +1,4 @@
+runs/
+frozen/
+__pycache__/
+*.pyc

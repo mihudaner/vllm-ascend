@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Native TND零拷贝绑定；临时Tensor由PTO编排经Simpler内部申请。
+"""Native TND共享零拷贝绑定；执行可选Python PTO或预编译ACLNN。
 
-本层只保存Native输入/输出、描述符和策略；不读回metadata值，
-不分配临时工作区或信号。显式提供Top-K输出时使用诊断入口。
+本层共享Native输入/输出、描述符和策略，不读回metadata值。
+临时工作区与信号由所选后端管理。显式提供Top-K时复用其输出；
+ACLNN固定57参数ABI，业务调用所需的两份辅助Top-K输出在准备期分配。
 """
 
 from collections.abc import Mapping
@@ -200,15 +201,24 @@ class PreparedDynamicCSA:
             main_cache=native["cmp_kv"].view(-1, 512),
             attn_sink=native["attn_sink"].view(64, 1),
         )
-        self.allocations: dict[str, torch.Tensor] = {}  # 外部工作区计数为零。
+        # Python无外部scratch；ACLNN仅记录原57参数ABI所需的辅助Top-K输出。
+        self.allocations: dict[str, torch.Tensor] = {}
         cache = self.buffers["idx_cache"]
         if cache.dtype != torch.int8 or cache.ndim != 2 or cache.shape[1] < 4160 or cache.shape[1] % 64:
             raise ValueError(
                 validation_error("Indexer cache须为Native对齐INT8页，页内至少4096B key+64B scale", cache=cache)
             )
+        from ..variant import selected_csa_backend
+
+        self.execution_backend = selected_csa_backend()
+        self._executor = None
+        if self.execution_backend == "aclnn":
+            from .backend import AclnnExecutor
+
+            self._executor = AclnnExecutor(self)
 
     def rebind(self, native: Mapping[str, torch.Tensor]) -> None:
-        """替换同描述符的Native根参数；内部临时内存由每次PTO调用管理。"""
+        """替换同描述符的Native根参数；临时工作区由所选后端管理。"""
         roots = {target: native[source] for target, source in self._direct_names}
         roots.update(
             x=native["x_hc"].view(self.tokens, 16384),
@@ -234,11 +244,18 @@ class PreparedDynamicCSA:
                         actual=value,
                     )
                 )
+        if self._executor is not None:
+            self._executor.rebind({**self.buffers, **roots})
         self.native = dict(native)
         self.buffers.update(roots)
 
     def __call__(self, *, config=None):
-        """直接走PyPTO native prepare/enqueue；不依赖Torch dispatcher的参数数量上限。"""
+        """复用统一输入合同；按准备时冻结的后端执行。"""
+        if self._executor is not None:
+            if config is not None:
+                raise ValueError("ACLNN 后端不接受 PyPTO RunConfig；请使用 CANN/Torch profiler 采集")
+            self._executor()
+            return self.native["x_out"]
         from .entry import decode_csa_spmd, decode_csa_spmd_debug
 
         options = {} if config is None else {"config": config}

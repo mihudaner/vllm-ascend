@@ -90,6 +90,10 @@ env_variables: dict[str, Callable[[], Any]] = {
     # pkg:<name>用于私有实验副本。
     # precision/prec已退役，初始化明确拒绝。非敏感配置，在导入/编译前固定。
     "PTO_CSA_VARIANT": lambda: os.getenv("PTO_CSA_VARIANT", "performance"),
+    # CSA执行后端：python（默认）使用PyPTO；aclnn使用预编译CSA wheel。
+    # aclnn仅支持spmd_tnd，不静默切换算法或回退Python。非敏感配置，
+    # 必须在模型准备前固定，不允许在同一服务或graph replay期间切换。
+    "VLLM_ASCEND_PTO_CSA_BACKEND": lambda: os.getenv("VLLM_ASCEND_PTO_CSA_BACKEND", "python"),
     # CSA/HCA 共用运行时。HBG 使用各自的独立 Host 标量入口。
     # 非敏感配置，必须在运行时初始化前设置，不可在同一进程内切换。
     "PTO_CSA_RUNTIME": lambda: os.getenv("PTO_CSA_RUNTIME", "tensormap_and_ringbuffer"),

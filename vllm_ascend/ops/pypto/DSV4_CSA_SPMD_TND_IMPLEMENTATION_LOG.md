@@ -6876,3 +6876,65 @@ task-submit --device auto --max-time 1800 'bash tests/pypto_test/csa_tnd_nz_weig
 同一启动器将`spmd`改为`mpmd`即可验证多task；其内部依次source工作区环境及
 公共SDK环境，并通过公共bootstrap的`--shared-toolchain`启动。本轮按用户要求
 仅本地提交实现和验收证据，不push；旧BSH调用不再纳入后续维护与验证范围。
+
+## 2026-10-28：原 62 档 ACLNN wheel 与共享 PTO 服务后端接入
+
+用户要求先打通完整流程：基于 mihudaner/vllm-ascend 的
+`caed2c32896ddefdbcfab180b253d777bfab11e0` 编译 CSA wheel，在原 PTO 内部
+增加 ACLNN 执行分支，对接 vLLM 的接口及同一个 Fake/Meta 保持一致。
+用户曾讨论复用已有 94 档产物，随后明确本轮先继续原 62 档；本轮没有执行
+94 档扩展，也没有重新运行 PyPTO/PTOAS 生成 ACLNN 设备核。
+
+本次新 worktree 为 `.worktrees/csa-aclnn-backend-20261028`，从目标分支
+最新提交 `1574ed593` 创建并跟踪同一上游；旧 TND worktree 中已取消的
+Compressor norm FP32 未提交改动没有带入。参考构建使用独立的
+`.worktrees/csa-aclnn-reference-caed2c32`，其 tracked 源码保持干净。
+
+### 已完成的构建与 CPU 接入检查
+
+- 原 Host/MIX/62 套 C++ 直接编译；设备 ELF 有 62 个 key 对应的 124 个
+  非空 AIC/AIV 入口。Torch 扩展、OPP 安装包及 wheel 构建均成功。
+- 本机 ABI：Python 3.10.19 / aarch64 / Torch 2.10.0+cpu /
+  TorchNPU 2.10.0.post2 / CANN 9.2.0-beta.2；使用公共已验证工具链。
+- 产物 `downloads/csa_aclnn_backend_20261028/` 中的
+  `csa_pto_ops-0.1.0-cp310-cp310-linux_aarch64.whl` 为 84,620,790 字节，
+  SHA256 为 `c0e183ccd23764a1d8774ede306fb796784afac206c1fc1606e53d5371986611`。
+- 原 57 Tensor ABI、62 策略清单及 `.run`/Torch `.so` 身份检查通过；
+  实际加载检查确认 B16/S6 选择 key3，加载前后 `torch.npu.is_initialized()`
+  均为 false。wheel 安装在仓外独立 target，没有覆盖共享 Python 环境。
+
+构建来源详见
+[BUILD_PROVENANCE.json](../../../tests/pypto_test/csa_aclnn_backend_20261028/BUILD_PROVENANCE.json)。
+新开关为 `VLLM_ASCEND_PTO_CSA_BACKEND=python|aclnn`，默认 python；aclnn
+仅与 `PTO_CSA_VARIANT=spmd_tnd` 组合，模型准备时验证安装并跳过
+`init_pto_runtime()`。外部 `vllm::dsv4_csa_forward` 与
+`dsv4_csa_forward_fake` 未改。
+
+两个后端使用当前同一份 `PreparedDynamicCSA` / policy / Native 输入绑定和
+graph contract。新的 `backend.py` 直接消费当前 binding 的 buffers，校验
+固定包清单、完整根 ABI、运行环境和精确 constexpr key 后调用包内
+`csa_pto::run`。它不实例化旧包内依赖旧源码哈希的 Prepared 类，不复制旧
+binding，也不恢复旧 `T <= B*max_query_tokens` 容量限制。
+
+正常业务入口由 ACLNN 执行适配在准备期补两份 Top-K 输出，满足原包57参数
+ABI；诊断调用复用显式输出。临时 workspace/信号仍由 CANN 包内实现管理。
+输入缺失、ABI 不匹配或当前选择器命中新增32档时明确失败，不静默退回Python。
+
+### 正在执行的设备验收
+
+新验收入口为
+[csa_aclnn_backend_20261028](../../../tests/pypto_test/csa_aclnn_backend_20261028/README.md)。
+计划八档同卡、分进程 Python/ACLNN 对照，覆盖诊断输出、cache/state、
+保护区、七张 NZ 权重、同址输入/metadata 更新、连续状态及 graph；另跑正常
+业务入口与真实 vLLM CustomOp/共享 Meta/ACLGraphWrapper 冒烟。
+
+首档 B16/S6 任务为 `task_20261028_122344_13695004994`，冻结清单 v1。
+该首档已 completed(exit=0)，两侧11个阶段全部通过，输出、Top-K、score、
+cache/state逐bit一致。ACLNN独立进程的禁止执行探针显示没有初始化Simpler、
+没有调用PyPTO/JIT或产生核编译。
+
+同一卡0、各30窗口，完整device中位数Python为914.875μs、ACLNN为805.625μs；
+这是本轮顺序分进程测量，不宣称稳定加速上限。Python完整L1为787.11μs
+（10窗），ACLNN TaskDuration为805.63μs（30窗），边界不同，不能直接相减
+作为纯调度开销。首档记录见测试目录evidence/C04。其余七档与真实vLLM
+服务入口/图重放仍待完成，本节不声明整个接入已验收。
