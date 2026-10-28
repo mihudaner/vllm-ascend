@@ -131,6 +131,30 @@ class CSAServiceRuntime(AttentionServiceBase):
         cache[key] = (req, value)
         return value
 
+    def graph_policy_key(self, context, tokens):
+        """Select the same policy as execution using existing Host metadata."""
+        metadata = context.attn_metadata
+        if metadata is None or getattr(context, "is_draft_model", False):
+            return None
+        item = metadata.get(self.prefixes["indexer"])
+        compressed = metadata.get(self.prefixes["compressed"])
+        if item is None or item.num_prefills or item.decode is None:
+            return None
+        if compressed is None or compressed.decode is None:
+            return None
+        req = item.decode
+        table = compressed.decode.block_table
+        if table is None or table.ndim != 2 or not supported_descriptor(
+            tokens=tokens, requests=req.seq_lens.numel(),
+            actual_tokens=item.num_actual_tokens, max_query_tokens=native_query_bound(req),
+            max_seq_len=req.max_seq_lens, batch_capacity=self.batch_capacity,
+        ):
+            return None
+        return (self.execution_backend, self._select_policy(
+            tokens=tokens, requests=req.seq_lens.numel(), max_query_tokens=MAX_QUERY_TOKENS,
+            max_seq_len=req.max_seq_lens, compressed_table_columns=table.shape[1],
+        ))
+
     def graph_signature(self, context, tokens):
         """不执行metadata生产者或读取Tensor内容，避免旧图绕过真实服务判定。"""
         from vllm_ascend.ops.dsa import _build_kv_cache

@@ -22,6 +22,9 @@ from vllm.platforms import current_platform
 
 from vllm_ascend.ascend_config import get_ascend_config
 from vllm_ascend.ascend_forward_context import _EXTRA_CTX
+from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_variants import (
+    CSAGraphKey, TND_GRAPH_CAPTURE, csa_graph_key,
+)
 from vllm_ascend.ops.pypto.trace import csa_trace_enabled, trace_event
 
 from ..utils import weak_ref_tensors
@@ -133,7 +136,7 @@ class ACLGraphWrapper:
         self.aclgraph_options = cudagraph_options
         # the entries for different batch descriptors that we need to capture
         # aclgraphs for.
-        self.concrete_aclgraph_entries: dict[BatchDescriptor, ACLGraphEntry] = {}
+        self.concrete_aclgraph_entries: dict[Any, ACLGraphEntry] = {}
         self.enable_enpu = enable_enpu
         self.use_eagle = use_eagle
         _acl_graph_wrappers.add(self)
@@ -152,6 +155,22 @@ class ACLGraphWrapper:
         # in case we need to access the original runnable.
         return self.runnable
 
+    def _run_without_graph(self, context, *args, **kwargs):
+        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import TND_PADDED_REDISPATCH
+
+        previous_mode = context.cudagraph_runtime_mode
+        previous_redispatch = context.additional_kwargs.get(TND_PADDED_REDISPATCH)
+        context.cudagraph_runtime_mode = CUDAGraphMode.NONE
+        context.additional_kwargs[TND_PADDED_REDISPATCH] = True
+        try:
+            return self.runnable(*args, **kwargs)
+        finally:
+            context.cudagraph_runtime_mode = previous_mode
+            if previous_redispatch is None:
+                context.additional_kwargs.pop(TND_PADDED_REDISPATCH, None)
+            else:
+                context.additional_kwargs[TND_PADDED_REDISPATCH] = previous_redispatch
+
     def __call__(self, *args, **kwargs):
         forward_context = get_forward_context()
         batch_descriptor = forward_context.batch_descriptor
@@ -166,11 +185,16 @@ class ACLGraphWrapper:
             # runtime modes.
             return self.runnable(*args, **kwargs)
 
-        if batch_descriptor not in self.concrete_aclgraph_entries:
-            # create a new entry for this batch descriptor
-            self.concrete_aclgraph_entries[batch_descriptor] = ACLGraphEntry(batch_descriptor=batch_descriptor)
+        graph_key = csa_graph_key(forward_context, batch_descriptor)
+        if isinstance(graph_key, CSAGraphKey) and graph_key not in self.concrete_aclgraph_entries:
+            if not forward_context.additional_kwargs.get(TND_GRAPH_CAPTURE, False):
+                trace_event("csa_graph_variant_miss", "tnd_graph_variant_miss", batch=batch_descriptor)
+                return self._run_without_graph(forward_context, *args, **kwargs)
 
-        entry = self.concrete_aclgraph_entries[batch_descriptor]
+        if graph_key not in self.concrete_aclgraph_entries:
+            self.concrete_aclgraph_entries[graph_key] = ACLGraphEntry(batch_descriptor=batch_descriptor)
+
+        entry = self.concrete_aclgraph_entries[graph_key]
 
         if entry.aclgraph is None:
             if self.aclgraph_options.debug_log_enable:
@@ -298,10 +322,6 @@ class ACLGraphWrapper:
         else:
             can_replay = True
         if entry.csa_tnd_contracts and not can_replay:
-            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import (
-                TND_PADDED_REDISPATCH,
-            )
-
             # 旧图可能捕获了Native/空路径，或请求容量/策略/输入地址已经变化。
             # 走正常Python派发，支持的调用仍可进入SPMD，范围外由服务回退Native。
             if csa_trace_enabled():
@@ -315,18 +335,7 @@ class ACLGraphWrapper:
                     "tnd_replay_redispatch_python",
                     blocked_layers=blocked,
                 )
-            previous_mode = forward_context.cudagraph_runtime_mode
-            previous_redispatch = forward_context.additional_kwargs.get(TND_PADDED_REDISPATCH)
-            forward_context.cudagraph_runtime_mode = CUDAGraphMode.NONE
-            forward_context.additional_kwargs[TND_PADDED_REDISPATCH] = True
-            try:
-                return self.runnable(*args, **kwargs)
-            finally:
-                forward_context.cudagraph_runtime_mode = previous_mode
-                if previous_redispatch is None:
-                    forward_context.additional_kwargs.pop(TND_PADDED_REDISPATCH, None)
-                else:
-                    forward_context.additional_kwargs[TND_PADDED_REDISPATCH] = previous_redispatch
+            return self._run_without_graph(forward_context, *args, **kwargs)
 
         if entry.csa_hbg_host_metadata:
             from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.host_metadata import validate_graph_replay

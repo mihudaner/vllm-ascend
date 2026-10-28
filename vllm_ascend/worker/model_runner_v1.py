@@ -3720,6 +3720,10 @@ class NPUModelRunner(GPUModelRunner):
                 input_ids=input_ids,
                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
             ):
+                if is_graph_capturing and getattr(self.get_model(), "_pto_csa_policy_graphs", False):
+                    from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_variants import TND_GRAPH_CAPTURE
+
+                    get_forward_context().additional_kwargs[TND_GRAPH_CAPTURE] = True
                 outputs = self._model_forward(
                     num_tokens_padded, input_ids, positions, intermediate_tensors, inputs_embeds
                 )
@@ -5336,6 +5340,36 @@ class NPUModelRunner(GPUModelRunner):
             fn = getattr(module, "prebuild_force_eplb_topk", None)
             if fn is not None:
                 fn(capture_sizes, self.device)
+
+    def _warmup_and_capture(
+        self, desc, cudagraph_runtime_mode, profile_seq_lens=None,
+        allow_microbatching=False, num_warmups=None, profiler=None,
+    ):
+        if not (
+            getattr(self.get_model(), "_pto_csa_policy_graphs", False)
+            and cudagraph_runtime_mode == CUDAGraphMode.FULL and desc.uniform
+        ):
+            return super()._warmup_and_capture(
+                desc, cudagraph_runtime_mode, profile_seq_lens=profile_seq_lens,
+                allow_microbatching=allow_microbatching, num_warmups=num_warmups, profiler=profiler,
+            )
+        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_variants import capture_sequence_lengths
+
+        requests = desc.num_reqs or min(
+            self.scheduler_config.max_num_seqs, cdiv(desc.num_tokens, self.uniform_decode_query_len)
+        )
+        lengths = capture_sequence_lengths(
+            tokens=desc.num_tokens, requests=requests, max_sequence_length=self.max_model_len,
+        )
+        warmups = self.compilation_config.cudagraph_num_of_warmups if num_warmups is None else num_warmups
+        logger.info("CSA policy graph capture tokens=%d requests=%d histories=%s", desc.num_tokens, requests, lengths)
+        for length in lengths:
+            # Warm each policy outside capture to initialize bindings/workspaces.
+            # The same expansion is used during graph-memory estimation.
+            super()._warmup_and_capture(
+                desc, cudagraph_runtime_mode, profile_seq_lens=length,
+                allow_microbatching=allow_microbatching, num_warmups=max(1, warmups), profiler=profiler,
+            )
 
     def capture_model(self) -> int:
         """Capture NPU graphs and return actual graph pool memory bytes consumed."""
