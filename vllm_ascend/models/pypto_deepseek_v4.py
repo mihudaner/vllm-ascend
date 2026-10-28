@@ -167,6 +167,7 @@ def prepare_csa_model(model):
         attention = layer.self_attn
         if attention.compress_ratio == 4:
             attention.dsa_attn._pto_csa_runtime = CSAServiceRuntime(attention, operators, max_num_seqs, layer)
+            attention.dsa_attn._pto_csa_runtime.policy_graphs = variant == "spmd_tnd"
             count += 1
     if not count:
         raise ValueError("No target C4 attention layers found for PTO CSA")
@@ -181,6 +182,7 @@ def prepare_csa_model(model):
         capture_length = config.model_config.max_model_len
         if MIN_SEQUENCE_LENGTH <= capture_length <= MAX_SEQUENCE_LENGTH:
             model._pto_csa_tnd_capture_sequence_length = capture_length
+            model._pto_csa_policy_graphs = variant == "spmd_tnd"
     logger.info(
         "PTO_CSA_LAYOUT variant=%s effective_mode=%d root_layouts=%s nz_packed=%s",
         variant,

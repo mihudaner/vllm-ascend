@@ -42,6 +42,8 @@ EARLY_GEOMETRY_MIN_TOKENS = 64
 LOCAL_STATS_MAX_TOKENS = 96
 # 非balanced Score既有交接宽度；两AIV各消费一半。对应indexer_score_stages。
 SHORT_SCORE_TILE = 768
+SHORT_HISTORY_MAX_CACHE_ROWS = 8192
+SINGLE_REQUEST_MAX_CACHE_ROWS = 65536
 # 既有TopK半叶直接归并的资源边界；更大范围用2560/3072/4096分支。
 SHORT_PREFETCH_HALF_SORT_LIMIT = 2048
 # 沿已有QA的小M16并行区间边界，两个完整M16行块起再启用Score新流水。
@@ -179,7 +181,7 @@ def select_policy(
                 compressed_table_columns=compressed_table_columns,
             )
         )
-    long_history = cache_rows > 8192
+    long_history = cache_rows > SHORT_HISTORY_MAX_CACHE_ROWS
     group = 2
     if long_history:
         # 24个query起可用多叶填满24组；query长度不足6时不为复用Key扩张M384。
@@ -200,7 +202,7 @@ def select_policy(
     short_key_prefetch = group == 2 and short_half_span_upper <= SHORT_PREFETCH_HALF_SORT_LIMIT
     # 用户允许单请求独立分档。仅改变已有G2的历史工作分配，
     # 保留动态Q/L及原半叶边界（末叶可小于4096）；较大容量及S1维持原策略。
-    single_request_leaves = requests == 1 and long_history and cache_rows <= 65536 and 5 <= max_query_tokens <= 6
+    single_request_leaves = requests == 1 and long_history and cache_rows <= SINGLE_REQUEST_MAX_CACHE_ROWS and 5 <= max_query_tokens <= 6
     ob_rows = 32 if tokens <= 32 else 96 if tokens <= 96 else 128
     parallel_small_qa = group == 6 and 16 < tokens < 32
     leaf_scale_layout = (
