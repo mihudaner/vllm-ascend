@@ -1,8 +1,8 @@
 {
-  "status": "nz_aclnn_representative_validation_passed",
+  "status": "padding94_host_meta_and_two_key_offline_build_passed_device_unverified",
   "upstream_repository": "https://github.com/nalinaly/vllm-ascend",
   "upstream_branch": "dsv4-flash-pto-v0.25.1rc1",
-  "upstream_commit": "1685da6914ae6196537d7f1a66e84e09a9c48ae5",
+  "upstream_commit": "d544a09a4c920d038d00e04310b798abfcc8c2d5",
   "reference_repository": "https://github.com/mihudaner/vllm-ascend",
   "reference_branch": "hc_pre_aclnn",
   "reference_commit": "a200612dde961e14edb25490b1e92f7bb79b06b7",
@@ -727,5 +727,11 @@
         }
       ]
     }
-  ]
+  ],
+  "previous_validated_baseline": {
+    "upstream_commit": "1685da6914ae6196537d7f1a66e84e09a9c48ae5",
+    "status": "nz_aclnn_representative_validation_passed",
+    "policy_count": 62
+  },
+  "policy_count": 94
 }

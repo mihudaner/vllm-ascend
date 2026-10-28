@@ -26,7 +26,7 @@ vs = {n: z3.Int(n) for n in names}
 env = {k: v for k, v in vars(m).items() if isinstance(v, (bool, int))}
 env.update(vs)
 solver = z3.Solver()
-solver.add(*[v > 0 for v in vs.values()], vs["tokens"] <= vs["requests"] * vs["max_query_tokens"])
+solver.add(*[v > 0 for v in vs.values()])
 
 
 def expr(n, e):
@@ -124,7 +124,7 @@ for q in range(1, 98):
     sub = lambda v, q=q: (
         z3.simplify(z3.substitute(v, (vs["max_query_tokens"], z3.IntVal(q)))) if isinstance(v, z3.ExprRef) else v
     )
-    solver.add(*[sub(v) for i, v in enumerate(constraints) if q != 97 or i != 5])
+    solver.add(*[sub(v) for v in constraints])
     selected = {k: sub(v) for k, v in pol.items()}
     for row in rows:
         solver.add(z3.Or(*[v != row["policy"][k] for k, v in selected.items() if isinstance(v, z3.ExprRef)]))

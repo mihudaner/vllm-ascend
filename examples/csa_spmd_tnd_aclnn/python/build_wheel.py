@@ -14,6 +14,22 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def check_kernel_coverage(vendor, expected_keys):
+    """Reject a stale 62-key or single-key .run when packaging a 94-key runtime."""
+    actual = set()
+    kernel_root = vendor / "op_impl/ai_core/tbe/kernel"
+    for metadata in kernel_root.rglob("CsaSpmdTndPto_*.json"):
+        spec = json.loads(metadata.read_text())
+        binary = metadata.with_name(spec["binFileName"] + spec["binFileSuffix"])
+        if not binary.is_file() or binary.stat().st_size == 0:
+            raise ValueError("Missing kernel binary: " + str(binary))
+        actual.update(int(k["tilingKey"]) for k in spec.get("kernelList", []))
+    if actual != set(expected_keys):
+        raise ValueError(f"OPP key mismatch: missing={sorted(set(expected_keys)-actual)}, "
+                         f"unexpected={sorted(actual-set(expected_keys))}; rebuild the full OPP package")
+    return sorted(actual)
+
+
 def main():
     root = Path(__file__).resolve().parent
     example = root.parent
@@ -52,9 +68,13 @@ def main():
     vendor = ascend / "vendors/csa_spmd_tnd_pto"
     if not (vendor / "op_api/lib/libcust_opapi.so").is_file():
         raise RuntimeError("Run package did not install the expected CSA vendor")
+    policies = json.loads((example / "generated/manifest.json").read_text())["variants"]
+    kernel_keys = check_kernel_coverage(vendor, [v["tiling_key"] for v in policies])
     baseline = json.loads((example / "baseline.json").read_text())
     manifest = {
         "upstream_commit": baseline["upstream_commit"],
+        "kernel_keys": kernel_keys,
+        "policy_manifest_sha256": sha(example / "generated/manifest.json"),
         "python": sys.version, "architecture": platform.machine(),
         "torch": torch.__version__, "torch_npu": torch_npu.__version__,
         "run_sha256": sha(run), "torch_library_sha256": sha(library),

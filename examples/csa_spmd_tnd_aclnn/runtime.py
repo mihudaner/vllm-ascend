@@ -3,7 +3,9 @@
 
 Load the isolated OPP vendor before importing torch_npu. Preparation may allocate
 Top-K diagnostic outputs; execution uses only the registered ACLNN operator.
-Device validation status is recorded in ADAPTATION_LOG.md.
+Requires the d544a09a centralized-padding binding/policy contract.
+The 94-policy extension has Host/Meta and sample offline build validation;
+device validation of the new padding cases is pending.
 """
 
 import json
@@ -25,7 +27,13 @@ class PreparedAclnnCSA:
         manifest = json.loads((root / "generated/manifest.json").read_text())
         choices = [v for v in manifest["variants"] if v["policy"] == self.policy.constexprs()]
         if len(choices) != 1:
-            raise ValueError("No compiled CSA policy match; shapes are dynamic within the selected policy")
+            raise ValueError(
+                f"No compiled CSA policy match in {len(manifest['variants'])} variants; "
+                f"source baseline={manifest.get('source_commit')}; "
+                f"T={self._prepared.tokens}, B={self._prepared.requests}, "
+                f"query_bound={max_query_tokens}, history_bound={max_seq_len}; "
+                "use matching d544a09a bindings and rebuild the OPP package, not only the manifest"
+            )
         self.variant = choices[0]["tiling_key"]
         if "topk_indices" not in self.buffers:
             shape = (self._prepared.tokens, 512)

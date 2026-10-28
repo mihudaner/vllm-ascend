@@ -1,0 +1,44 @@
+{
+  "source_commit": "9141a7bed4900d4817c12adb71563df56cef25c7",
+  "upstream_policy_baseline": "d544a09a4c920d038d00e04310b798abfcc8c2d5",
+  "container": "wangkai_csa_runtime_auto",
+  "scope": "Preliminary adaptation validation; no NPU execution",
+  "host": {
+    "policy_count": 94,
+    "policy_and_layout_cases": 3094,
+    "meta_cases": 0,
+    "rejected_meta_cases": 0,
+    "rejected_layout_cases": 27846,
+    "rejected_alias_cases": 2,
+    "passed": true
+  },
+  "meta": {
+    "policy_count": 94,
+    "policy_and_layout_cases": 3094,
+    "meta_cases": 194,
+    "rejected_meta_cases": 970,
+    "rejected_layout_cases": 27846,
+    "rejected_alias_cases": 2,
+    "passed": true
+  },
+  "package_coverage_test": "passed: rejects 62-key package and missing binary; accepts 94 keys",
+  "offline_builds": {
+    "3": {
+      "package_sha256": "3a1da78725acb15526ad42c794b7a0943b09cd11cac1969d4d34e5091db63dce",
+      "bytes": 50880685
+    },
+    "62": {
+      "package_sha256": "2c3b2a3d7b421ae4e4b48fa2c9449da107106f1279c365659d1c71abc75ea6e0",
+      "bytes": 50877642
+    },
+    "93": {
+      "package_sha256": "bc2583d9529e263a1805f3b452568f071960ef6e93050501352a898044bafef6",
+      "bytes": 50880042
+    }
+  },
+  "preservation": "All prior files retained; all prior Markdown contents unchanged",
+  "symbolic_audit": "not run: z3-solver unavailable",
+  "format_check": "bash format.sh ci attempted; blocked by missing pre-commit",
+  "device_validation": "not run: all 16 NPUs occupied by existing zgj_026 vLLM workers",
+  "full_94_key_binary_build": "not performed"
+}
