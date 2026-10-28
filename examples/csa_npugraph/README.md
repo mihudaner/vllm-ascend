@@ -37,6 +37,43 @@
 
 初版产品 diff 为 6 个文件，165 行新增、23 行删除；其中部分是将已有回退块移为共用方法。最终精确统计见 `evidence/source_snapshot.json` 和 `patches/xllm-csa-policy-graphs.patch`。
 
+## 为什么固定 batch 仍需按 CSA 策略区分图
+
+当前 CSA 的策略不是普通的运行时数据参数，而是在选择不同的已编译算子版本。固定 T96/B16 只固定本轮 query 容量与请求容量，没有固定历史 KV 长度；Host 侧仍可能因历史长度上界不同而选择不同策略。
+
+当前 ACLNN 后端的调用链如下：
+
+```text
+历史长度等 Host 信息
+    ↓ select_policy()
+选择分组、分块、预取、执行分支等配置
+    ↓ policy.constexprs()
+形成编译期常量组合
+    ↓ AclnnExecutor
+映射成 94 档中的一个 tiling_key
+    ↓
+调用该版本的 CSA 算子
+```
+
+代码证据均位于源仓的 `vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/`：
+
+- `policy.py` 的 `CSASPMDPolicy.constexprs()` 包含 `QUERY_GROUP`、`SCORE_TILE`、`PREFETCH`、`LEAF_SCALE_LAYOUT` 等。这些配置影响计算分组、分块和实现分支；`entry.py` 中对应参数声明为 `pl.constexpr`，即编译期常量。
+- `backend.py` 的 `AclnnExecutor.__init__` 使用完整 `prepared.policy.constexprs()` 查找包清单，得到 `self.variant`；`__call__` 最终执行：
+
+```python
+torch.ops.bytenn_pto_ops.dsf_csa_pto_bnn(
+    self.arguments, self.variant
+)
+```
+
+因此，录制 policy 25 的图，记录的是当时 policy 25 的设备执行任务。以后 replay 即使读取到新的历史长度数据，也不会回到 Python 重新执行策略选择、把该任务替换成 policy 3 的 kernel。图外的 Host 派发可以判断本次策略，但这不会自动更新已捕获图里的算子版本。当前接入没有实现图内动态切换版本或更新对应任务的机制，所以本次按策略分别录图。
+
+这不意味着每一种历史长度都需要一张图：算子内部仍通过 device metadata 处理动态历史。历史长度不同但策略相同、其他合同条件也满足时，可以复用同一张图。需要区分的是 Host 选择的编译版本，而不是每个具体历史长度。
+
+“提前准备图”发生在服务初始化的 warmup / capture 阶段，入口是 `model_runner_v1.py` 的 `_warmup_and_capture`：每个策略先 eager warmup，再捕获对应图。正式推理只选择已有图 replay；缺图或合同不匹配时回退正常算子派发，不在真实请求上临时捕获，也不意味着切回 Native CSA 或重新编译算子。
+
+例如 T96/B16 在当前最大上下文配置下准备 25/3/22/20 四类策略图，而不是 94 张整模型图。这会增加启动捕获时间和图内存，完整服务的累计开销尚未测量。若改为固定 batch 只用一张图，另一条路线是让捕获和推理始终使用同一个覆盖目标范围的策略；该路线需要另行验证正确性、资源需求和性能，不能只删除策略签名检查。本次多图方案保留现有策略选择行为。
+
 ## 验证结果与边界
 
 - CPU：9 项回归测试。覆盖 T96/B16 的全部 2048..262144 压缩历史行、其他容量与页表宽度的策略边界、所有层参与图键、3/25 切换、同策略不同历史复用、地址变化拒绝、缺图不录图、异常后上下文恢复、capture/内存估算展开及非 CSA 参数透传。
