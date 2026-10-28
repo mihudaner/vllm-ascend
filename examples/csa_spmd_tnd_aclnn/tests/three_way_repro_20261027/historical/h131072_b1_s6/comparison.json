@@ -1,0 +1,178 @@
+{
+  "aclnn": {
+    "timing": {
+      "event_us_median": 472.79998660087585,
+      "wall_us_median": 579.1059811599553,
+      "event_samples_us": [
+        472.79998660087585,
+        467.8199887275696,
+        507.6799988746643,
+        475.1000106334686,
+        448.2400119304657
+      ],
+      "wall_samples_us": [
+        1089.5510204136372,
+        577.7259939350188,
+        614.0070036053658,
+        579.1059811599553,
+        570.5560324713588
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration",
+      "graph_us_median": 384.4799995422363,
+      "graph_samples_us": [
+        397.1799910068512,
+        384.3599855899811,
+        381.28000497817993,
+        384.6000134944916,
+        381.61998987197876,
+        395.13999223709106,
+        374.3399977684021,
+        396.5800106525421,
+        399.9600112438202,
+        379.9999952316284
+      ],
+      "graph_note": "NPU event around graph replay; 5 warmup, 10 samples, restores outside timing"
+    },
+    "tiling_key": 0,
+    "post_timing_output_bitwise": true
+  },
+  "python_pto": {
+    "output_accuracy": {
+      "pass_atol_rtol_001": true,
+      "elements": 98304,
+      "failed": 0,
+      "max_abs": 0.0,
+      "rmse": 0.0
+    },
+    "topk_overlap": {
+      "min": 1.0,
+      "mean": 1.0
+    },
+    "cache_state_bitwise": {
+      "swa.0": true,
+      "compressed.0": true,
+      "state.0": true,
+      "indexer.0": true,
+      "indexer.1": true,
+      "indexer_state.0": true
+    },
+    "scores_bitwise": true,
+    "timing": {
+      "event_us_median": 18051.599502563477,
+      "wall_us_median": 18181.716033723205,
+      "event_samples_us": [
+        18051.599502563477,
+        18210.559844970703,
+        17942.97981262207,
+        17984.859466552734,
+        18467.500686645508
+      ],
+      "wall_samples_us": [
+        18181.716033723205,
+        18331.727012991905,
+        18074.583960697055,
+        18112.346006091684,
+        18592.100008390844
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration",
+      "graph_us_median": 520.8599865436554,
+      "graph_samples_us": [
+        530.9000015258789,
+        521.399974822998,
+        508.3199739456177,
+        526.0400176048279,
+        508.7599754333496,
+        511.03997230529785,
+        524.9800086021423,
+        520.3199982643127,
+        508.620023727417,
+        523.6799716949463
+      ],
+      "graph_note": "NPU event around graph replay; 5 warmup, 10 samples, restores outside timing"
+    },
+    "post_timing_output_bitwise": true
+  },
+  "native": {
+    "output_accuracy": {
+      "pass_atol_rtol_001": false,
+      "elements": 98304,
+      "failed": 158,
+      "max_abs": 0.02734375,
+      "rmse": 0.003533857874572277
+    },
+    "timing": {
+      "event_us_median": 3059.7000122070312,
+      "wall_us_median": 3225.6729900836945,
+      "event_samples_us": [
+        3062.540054321289,
+        3059.7000122070312,
+        3114.0799522399902,
+        3049.560070037842,
+        3049.220085144043
+      ],
+      "wall_samples_us": [
+        3168.7329756096005,
+        3295.803035143763,
+        3255.09300455451,
+        3225.6729900836945,
+        3145.502007100731
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration",
+      "graph_us_median": 651.500016450882,
+      "graph_samples_us": [
+        650.160014629364,
+        651.0199904441833,
+        651.2600183486938,
+        650.3000259399414,
+        651.8200039863586,
+        651.8800258636475,
+        652.3600220680237,
+        651.7400145530701,
+        650.7999897003174,
+        652.0000100135803
+      ],
+      "graph_note": "NPU event around graph replay; 5 warmup, 10 samples, restores outside timing"
+    },
+    "post_timing_output_bitwise": true
+  },
+  "golden": {
+    "output_accuracy": {
+      "pass_atol_rtol_001": false,
+      "elements": 98304,
+      "failed": 178,
+      "max_abs": 0.0234375,
+      "rmse": 0.0035896277986466885
+    },
+    "topk_overlap": {
+      "min": 0.982421875,
+      "mean": 0.9895833333333334
+    },
+    "math_reference": "0c3c6572e9473ec96cf2688e985408275e0cc023",
+    "native_vs_golden": {
+      "pass_atol_rtol_001": false,
+      "elements": 98304,
+      "failed": 11,
+      "max_abs": 0.015625,
+      "rmse": 0.0027080869767814875
+    },
+    "timing": {
+      "event_us_median": 15935.079574584961,
+      "wall_us_median": 16045.243944972754,
+      "event_samples_us": [
+        16025.899887084961,
+        15816.720008850098,
+        15935.079574584961
+      ],
+      "wall_samples_us": [
+        16187.125002034009,
+        15931.962989270687,
+        16045.243944972754
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration"
+    }
+  }
+}

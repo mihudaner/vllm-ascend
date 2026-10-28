@@ -1,0 +1,178 @@
+{
+  "aclnn": {
+    "timing": {
+      "event_us_median": 1138.9000415802002,
+      "wall_us_median": 1304.0339690633118,
+      "event_samples_us": [
+        1138.9000415802002,
+        1205.5799961090088,
+        1116.6000366210938,
+        1138.5799646377563,
+        1166.5600538253784
+      ],
+      "wall_samples_us": [
+        2089.970977976918,
+        1361.2140319310129,
+        1293.5730046592653,
+        1284.583006054163,
+        1304.0339690633118
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration",
+      "graph_us_median": 1007.9900026321411,
+      "graph_samples_us": [
+        1007.6600313186646,
+        1017.0199871063232,
+        1007.9400539398193,
+        1030.1200151443481,
+        1051.9200563430786,
+        1008.0399513244629,
+        999.3600249290466,
+        1004.1999816894531,
+        1011.2199783325195,
+        1001.579999923706
+      ],
+      "graph_note": "NPU event around graph replay; 5 warmup, 10 samples, restores outside timing"
+    },
+    "tiling_key": 4,
+    "post_timing_output_bitwise": true
+  },
+  "python_pto": {
+    "output_accuracy": {
+      "pass_atol_rtol_001": true,
+      "elements": 2359296,
+      "failed": 0,
+      "max_abs": 0.0,
+      "rmse": 0.0
+    },
+    "topk_overlap": {
+      "min": 1.0,
+      "mean": 1.0
+    },
+    "cache_state_bitwise": {
+      "swa.0": true,
+      "compressed.0": true,
+      "state.0": true,
+      "indexer.0": true,
+      "indexer.1": true,
+      "indexer_state.0": true
+    },
+    "scores_bitwise": true,
+    "timing": {
+      "event_us_median": 21650.379180908203,
+      "wall_us_median": 21875.682985410094,
+      "event_samples_us": [
+        21650.379180908203,
+        20729.17938232422,
+        22605.33905029297,
+        22112.459182739258,
+        20875.74005126953
+      ],
+      "wall_samples_us": [
+        21875.682985410094,
+        20978.864980861545,
+        22744.752001017332,
+        22283.64796610549,
+        21071.48600043729
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration",
+      "graph_us_median": 1137.0500326156616,
+      "graph_samples_us": [
+        1145.6999778747559,
+        1134.0199708938599,
+        1131.8600177764893,
+        1139.140009880066,
+        1136.1199617385864,
+        1136.4200115203857,
+        1140.3000354766846,
+        1152.0400047302246,
+        1137.6800537109375,
+        1132.8200101852417
+      ],
+      "graph_note": "NPU event around graph replay; 5 warmup, 10 samples, restores outside timing"
+    },
+    "post_timing_output_bitwise": true
+  },
+  "native": {
+    "output_accuracy": {
+      "pass_atol_rtol_001": false,
+      "elements": 2359296,
+      "failed": 8963,
+      "max_abs": 0.03515625,
+      "rmse": 0.004010126460343599
+    },
+    "timing": {
+      "event_us_median": 3644.659996032715,
+      "wall_us_median": 3783.907974138856,
+      "event_samples_us": [
+        3790.8999919891357,
+        3753.880023956299,
+        3635.999917984009,
+        3644.659996032715,
+        3619.220018386841
+      ],
+      "wall_samples_us": [
+        3924.0409969352186,
+        3890.2299711480737,
+        3757.348982617259,
+        3783.907974138856,
+        3738.8080381788313
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration",
+      "graph_us_median": 1489.4899725914001,
+      "graph_samples_us": [
+        1481.119990348816,
+        1485.5799674987793,
+        1491.2999868392944,
+        1515.5800580978394,
+        1489.5199537277222,
+        1491.2999868392944,
+        1486.739993095398,
+        1489.740014076233,
+        1482.159972190857,
+        1489.4599914550781
+      ],
+      "graph_note": "NPU event around graph replay; 5 warmup, 10 samples, restores outside timing"
+    },
+    "post_timing_output_bitwise": true
+  },
+  "golden": {
+    "output_accuracy": {
+      "pass_atol_rtol_001": false,
+      "elements": 2359296,
+      "failed": 8184,
+      "max_abs": 0.031982421875,
+      "rmse": 0.003940066788345575
+    },
+    "topk_overlap": {
+      "min": 0.974609375,
+      "mean": 0.98828125
+    },
+    "math_reference": "0c3c6572e9473ec96cf2688e985408275e0cc023",
+    "native_vs_golden": {
+      "pass_atol_rtol_001": false,
+      "elements": 2359296,
+      "failed": 2667,
+      "max_abs": 0.03125,
+      "rmse": 0.0031585032120347023
+    },
+    "timing": {
+      "event_us_median": 242745.54443359375,
+      "wall_us_median": 242950.7749620825,
+      "event_samples_us": [
+        242745.54443359375,
+        249490.6005859375,
+        241976.71508789062
+      ],
+      "wall_samples_us": [
+        242950.7749620825,
+        249642.71299540997,
+        242145.0759866275
+      ],
+      "warmup": 2,
+      "note": "Eager NPU event interval; includes launch gaps, excludes input restoration/compilation; not single-kernel duration"
+    }
+  }
+}
