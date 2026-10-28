@@ -1,0 +1,4571 @@
+{
+  "original": {
+    "total_s": 210.20095872413367,
+    "generate_s": 38.06985681410879,
+    "binary_s": 172.13110191002488
+  },
+  "replay": {
+    "total_s": 323.1200390299782,
+    "pypto_and_glue_s": 14.226874908898026,
+    "ptoas_s": 21.791835251264274,
+    "binary_s": 287.1013288698159
+  },
+  "policy": {
+    "QUERY_GROUP": 6,
+    "QK_PANEL": 64,
+    "SCORE_TILE": 768,
+    "PREFETCH": 0,
+    "TO_L0": true,
+    "BALANCED": false,
+    "ROOTS": 2,
+    "OA_COLS": 256,
+    "OA_ROWS": 128,
+    "OB_ROWS": 128,
+    "OUTPUT_GROUP_PIPELINE": true,
+    "HC_ROW_DEPENDENCIES": true,
+    "ATTENTION_QUERY_METADATA": false,
+    "HC_CONSUMER_REDUCE": false,
+    "QA_M16_PARALLEL": false,
+    "COOPERATIVE_PREFIX": true,
+    "EARLY_ATTENTION_GEOMETRY": true,
+    "LOCAL_ATTENTION_STATS": false,
+    "SCALE_PAGE_COALESCING": false,
+    "LEAF_SCALE_LAYOUT": false,
+    "PLAN_PHYSICAL_ROWS": true,
+    "SPLIT_SCORE_ROWS": false,
+    "OUTPUT_WORK_BALANCE": false,
+    "SHORT_TOPK_PREFIX": false,
+    "SHORT_HALF_SCORE_UB": false,
+    "QB_WIDE_N": false,
+    "PREFIX_BRANCH_GROUPS": 4,
+    "JOINT_BF16_PREFIX": false,
+    "PREFIX_PROJECTION_ROWS": 128,
+    "SCORE_GROUP_ORDER": false,
+    "PLAN_TABLE_COLUMNS": 2080,
+    "FUSED_INDEXER_COEFF": false
+  },
+  "representative": {
+    "tokens": 97,
+    "requests": 24,
+    "max_query_tokens": 6,
+    "max_seq_len": 8192,
+    "compressed_table_columns": 2049
+  },
+  "caveat": "原210.20秒来自32路并发；本次仅编译该policy，保留内部并行，不冒充原时刻的细分计时",
+  "profiler": {
+    "total_seconds": 323.120025,
+    "stages": [
+      {
+        "name": "resolve_kernel_artifact",
+        "seconds": 36.018158,
+        "children": [
+          {
+            "name": "parse",
+            "seconds": 1.705679,
+            "children": []
+          },
+          {
+            "name": "passes",
+            "seconds": 6.39736,
+            "children": [
+              {
+                "name": "InlineFunctions",
+                "seconds": 0.789821,
+                "children": []
+              },
+              {
+                "name": "UnrollLoops",
+                "seconds": 0.036854,
+                "children": []
+              },
+              {
+                "name": "CtrlFlowTransform",
+                "seconds": 0.02908,
+                "children": []
+              },
+              {
+                "name": "ConvertToSSA",
+                "seconds": 0.53362,
+                "children": []
+              },
+              {
+                "name": "Simplify",
+                "seconds": 0.453139,
+                "children": []
+              },
+              {
+                "name": "NormalizeStmtStructure",
+                "seconds": 0.015229,
+                "children": []
+              },
+              {
+                "name": "FlattenCallExpr",
+                "seconds": 0.009605,
+                "children": []
+              },
+              {
+                "name": "OutlineHierarchyScopes",
+                "seconds": 0.004875,
+                "children": []
+              },
+              {
+                "name": "OutlineGraphScopes",
+                "seconds": 0.004624,
+                "children": []
+              },
+              {
+                "name": "OutlineIncoreScopes",
+                "seconds": 0.008236,
+                "children": []
+              },
+              {
+                "name": "OutlineClusterScopes",
+                "seconds": 0.016146,
+                "children": []
+              },
+              {
+                "name": "ConvertTensorToTileOps",
+                "seconds": 0.222959,
+                "children": []
+              },
+              {
+                "name": "OptimizeOrchTensors",
+                "seconds": 0.001494,
+                "children": []
+              },
+              {
+                "name": "LowerCompositeOps",
+                "seconds": 0.01884,
+                "children": []
+              },
+              {
+                "name": "FlattenTileNdTo2D",
+                "seconds": 0.179127,
+                "children": []
+              },
+              {
+                "name": "BlockNzTensorViews",
+                "seconds": 0.015622,
+                "children": []
+              },
+              {
+                "name": "BlockMxScaleTensorViews",
+                "seconds": 0.015431,
+                "children": []
+              },
+              {
+                "name": "LegalizeTileCast",
+                "seconds": 0.023434,
+                "children": []
+              },
+              {
+                "name": "AutoTileMatmulL0",
+                "seconds": 0.079481,
+                "children": []
+              },
+              {
+                "name": "CanonicalizeTileSlice",
+                "seconds": 0.062633,
+                "children": []
+              },
+              {
+                "name": "InferTileMemorySpace",
+                "seconds": 0.246371,
+                "children": []
+              },
+              {
+                "name": "InsertMxScaleAddr",
+                "seconds": 0.013583,
+                "children": []
+              },
+              {
+                "name": "ResolveBackendOpLayouts",
+                "seconds": 0.025602,
+                "children": []
+              },
+              {
+                "name": "LowerAutoVectorSplit",
+                "seconds": 0.004742,
+                "children": []
+              },
+              {
+                "name": "ExpandMixedKernel",
+                "seconds": 0.100816,
+                "children": []
+              },
+              {
+                "name": "InjectGMPipeBuffer",
+                "seconds": 0.006192,
+                "children": []
+              },
+              {
+                "name": "SplitVectorKernel",
+                "seconds": 0.001516,
+                "children": []
+              },
+              {
+                "name": "StampTfreeSplit",
+                "seconds": 0.017165,
+                "children": []
+              },
+              {
+                "name": "NormalizeReturnOrder",
+                "seconds": 0.025082,
+                "children": []
+              },
+              {
+                "name": "SkewCrossCorePipeline",
+                "seconds": 0.016869,
+                "children": []
+              },
+              {
+                "name": "LowerPipelineToSlots",
+                "seconds": 1.1e-05,
+                "children": []
+              },
+              {
+                "name": "LowerPipelineLoops",
+                "seconds": 0.026534,
+                "children": []
+              },
+              {
+                "name": "CanonicalizeIOOrder",
+                "seconds": 0.035397,
+                "children": []
+              },
+              {
+                "name": "MaterializeTensorStrides",
+                "seconds": 0.010568,
+                "children": []
+              },
+              {
+                "name": "InitMemRef",
+                "seconds": 0.103571,
+                "children": []
+              },
+              {
+                "name": "MaterializeSemanticAliases",
+                "seconds": 0.165081,
+                "children": []
+              },
+              {
+                "name": "MemoryReuse",
+                "seconds": 2.196538,
+                "children": []
+              },
+              {
+                "name": "AllocateMemoryAddr",
+                "seconds": 0.047637,
+                "children": []
+              },
+              {
+                "name": "FoldNoOpReshape",
+                "seconds": 0.024234,
+                "children": []
+              },
+              {
+                "name": "FuseCreateAssembleToSlice",
+                "seconds": 0.000423,
+                "children": []
+              },
+              {
+                "name": "LowerL2TensorCollectives",
+                "seconds": 0.000845,
+                "children": []
+              },
+              {
+                "name": "DeriveCallDirections",
+                "seconds": 0.041264,
+                "children": []
+              },
+              {
+                "name": "AutoDeriveTaskDependencies",
+                "seconds": 0.040052,
+                "children": []
+              },
+              {
+                "name": "ExpandManualPhaseFence",
+                "seconds": 0.000645,
+                "children": []
+              },
+              {
+                "name": "SynthesizeAllReduceSignals",
+                "seconds": 0.013206,
+                "children": []
+              },
+              {
+                "name": "MaterializeCommDomainScopes",
+                "seconds": 1.5e-05,
+                "children": []
+              },
+              {
+                "name": "LowerHostTensorCollectives",
+                "seconds": 6e-06,
+                "children": []
+              },
+              {
+                "name": "MaterializeDistTensorCtx",
+                "seconds": 1.7e-05,
+                "children": []
+              },
+              {
+                "name": "Simplify",
+                "seconds": 0.255209,
+                "children": []
+              },
+              {
+                "name": "LegalizeGraphBoundary",
+                "seconds": 2e-05,
+                "children": []
+              },
+              {
+                "name": "MaterializeRuntimeScopes",
+                "seconds": 0.001918,
+                "children": []
+              },
+              {
+                "name": "ClassifyIterArgCarry",
+                "seconds": 0.00054,
+                "children": []
+              },
+              {
+                "name": "InsertCommFence",
+                "seconds": 0.0283,
+                "children": []
+              },
+              {
+                "name": "MaterializeValidShapeSymbols",
+                "seconds": 0.000213,
+                "children": []
+              }
+            ]
+          },
+          {
+            "name": "codegen",
+            "seconds": 23.349105,
+            "children": [
+              {
+                "name": "kernel_codegen:dynamic_csa_full",
+                "seconds": 23.312408,
+                "children": [
+                  {
+                    "name": "ir_to_mlir",
+                    "seconds": 0.134756,
+                    "children": []
+                  },
+                  {
+                    "name": "ptoas",
+                    "seconds": 23.177531,
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "name": "orchestration_codegen",
+                "seconds": 0.02153,
+                "children": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "load_and_compile_binaries",
+        "seconds": 287.097842,
+        "children": []
+      }
+    ]
+  },
+  "processes": [
+    {
+      "index": 0,
+      "tool": "ptoas",
+      "command": [
+        "/data/pyptouser/qinchuanyu/pto-eager/.worktrees/ptoas-csa-mpmd-upstream-20261021/build/bin/ptoas",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063/build/decode_csa_spmd_tkpl9lj0/ptoas/dynamic_csa_full.pto",
+        "-o",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063/build/decode_csa_spmd_tkpl9lj0/ptoas/dynamic_csa_full.cpp",
+        "--enable-insert-sync",
+        "--pto-level=level3",
+        "--pto-arch",
+        "a3"
+      ],
+      "start_s": 12.722642711829394,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 34.51447796309367,
+      "wall_s": 21.791835251264274
+    },
+    {
+      "index": 12,
+      "tool": "ccec",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ccec",
+        "-c",
+        "-O3",
+        "-g",
+        "-x",
+        "cce",
+        "-Wall",
+        "-std=c++17",
+        "--cce-aicore-only",
+        "--cce-aicore-arch=dav-c220-cube",
+        "-mllvm",
+        "-cce-aicore-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-function-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-record-overflow=false",
+        "-mllvm",
+        "-cce-aicore-addr-transform",
+        "-mllvm",
+        "-cce-aicore-dcci-insert-for-scalar=false",
+        "-DMEMORY_BASE",
+        "-Ibuild/pto-isa/include",
+        "-Ibuild/pto-isa/include/pto",
+        "-Isimpler_setup/incore",
+        "-Isrc/common/platform/include",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/a2a3/runtime",
+        "-Isrc/common",
+        "-Isrc/common/task_interface",
+        "-o",
+        "/tmp/pypto-incore-q5bttrd4/kernel.o",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063/build/decode_csa_spmd_tkpl9lj0/kernels/aic/cube_schedule.cpp",
+        "-ftime-report"
+      ],
+      "start_s": 36.18091011000797,
+      "thread": "ThreadPoolExecutor-0_1",
+      "returncode": 0,
+      "stderr_file": "process_012_ccec.stderr.txt",
+      "end_s": 68.76637297403067,
+      "wall_s": 32.5854628640227
+    },
+    {
+      "index": 13,
+      "tool": "ccec",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ccec",
+        "-c",
+        "-O3",
+        "-g",
+        "-x",
+        "cce",
+        "-Wall",
+        "-std=c++17",
+        "--cce-aicore-only",
+        "--cce-aicore-arch=dav-c220-vec",
+        "-mllvm",
+        "-cce-aicore-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-function-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-record-overflow=false",
+        "-mllvm",
+        "-cce-aicore-addr-transform",
+        "-mllvm",
+        "-cce-aicore-dcci-insert-for-scalar=false",
+        "-DMEMORY_BASE",
+        "-Ibuild/pto-isa/include",
+        "-Ibuild/pto-isa/include/pto",
+        "-Isimpler_setup/incore",
+        "-Isrc/common/platform/include",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/a2a3/runtime",
+        "-Isrc/common",
+        "-Isrc/common/task_interface",
+        "-o",
+        "/tmp/pypto-incore-assqy0ei/kernel.o",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063/build/decode_csa_spmd_tkpl9lj0/kernels/aiv/vector_schedule.cpp",
+        "-ftime-report"
+      ],
+      "start_s": 36.18162763817236,
+      "thread": "ThreadPoolExecutor-0_2",
+      "returncode": 0,
+      "stderr_file": "process_013_ccec.stderr.txt",
+      "end_s": 323.0573125490919,
+      "wall_s": 286.8756849109195
+    },
+    {
+      "index": 14,
+      "tool": "aarch64-target-linux-gnu-g++",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/tools/hcc/bin/aarch64-target-linux-gnu-g++",
+        "-shared",
+        "-fPIC",
+        "-O3",
+        "-g",
+        "-std=c++17",
+        "-fno-gnu-unique",
+        "-Wl,--build-id=sha1",
+        "src/a2a3/runtime/tensormap_and_ringbuffer/orchestration/common.cpp",
+        "src/common/platform/onboard/aicpu/cache_ops.cpp",
+        "src/common/platform/onboard/aicpu/device_time.cpp",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/common/task_interface",
+        "-Isrc/common",
+        "-Isrc/a2a3/platform/include",
+        "-Isrc/common/platform/include",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/orchestration",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/a2a3/runtime",
+        "-o",
+        "/tmp/pypto-orchestration-gp4q0tbl/orchestration.so",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063/build/decode_csa_spmd_tkpl9lj0/orchestration/decode_csa_spmd.cpp"
+      ],
+      "start_s": 36.18215855397284,
+      "thread": "ThreadPoolExecutor-0_0",
+      "returncode": 0,
+      "end_s": 39.56932389782742,
+      "wall_s": 3.3871653438545763
+    },
+    {
+      "index": 15,
+      "tool": "ld.lld",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ld.lld",
+        "-e",
+        "kernel_entry",
+        "-o",
+        "/tmp/pypto-incore-q5bttrd4/kernel.elf",
+        "/tmp/pypto-incore-q5bttrd4/kernel.o"
+      ],
+      "start_s": 68.76745047606528,
+      "thread": "ThreadPoolExecutor-0_1",
+      "returncode": 0,
+      "end_s": 68.7868666970171,
+      "wall_s": 0.01941622095182538
+    },
+    {
+      "index": 16,
+      "tool": "ld.lld",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ld.lld",
+        "-e",
+        "kernel_entry",
+        "-o",
+        "/tmp/pypto-incore-assqy0ei/kernel.elf",
+        "/tmp/pypto-incore-assqy0ei/kernel.o"
+      ],
+      "start_s": 323.0605624448508,
+      "thread": "ThreadPoolExecutor-0_2",
+      "returncode": 0,
+      "end_s": 323.08853361802176,
+      "wall_s": 0.02797117317095399
+    }
+  ],
+  "generated_sources": [
+    {
+      "path": "orchestration/decode_csa_spmd.cpp",
+      "bytes": 32004,
+      "lines": 528
+    },
+    {
+      "path": "ptoas/dynamic_csa_full.cpp",
+      "bytes": 2977302,
+      "lines": 77836
+    },
+    {
+      "path": "kernels/aic/cube_schedule.cpp",
+      "bytes": 3023285,
+      "lines": 78488
+    },
+    {
+      "path": "kernels/aiv/vector_schedule.cpp",
+      "bytes": 3023451,
+      "lines": 78491
+    }
+  ],
+  "ccec": {
+    "aic": {
+      "wall_s": 32.5854628640227,
+      "groups": [
+        {
+          "name": "... Pass execution timing report ...",
+          "rows": [
+            {
+              "name": "ModuleInlinerWrapperPass",
+              "cpu_s": 3.1579,
+              "wall_s": 3.1642
+            },
+            {
+              "name": "DevirtSCCRepeatedPass",
+              "cpu_s": 3.1009,
+              "wall_s": 3.1072
+            },
+            {
+              "name": "InstCombinePass",
+              "cpu_s": 0.5938,
+              "wall_s": 0.5945
+            },
+            {
+              "name": "SROAPass",
+              "cpu_s": 0.382,
+              "wall_s": 0.3828
+            },
+            {
+              "name": "ArgumentPromotionPass",
+              "cpu_s": 0.3816,
+              "wall_s": 0.3822
+            },
+            {
+              "name": "InlinerPass",
+              "cpu_s": 0.3759,
+              "wall_s": 0.3764
+            },
+            {
+              "name": "LICMPass",
+              "cpu_s": 0.3349,
+              "wall_s": 0.3356
+            },
+            {
+              "name": "IndVarSimplifyPass",
+              "cpu_s": 0.2047,
+              "wall_s": 0.205
+            },
+            {
+              "name": "MemorySSAAnalysis",
+              "cpu_s": 0.1721,
+              "wall_s": 0.1724
+            },
+            {
+              "name": "EarlyCSEPass",
+              "cpu_s": 0.1478,
+              "wall_s": 0.1479
+            },
+            {
+              "name": "JumpThreadingPass",
+              "cpu_s": 0.1182,
+              "wall_s": 0.1184
+            },
+            {
+              "name": "SimplifyCFGPass",
+              "cpu_s": 0.1098,
+              "wall_s": 0.11
+            },
+            {
+              "name": "LoopFullUnrollPass",
+              "cpu_s": 0.0876,
+              "wall_s": 0.0876
+            },
+            {
+              "name": "ReassociatePass",
+              "cpu_s": 0.0824,
+              "wall_s": 0.0825
+            },
+            {
+              "name": "BlockFrequencyAnalysis",
+              "cpu_s": 0.0725,
+              "wall_s": 0.0729
+            },
+            {
+              "name": "GVNPass",
+              "cpu_s": 0.0681,
+              "wall_s": 0.0681
+            },
+            {
+              "name": "LoopUnrollPass",
+              "cpu_s": 0.067,
+              "wall_s": 0.0671
+            },
+            {
+              "name": "ConstraintEliminationPass",
+              "cpu_s": 0.0592,
+              "wall_s": 0.0592
+            },
+            {
+              "name": "MemCpyOptPass",
+              "cpu_s": 0.0578,
+              "wall_s": 0.0579
+            },
+            {
+              "name": "BranchProbabilityAnalysis",
+              "cpu_s": 0.0578,
+              "wall_s": 0.0579
+            },
+            {
+              "name": "PostOrderFunctionAttrsPass",
+              "cpu_s": 0.0557,
+              "wall_s": 0.0557
+            },
+            {
+              "name": "CorrelatedValuePropagationPass",
+              "cpu_s": 0.0541,
+              "wall_s": 0.0541
+            },
+            {
+              "name": "LoopDeletionPass",
+              "cpu_s": 0.05,
+              "wall_s": 0.0501
+            },
+            {
+              "name": "IPSCCPPass",
+              "cpu_s": 0.0459,
+              "wall_s": 0.046
+            },
+            {
+              "name": "ADCEPass",
+              "cpu_s": 0.0442,
+              "wall_s": 0.0442
+            },
+            {
+              "name": "AAManager",
+              "cpu_s": 0.0434,
+              "wall_s": 0.0436
+            },
+            {
+              "name": "DominatorTreeAnalysis",
+              "cpu_s": 0.0381,
+              "wall_s": 0.0381
+            },
+            {
+              "name": "DSEPass",
+              "cpu_s": 0.0333,
+              "wall_s": 0.0333
+            },
+            {
+              "name": "SCCPPass",
+              "cpu_s": 0.0327,
+              "wall_s": 0.0327
+            },
+            {
+              "name": "LoopAnalysis",
+              "cpu_s": 0.0301,
+              "wall_s": 0.0301
+            },
+            {
+              "name": "BDCEPass",
+              "cpu_s": 0.0287,
+              "wall_s": 0.0286
+            },
+            {
+              "name": "LoopRotatePass",
+              "cpu_s": 0.027,
+              "wall_s": 0.027
+            },
+            {
+              "name": "TailCallElimPass",
+              "cpu_s": 0.0239,
+              "wall_s": 0.0239
+            },
+            {
+              "name": "GlobalOptPass",
+              "cpu_s": 0.0233,
+              "wall_s": 0.0233
+            },
+            {
+              "name": "BasicAA",
+              "cpu_s": 0.0205,
+              "wall_s": 0.0206
+            },
+            {
+              "name": "PostDominatorTreeAnalysis",
+              "cpu_s": 0.0172,
+              "wall_s": 0.0172
+            },
+            {
+              "name": "CalledValuePropagationPass",
+              "cpu_s": 0.0142,
+              "wall_s": 0.0142
+            },
+            {
+              "name": "CallGraphAnalysis",
+              "cpu_s": 0.0134,
+              "wall_s": 0.0134
+            },
+            {
+              "name": "RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>",
+              "cpu_s": 0.0123,
+              "wall_s": 0.0123
+            },
+            {
+              "name": "GlobalsAA",
+              "cpu_s": 0.0123,
+              "wall_s": 0.0123
+            },
+            {
+              "name": "LoopInstSimplifyPass",
+              "cpu_s": 0.0122,
+              "wall_s": 0.0122
+            },
+            {
+              "name": "HiIPUTransformPAddrToVAddrPass",
+              "cpu_s": 0.0118,
+              "wall_s": 0.0118
+            },
+            {
+              "name": "LCSSAPass",
+              "cpu_s": 0.0116,
+              "wall_s": 0.0117
+            },
+            {
+              "name": "AggressiveInstCombinePass",
+              "cpu_s": 0.0098,
+              "wall_s": 0.0098
+            },
+            {
+              "name": "SimpleLoopUnswitchPass",
+              "cpu_s": 0.0093,
+              "wall_s": 0.0093
+            },
+            {
+              "name": "AssumptionAnalysis",
+              "cpu_s": 0.0086,
+              "wall_s": 0.0086
+            },
+            {
+              "name": "LoopSimplifyPass",
+              "cpu_s": 0.0085,
+              "wall_s": 0.0086
+            },
+            {
+              "name": "LowerExpectIntrinsicPass",
+              "cpu_s": 0.0082,
+              "wall_s": 0.0082
+            },
+            {
+              "name": "TargetIRAnalysis",
+              "cpu_s": 0.0073,
+              "wall_s": 0.0073
+            },
+            {
+              "name": "GlobalDCEPass",
+              "cpu_s": 0.0072,
+              "wall_s": 0.0072
+            },
+            {
+              "name": "MemoryDependenceAnalysis",
+              "cpu_s": 0.0065,
+              "wall_s": 0.0065
+            },
+            {
+              "name": "LibCallsShrinkWrapPass",
+              "cpu_s": 0.0057,
+              "wall_s": 0.0057
+            },
+            {
+              "name": "HiIPUBuiltinVarResolverPass",
+              "cpu_s": 0.0053,
+              "wall_s": 0.0053
+            },
+            {
+              "name": "TargetLibraryAnalysis",
+              "cpu_s": 0.0049,
+              "wall_s": 0.0049
+            },
+            {
+              "name": "FunctionAnalysisManagerCGSCCProxy",
+              "cpu_s": 0.0047,
+              "wall_s": 0.0047
+            },
+            {
+              "name": "CallSiteSplittingPass",
+              "cpu_s": 0.0044,
+              "wall_s": 0.0044
+            },
+            {
+              "name": "HiIPUDumpTimeStampPass",
+              "cpu_s": 0.0041,
+              "wall_s": 0.004
+            },
+            {
+              "name": "InstSimplifyPass",
+              "cpu_s": 0.004,
+              "wall_s": 0.004
+            },
+            {
+              "name": "CGProfilePass",
+              "cpu_s": 0.0038,
+              "wall_s": 0.0038
+            },
+            {
+              "name": "LazyValueAnalysis",
+              "cpu_s": 0.0036,
+              "wall_s": 0.0036
+            },
+            {
+              "name": "PromotePass",
+              "cpu_s": 0.0034,
+              "wall_s": 0.0034
+            },
+            {
+              "name": "LoopSinkPass",
+              "cpu_s": 0.0033,
+              "wall_s": 0.0034
+            },
+            {
+              "name": "LoopVectorizePass",
+              "cpu_s": 0.0034,
+              "wall_s": 0.0034
+            },
+            {
+              "name": "InjectTLIMappings",
+              "cpu_s": 0.0032,
+              "wall_s": 0.0032
+            },
+            {
+              "name": "HiIPURebaseKernelArgFuncPtrPass",
+              "cpu_s": 0.0031,
+              "wall_s": 0.0031
+            },
+            {
+              "name": "OpenMPOptCGSCCPass",
+              "cpu_s": 0.0029,
+              "wall_s": 0.0029
+            },
+            {
+              "name": "CoroSplitPass",
+              "cpu_s": 0.0027,
+              "wall_s": 0.0028
+            },
+            {
+              "name": "DivRemPairsPass",
+              "cpu_s": 0.0027,
+              "wall_s": 0.0027
+            },
+            {
+              "name": "Float2IntPass",
+              "cpu_s": 0.0024,
+              "wall_s": 0.0024
+            },
+            {
+              "name": "ReversePostOrderFunctionAttrsPass",
+              "cpu_s": 0.0024,
+              "wall_s": 0.0024
+            },
+            {
+              "name": "LowerConstantIntrinsicsPass",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "MergedLoadStoreMotionPass",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "CoroElidePass",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "LoopSimplifyCFGPass",
+              "cpu_s": 0.0021,
+              "wall_s": 0.0021
+            },
+            {
+              "name": "InvalidateAnalysisPass<llvm::AAManager>",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "SpeculativeExecutionPass",
+              "cpu_s": 0.0019,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "PhiValuesAnalysis",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "RequireAnalysisPass<llvm::OptimizationRemarkEmitterAnalysis, llvm::Function>",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "DemandedBitsAnalysis",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "ScalarEvolutionAnalysis",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "LoopLoadEliminationPass",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "OptimizationRemarkEmitterAnalysis",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "ScopedNoAliasAA",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "ShouldNotRunFunctionPassesAnalysis",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "TypeBasedAA",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "LoopAccessAnalysis",
+              "cpu_s": 0.0014,
+              "wall_s": 0.0014
+            },
+            {
+              "name": "DeadArgumentEliminationPass",
+              "cpu_s": 0.0012,
+              "wall_s": 0.0012
+            },
+            {
+              "name": "LazyCallGraphAnalysis",
+              "cpu_s": 0.0012,
+              "wall_s": 0.0012
+            },
+            {
+              "name": "LoopIdiomRecognizePass",
+              "cpu_s": 0.0008,
+              "wall_s": 0.0008
+            },
+            {
+              "name": "SLPVectorizerPass",
+              "cpu_s": 0.0006,
+              "wall_s": 0.0006
+            },
+            {
+              "name": "InferFunctionAttrsPass",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "WarnMissedTransformationsPass",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "HiIPUPassCallingConvPass",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "LoopDistributePass",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "RecomputeGlobalsAAPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "RelLookupTableConverterPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPUArgSize2ELFPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "OpenMPOptPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "RequireAnalysisPass<llvm::ProfileSummaryAnalysis, llvm::Module>",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Annotation2MetadataPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "CoroEarlyPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "ForceFunctionAttrsPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "VectorCombinePass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "ConstantMergePass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "CoroCleanupPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "InvalidateAnalysisPass<llvm::ShouldNotRunFunctionPassesAnalysis>",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "ProfileSummaryAnalysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "AnnotationRemarksPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "AlignmentFromAssumptionsPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "EliminateAvailableExternallyPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "InlineAdvisorAnalysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Total",
+              "cpu_s": 10.4563,
+              "wall_s": 10.4757
+            }
+          ]
+        },
+        {
+          "name": "Miscellaneous Ungrouped Timers",
+          "rows": [
+            {
+              "name": "Code Generation Time",
+              "cpu_s": 29.068,
+              "wall_s": 29.1132
+            },
+            {
+              "name": "LLVM IR Generation Time",
+              "cpu_s": 0.562,
+              "wall_s": 0.5658
+            },
+            {
+              "name": "Total",
+              "cpu_s": 29.63,
+              "wall_s": 29.679
+            }
+          ]
+        },
+        {
+          "name": "Register Allocation",
+          "rows": [
+            {
+              "name": "Global Splitting",
+              "cpu_s": 0.0427,
+              "wall_s": 0.0428
+            },
+            {
+              "name": "Evict",
+              "cpu_s": 0.0187,
+              "wall_s": 0.0188
+            },
+            {
+              "name": "Spiller",
+              "cpu_s": 0.0058,
+              "wall_s": 0.0058
+            },
+            {
+              "name": "Local Splitting",
+              "cpu_s": 0.0009,
+              "wall_s": 0.001
+            },
+            {
+              "name": "Seed Live Regs",
+              "cpu_s": 0.0007,
+              "wall_s": 0.0007
+            },
+            {
+              "name": "Total",
+              "cpu_s": 0.0689,
+              "wall_s": 0.069
+            }
+          ]
+        },
+        {
+          "name": "Instruction Selection and Scheduling",
+          "rows": [
+            {
+              "name": "Instruction Selection",
+              "cpu_s": 0.0202,
+              "wall_s": 0.0202
+            },
+            {
+              "name": "Instruction Creation",
+              "cpu_s": 0.0171,
+              "wall_s": 0.0171
+            },
+            {
+              "name": "DAG Combining 1",
+              "cpu_s": 0.0149,
+              "wall_s": 0.015
+            },
+            {
+              "name": "DAG Combining after legalize types",
+              "cpu_s": 0.0099,
+              "wall_s": 0.0098
+            },
+            {
+              "name": "DAG Combining 2",
+              "cpu_s": 0.0098,
+              "wall_s": 0.0098
+            },
+            {
+              "name": "Instruction Scheduling",
+              "cpu_s": 0.007,
+              "wall_s": 0.007
+            },
+            {
+              "name": "Type Legalization",
+              "cpu_s": 0.0038,
+              "wall_s": 0.0038
+            },
+            {
+              "name": "DAG Legalization",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "Instruction Scheduling Cleanup",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "Vector Legalization",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "Total",
+              "cpu_s": 0.0857,
+              "wall_s": 0.0857
+            }
+          ]
+        },
+        {
+          "name": "... Pass execution timing report ...",
+          "rows": [
+            {
+              "name": "HiIPU Assembly Printer",
+              "cpu_s": 17.8875,
+              "wall_s": 17.9108
+            },
+            {
+              "name": "Live DEBUG_VALUE analysis",
+              "cpu_s": 5.9151,
+              "wall_s": 5.9261
+            },
+            {
+              "name": "Loop Strength Reduction",
+              "cpu_s": 0.2012,
+              "wall_s": 0.2017
+            },
+            {
+              "name": "HiIPU Non VF DAG->DAG Pattern Instruction Selection",
+              "cpu_s": 0.1273,
+              "wall_s": 0.1275
+            },
+            {
+              "name": "Greedy Register Allocator",
+              "cpu_s": 0.0968,
+              "wall_s": 0.097
+            },
+            {
+              "name": "Virtual Register Rewriter",
+              "cpu_s": 0.0825,
+              "wall_s": 0.0826
+            },
+            {
+              "name": "Induction Variable Users",
+              "cpu_s": 0.0728,
+              "wall_s": 0.0729
+            },
+            {
+              "name": "Nary reassociation",
+              "cpu_s": 0.0645,
+              "wall_s": 0.0647
+            },
+            {
+              "name": "Straight line strength reduction",
+              "cpu_s": 0.061,
+              "wall_s": 0.0611
+            },
+            {
+              "name": "Debug Variable Analysis",
+              "cpu_s": 0.044,
+              "wall_s": 0.044
+            },
+            {
+              "name": "CodeGen Prepare",
+              "cpu_s": 0.0302,
+              "wall_s": 0.0302
+            },
+            {
+              "name": "HiIPU load/store pair optimization pass",
+              "cpu_s": 0.0233,
+              "wall_s": 0.0233
+            },
+            {
+              "name": "HiIPU load/store pair optimization pass #2",
+              "cpu_s": 0.0231,
+              "wall_s": 0.0231
+            },
+            {
+              "name": "Global Value Numbering",
+              "cpu_s": 0.0201,
+              "wall_s": 0.0201
+            },
+            {
+              "name": "Global Value Numbering #2",
+              "cpu_s": 0.0195,
+              "wall_s": 0.0195
+            },
+            {
+              "name": "Machine Loop Invariant Code Motion",
+              "cpu_s": 0.0194,
+              "wall_s": 0.0194
+            },
+            {
+              "name": "PostRA Machine Instruction Scheduler",
+              "cpu_s": 0.0193,
+              "wall_s": 0.0193
+            },
+            {
+              "name": "Machine code sinking",
+              "cpu_s": 0.0168,
+              "wall_s": 0.0168
+            },
+            {
+              "name": "Remove Redundant DEBUG_VALUE analysis",
+              "cpu_s": 0.0165,
+              "wall_s": 0.0165
+            },
+            {
+              "name": "Prologue/Epilogue Insertion & Frame Finalization",
+              "cpu_s": 0.0164,
+              "wall_s": 0.0164
+            },
+            {
+              "name": "Branch Probability Basic Block Placement",
+              "cpu_s": 0.016,
+              "wall_s": 0.0161
+            },
+            {
+              "name": "Machine Instruction Scheduler",
+              "cpu_s": 0.0156,
+              "wall_s": 0.0156
+            },
+            {
+              "name": "Control Flow Optimizer",
+              "cpu_s": 0.0147,
+              "wall_s": 0.0148
+            },
+            {
+              "name": "Early CSE",
+              "cpu_s": 0.012,
+              "wall_s": 0.012
+            },
+            {
+              "name": "Canonicalize Freeze Instructions in Loops",
+              "cpu_s": 0.0093,
+              "wall_s": 0.0093
+            },
+            {
+              "name": "Stack Slot Coloring",
+              "cpu_s": 0.0076,
+              "wall_s": 0.0076
+            },
+            {
+              "name": "Live Interval Analysis #2",
+              "cpu_s": 0.0063,
+              "wall_s": 0.0063
+            },
+            {
+              "name": "Live Interval Analysis",
+              "cpu_s": 0.0058,
+              "wall_s": 0.0058
+            },
+            {
+              "name": "Split GEPs to a variadic base and a constant offset for better CSE",
+              "cpu_s": 0.0058,
+              "wall_s": 0.0058
+            },
+            {
+              "name": "Jump Optimization Pass",
+              "cpu_s": 0.0056,
+              "wall_s": 0.0056
+            },
+            {
+              "name": "Early Machine Loop Invariant Code Motion",
+              "cpu_s": 0.0049,
+              "wall_s": 0.0049
+            },
+            {
+              "name": "Branch relaxation pass",
+              "cpu_s": 0.0048,
+              "wall_s": 0.0048
+            },
+            {
+              "name": "Live Variable Analysis",
+              "cpu_s": 0.0046,
+              "wall_s": 0.0046
+            },
+            {
+              "name": "ObjC ARC contraction",
+              "cpu_s": 0.0044,
+              "wall_s": 0.0044
+            },
+            {
+              "name": "Constant Hoisting",
+              "cpu_s": 0.0041,
+              "wall_s": 0.0041
+            },
+            {
+              "name": "Machine Copy Propagation Pass",
+              "cpu_s": 0.0035,
+              "wall_s": 0.0035
+            },
+            {
+              "name": "Machine Common Subexpression Elimination",
+              "cpu_s": 0.0034,
+              "wall_s": 0.0034
+            },
+            {
+              "name": "Machine Copy Propagation Pass #2",
+              "cpu_s": 0.0034,
+              "wall_s": 0.0034
+            },
+            {
+              "name": "HiIPU convert ATOM to soft implementations",
+              "cpu_s": 0.0033,
+              "wall_s": 0.0033
+            },
+            {
+              "name": "Simple Register Coalescing",
+              "cpu_s": 0.0033,
+              "wall_s": 0.0033
+            },
+            {
+              "name": "Partially inline calls to library functions",
+              "cpu_s": 0.0032,
+              "wall_s": 0.0032
+            },
+            {
+              "name": "Branch Probability Analysis #3",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0027
+            },
+            {
+              "name": "Branch Probability Analysis #4",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "Branch Probability Analysis",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "Branch Probability Analysis #2",
+              "cpu_s": 0.0025,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "HiIPU Optimize SPR",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "Unnamed pass: implement Pass::getPassName()",
+              "cpu_s": 0.0025,
+              "wall_s": 0.0025
+            },
+            {
+              "name": "Unnamed pass: implement Pass::getPassName() #2",
+              "cpu_s": 0.0024,
+              "wall_s": 0.0024
+            },
+            {
+              "name": "Lower constant intrinsics",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "SpAddrSpaceBufferAllocOptPass",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Expand memcmp() to load/stores",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Replace intrinsics with calls to vector library",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Remove dead machine instructions #2",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Expand reduction intrinsics",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Scalarize Masked Memory Intrinsics",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "Expand vector predication intrinsics",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "HiIPU convert ATOM to RED",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "HiIPU convert generic pointer ATOM to concrete pointer ATOM",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "HiIPU Fix Errata V200 001",
+              "cpu_s": 0.0021,
+              "wall_s": 0.0021
+            },
+            {
+              "name": "HiIPUPeepHoleOpt",
+              "cpu_s": 0.0019,
+              "wall_s": 0.002
+            },
+            {
+              "name": "Slot index numbering #4",
+              "cpu_s": 0.0019,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "HiIPU pseudo instruction expansion pass",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "Peephole Optimizations",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "Eliminate PHI nodes for register allocation",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0015
+            },
+            {
+              "name": "HiIPU specific alloca hoisting",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0015
+            },
+            {
+              "name": "PostRA Machine Sink",
+              "cpu_s": 0.0014,
+              "wall_s": 0.0014
+            },
+            {
+              "name": "Slot index numbering #3",
+              "cpu_s": 0.0014,
+              "wall_s": 0.0014
+            },
+            {
+              "name": "HiIPU Fix Errata V220 001",
+              "cpu_s": 0.0014,
+              "wall_s": 0.0014
+            },
+            {
+              "name": "Two-Address instruction pass",
+              "cpu_s": 0.0013,
+              "wall_s": 0.0013
+            },
+            {
+              "name": "HiIPU pseudo instruction expansion after scheduling pass",
+              "cpu_s": 0.0013,
+              "wall_s": 0.0013
+            },
+            {
+              "name": "Post-RA pseudo instruction expansion pass",
+              "cpu_s": 0.0012,
+              "wall_s": 0.0012
+            },
+            {
+              "name": "Slot index numbering",
+              "cpu_s": 0.0012,
+              "wall_s": 0.0012
+            },
+            {
+              "name": "Remove dead machine instructions",
+              "cpu_s": 0.0011,
+              "wall_s": 0.0011
+            },
+            {
+              "name": "MachineDominator Tree Construction #11",
+              "cpu_s": 0.0011,
+              "wall_s": 0.0011
+            },
+            {
+              "name": "Tail Duplication",
+              "cpu_s": 0.001,
+              "wall_s": 0.001
+            },
+            {
+              "name": "HiIPU ssa general optimization pass",
+              "cpu_s": 0.001,
+              "wall_s": 0.001
+            },
+            {
+              "name": "Slot index numbering #2",
+              "cpu_s": 0.001,
+              "wall_s": 0.001
+            },
+            {
+              "name": "Early Tail Duplication",
+              "cpu_s": 0.001,
+              "wall_s": 0.001
+            },
+            {
+              "name": "HiIPU insert optimization pass",
+              "cpu_s": 0.0009,
+              "wall_s": 0.0009
+            },
+            {
+              "name": "Finalize ISel and expand pseudo-instructions",
+              "cpu_s": 0.0008,
+              "wall_s": 0.0008
+            },
+            {
+              "name": "Free MachineFunction",
+              "cpu_s": 0.0007,
+              "wall_s": 0.0007
+            },
+            {
+              "name": "Process Implicit Definitions",
+              "cpu_s": 0.0006,
+              "wall_s": 0.0006
+            },
+            {
+              "name": "HiIPU pseudo instruction expansion pre reg alloc pass",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "Machine Natural Loop Construction #8",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "MachineDominator Tree Construction #5",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "Post-Dominator Tree Construction #3",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "MachinePostDominator Tree Construction",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "Natural Loop Information #2",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "MachinePostDominator Tree Construction #3",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "Natural Loop Information #8",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "Dominator Tree Construction #5",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "Natural Loop Information #5",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "SROA",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "MachinePostDominator Tree Construction #2",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "Post-Dominator Tree Construction",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "Natural Loop Information #3",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "SROA #3",
+              "cpu_s": 0.0004,
+              "wall_s": 0.0004
+            },
+            {
+              "name": "MachineDominator Tree Construction #9",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction #8",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction #2",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction #6",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Post-Dominator Tree Construction #2",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Post-Dominator Tree Construction #4",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "MachineDominator Tree Construction #4",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction #4",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Natural Loop Information #6",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Natural Loop Information",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "MachineDominator Tree Construction #2",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Block Frequency Analysis",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "SROA #2",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction #7",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "MachineDominator Tree Construction",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Natural Loop Construction #3",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Dominator Tree Construction #3",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Virtual Register Map",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "MachineDominator Tree Construction #7",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "MachineDominator Tree Construction #3",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Block Frequency Analysis #3",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Natural Loop Information #7",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Natural Loop Construction",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Natural Loop Information #9",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Block Frequency Analysis #5",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Natural Loop Information #4",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Scalar Evolution Analysis #4",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Natural Loop Construction #2",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Block Frequency Analysis #4",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "MachineDominator Tree Construction #6",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "Machine Cycle Info Analysis",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Scalar Evolution Analysis #3",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "MachineDominator Tree Construction #10",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "MachineDominator Tree Construction #8",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Machine Natural Loop Construction #4",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Machine Natural Loop Construction #6",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Machine Block Frequency Analysis #2",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Machine Natural Loop Construction #7",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Machine Block Frequency Analysis",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "HiIPU VF Label Optimization Pass",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Machine Natural Loop Construction #5",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Canonicalize natural loops",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Scalar Evolution Analysis #2",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "HiIPU Hardware Loops",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Live Register Matrix",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Speculatively execute instructions",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Remove unreachable machine basic blocks",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "HiIPU Meta Section Pass",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Remove unreachable blocks from the CFG",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Live Stack Slot Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Optimize machine instruction PHIs",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Bundle Machine CFG Edges",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Exception handling preparation",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl)",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Block Local Variable Init",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Spill Code Placement Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Scalar Evolution Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #7",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #8",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert stack protectors #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert stack protectors",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Merge contiguous icmps into a memcmp",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Memory Dependence Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #7",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Duplicate Kernel Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert stack protectors #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Memory Dependence Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert fentry calls",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Analyze Machine Code For Garbage Collection",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU VF DAG->DAG Pattern Instruction Selection",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Phi Values Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Phi Values Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Merge disjoint stack slots",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Implement the 'patchable-function' attribute",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Shrink Wrapping analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Contiguously Lay Out Funclets",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Register Allocation Pass Scoring",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Fixup Statepoint Caller Saved",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "TLS Variable Hoist",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Pre-ISel Intrinsic Lowering",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Optimization Remark Emitter",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPE DAG->DAG Pattern Instruction Selection",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Count Vector Execution Instruction",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert XRay ops",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Data Cache Preload",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Rename Disconnected Subregister Components",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPEScoreBoardIdAllocate",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "StackMap Liveness Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Code Size Optimization Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Reorder Vector Instructions",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Scalar Init Stack Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Assumption Cache Tracker",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Local Stack Slot Allocation",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Optimization Remark Emitter #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Safe Stack instrumentation pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Vector Machine Schedule",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU VloopV2 Lower",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPE IR optimizer",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU VF SWP Pipeliner Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Copy Value",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Vector LoopN",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Vector Instructions Arrangement",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPE Stall Cycle Refactor",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lower Garbage Collection Instructions",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Shadow Stack GC Lowering",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Detect Dead Lanes",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Pseudo Expansion Before Machine Code Emittion",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Print Kernel Init And Finsh Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Insert wait_prev_task pipe instructions.",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Mix Kernel Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU embed bitcode",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Target Library Information",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Profile summary info",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Target Transform Information",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Target Pass Configuration",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Type-Based Alias Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Module Information",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Default Regalloc Eviction Advisor",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Create Garbage Collector Module Metadata",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Scoped NoAlias Alias Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Branch Probability Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Total",
+              "cpu_s": 24.9904,
+              "wall_s": 25.0268
+            }
+          ]
+        },
+        {
+          "name": "DWARF Emission",
+          "rows": [
+            {
+              "name": "Debug Info Emission",
+              "cpu_s": 7.3331,
+              "wall_s": 7.3619
+            },
+            {
+              "name": "DWARF Exception Writer",
+              "cpu_s": 3.1518,
+              "wall_s": 3.2068
+            },
+            {
+              "name": "Total",
+              "cpu_s": 10.485,
+              "wall_s": 10.5688
+            }
+          ]
+        },
+        {
+          "name": "Clang front-end time report",
+          "rows": [
+            {
+              "name": "Clang front-end timer",
+              "cpu_s": 32.3941,
+              "wall_s": 32.4474
+            },
+            {
+              "name": "Total",
+              "cpu_s": 32.3941,
+              "wall_s": 32.4474
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "10258"
+      ]
+    },
+    "aiv": {
+      "wall_s": 286.8756849109195,
+      "groups": [
+        {
+          "name": "... Pass execution timing report ...",
+          "rows": [
+            {
+              "name": "ModuleInlinerWrapperPass",
+              "cpu_s": 34.616,
+              "wall_s": 34.7286
+            },
+            {
+              "name": "DevirtSCCRepeatedPass",
+              "cpu_s": 34.4728,
+              "wall_s": 34.585
+            },
+            {
+              "name": "SROAPass",
+              "cpu_s": 15.612,
+              "wall_s": 15.6596
+            },
+            {
+              "name": "InstCombinePass",
+              "cpu_s": 4.2136,
+              "wall_s": 4.2244
+            },
+            {
+              "name": "LICMPass",
+              "cpu_s": 2.2372,
+              "wall_s": 2.2434
+            },
+            {
+              "name": "InlinerPass",
+              "cpu_s": 2.1373,
+              "wall_s": 2.1432
+            },
+            {
+              "name": "ArgumentPromotionPass",
+              "cpu_s": 2.0963,
+              "wall_s": 2.1019
+            },
+            {
+              "name": "IndVarSimplifyPass",
+              "cpu_s": 1.9609,
+              "wall_s": 1.9652
+            },
+            {
+              "name": "MemorySSAAnalysis",
+              "cpu_s": 1.1448,
+              "wall_s": 1.1477
+            },
+            {
+              "name": "JumpThreadingPass",
+              "cpu_s": 1.0481,
+              "wall_s": 1.051
+            },
+            {
+              "name": "EarlyCSEPass",
+              "cpu_s": 0.8632,
+              "wall_s": 0.8655
+            },
+            {
+              "name": "SimplifyCFGPass",
+              "cpu_s": 0.8191,
+              "wall_s": 0.821
+            },
+            {
+              "name": "ReassociatePass",
+              "cpu_s": 0.4597,
+              "wall_s": 0.4606
+            },
+            {
+              "name": "GVNPass",
+              "cpu_s": 0.4547,
+              "wall_s": 0.4558
+            },
+            {
+              "name": "BlockFrequencyAnalysis",
+              "cpu_s": 0.4021,
+              "wall_s": 0.4042
+            },
+            {
+              "name": "ConstraintEliminationPass",
+              "cpu_s": 0.366,
+              "wall_s": 0.3671
+            },
+            {
+              "name": "MemCpyOptPass",
+              "cpu_s": 0.3592,
+              "wall_s": 0.3603
+            },
+            {
+              "name": "CorrelatedValuePropagationPass",
+              "cpu_s": 0.3292,
+              "wall_s": 0.3299
+            },
+            {
+              "name": "LoopFullUnrollPass",
+              "cpu_s": 0.3257,
+              "wall_s": 0.3261
+            },
+            {
+              "name": "BranchProbabilityAnalysis",
+              "cpu_s": 0.3226,
+              "wall_s": 0.3233
+            },
+            {
+              "name": "SimpleLoopUnswitchPass",
+              "cpu_s": 0.27,
+              "wall_s": 0.2703
+            },
+            {
+              "name": "LoopRotatePass",
+              "cpu_s": 0.2696,
+              "wall_s": 0.2701
+            },
+            {
+              "name": "ADCEPass",
+              "cpu_s": 0.2398,
+              "wall_s": 0.2405
+            },
+            {
+              "name": "SCCPPass",
+              "cpu_s": 0.239,
+              "wall_s": 0.2395
+            },
+            {
+              "name": "LoopDeletionPass",
+              "cpu_s": 0.2207,
+              "wall_s": 0.2209
+            },
+            {
+              "name": "PostOrderFunctionAttrsPass",
+              "cpu_s": 0.2105,
+              "wall_s": 0.211
+            },
+            {
+              "name": "DominatorTreeAnalysis",
+              "cpu_s": 0.2063,
+              "wall_s": 0.2068
+            },
+            {
+              "name": "LoopAnalysis",
+              "cpu_s": 0.1948,
+              "wall_s": 0.1954
+            },
+            {
+              "name": "AAManager",
+              "cpu_s": 0.1794,
+              "wall_s": 0.1799
+            },
+            {
+              "name": "IPSCCPPass",
+              "cpu_s": 0.1734,
+              "wall_s": 0.1741
+            },
+            {
+              "name": "LoopUnrollPass",
+              "cpu_s": 0.1692,
+              "wall_s": 0.1699
+            },
+            {
+              "name": "BDCEPass",
+              "cpu_s": 0.1682,
+              "wall_s": 0.1685
+            },
+            {
+              "name": "DSEPass",
+              "cpu_s": 0.1605,
+              "wall_s": 0.1607
+            },
+            {
+              "name": "GlobalOptPass",
+              "cpu_s": 0.1321,
+              "wall_s": 0.1325
+            },
+            {
+              "name": "TailCallElimPass",
+              "cpu_s": 0.1297,
+              "wall_s": 0.13
+            },
+            {
+              "name": "LoopInstSimplifyPass",
+              "cpu_s": 0.1288,
+              "wall_s": 0.129
+            },
+            {
+              "name": "PostDominatorTreeAnalysis",
+              "cpu_s": 0.0946,
+              "wall_s": 0.0946
+            },
+            {
+              "name": "BasicAA",
+              "cpu_s": 0.0884,
+              "wall_s": 0.0887
+            },
+            {
+              "name": "LoopSimplifyCFGPass",
+              "cpu_s": 0.0837,
+              "wall_s": 0.0838
+            },
+            {
+              "name": "LoopSimplifyPass",
+              "cpu_s": 0.0707,
+              "wall_s": 0.071
+            },
+            {
+              "name": "CalledValuePropagationPass",
+              "cpu_s": 0.0585,
+              "wall_s": 0.0588
+            },
+            {
+              "name": "AggressiveInstCombinePass",
+              "cpu_s": 0.0576,
+              "wall_s": 0.0577
+            },
+            {
+              "name": "LCSSAPass",
+              "cpu_s": 0.0539,
+              "wall_s": 0.0542
+            },
+            {
+              "name": "CallGraphAnalysis",
+              "cpu_s": 0.0438,
+              "wall_s": 0.0439
+            },
+            {
+              "name": "HiIPUTransformPAddrToVAddrPass",
+              "cpu_s": 0.041,
+              "wall_s": 0.0411
+            },
+            {
+              "name": "GlobalDCEPass",
+              "cpu_s": 0.0392,
+              "wall_s": 0.0393
+            },
+            {
+              "name": "RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>",
+              "cpu_s": 0.0376,
+              "wall_s": 0.0377
+            },
+            {
+              "name": "GlobalsAA",
+              "cpu_s": 0.0376,
+              "wall_s": 0.0377
+            },
+            {
+              "name": "InstSimplifyPass",
+              "cpu_s": 0.0316,
+              "wall_s": 0.0318
+            },
+            {
+              "name": "LowerExpectIntrinsicPass",
+              "cpu_s": 0.0297,
+              "wall_s": 0.0298
+            },
+            {
+              "name": "LibCallsShrinkWrapPass",
+              "cpu_s": 0.0291,
+              "wall_s": 0.0291
+            },
+            {
+              "name": "AssumptionAnalysis",
+              "cpu_s": 0.0271,
+              "wall_s": 0.0272
+            },
+            {
+              "name": "ScalarEvolutionAnalysis",
+              "cpu_s": 0.0223,
+              "wall_s": 0.0223
+            },
+            {
+              "name": "TargetIRAnalysis",
+              "cpu_s": 0.0216,
+              "wall_s": 0.0217
+            },
+            {
+              "name": "CGProfilePass",
+              "cpu_s": 0.0215,
+              "wall_s": 0.0215
+            },
+            {
+              "name": "MemoryDependenceAnalysis",
+              "cpu_s": 0.0211,
+              "wall_s": 0.0212
+            },
+            {
+              "name": "LoopSinkPass",
+              "cpu_s": 0.0205,
+              "wall_s": 0.0205
+            },
+            {
+              "name": "LoopVectorizePass",
+              "cpu_s": 0.0184,
+              "wall_s": 0.0184
+            },
+            {
+              "name": "TargetLibraryAnalysis",
+              "cpu_s": 0.0156,
+              "wall_s": 0.0156
+            },
+            {
+              "name": "InjectTLIMappings",
+              "cpu_s": 0.0154,
+              "wall_s": 0.0155
+            },
+            {
+              "name": "LoopIdiomRecognizePass",
+              "cpu_s": 0.0153,
+              "wall_s": 0.0154
+            },
+            {
+              "name": "DivRemPairsPass",
+              "cpu_s": 0.0141,
+              "wall_s": 0.0141
+            },
+            {
+              "name": "CallSiteSplittingPass",
+              "cpu_s": 0.0137,
+              "wall_s": 0.0137
+            },
+            {
+              "name": "HiIPUBuiltinVarResolverPass",
+              "cpu_s": 0.0129,
+              "wall_s": 0.0129
+            },
+            {
+              "name": "FunctionAnalysisManagerCGSCCProxy",
+              "cpu_s": 0.0128,
+              "wall_s": 0.0128
+            },
+            {
+              "name": "LazyValueAnalysis",
+              "cpu_s": 0.0125,
+              "wall_s": 0.0125
+            },
+            {
+              "name": "Float2IntPass",
+              "cpu_s": 0.0122,
+              "wall_s": 0.0123
+            },
+            {
+              "name": "ReversePostOrderFunctionAttrsPass",
+              "cpu_s": 0.0122,
+              "wall_s": 0.0122
+            },
+            {
+              "name": "PromotePass",
+              "cpu_s": 0.0119,
+              "wall_s": 0.0119
+            },
+            {
+              "name": "LowerConstantIntrinsicsPass",
+              "cpu_s": 0.0118,
+              "wall_s": 0.0119
+            },
+            {
+              "name": "HiIPUDumpTimeStampPass",
+              "cpu_s": 0.011,
+              "wall_s": 0.0111
+            },
+            {
+              "name": "CoroSplitPass",
+              "cpu_s": 0.0101,
+              "wall_s": 0.0102
+            },
+            {
+              "name": "OpenMPOptCGSCCPass",
+              "cpu_s": 0.009,
+              "wall_s": 0.009
+            },
+            {
+              "name": "HiIPURebaseKernelArgFuncPtrPass",
+              "cpu_s": 0.0083,
+              "wall_s": 0.0084
+            },
+            {
+              "name": "MergedLoadStoreMotionPass",
+              "cpu_s": 0.0082,
+              "wall_s": 0.0083
+            },
+            {
+              "name": "CoroElidePass",
+              "cpu_s": 0.0068,
+              "wall_s": 0.0068
+            },
+            {
+              "name": "LoopLoadEliminationPass",
+              "cpu_s": 0.0063,
+              "wall_s": 0.0063
+            },
+            {
+              "name": "SpeculativeExecutionPass",
+              "cpu_s": 0.0062,
+              "wall_s": 0.0062
+            },
+            {
+              "name": "PhiValuesAnalysis",
+              "cpu_s": 0.0061,
+              "wall_s": 0.0061
+            },
+            {
+              "name": "RequireAnalysisPass<llvm::OptimizationRemarkEmitterAnalysis, llvm::Function>",
+              "cpu_s": 0.0057,
+              "wall_s": 0.0057
+            },
+            {
+              "name": "DemandedBitsAnalysis",
+              "cpu_s": 0.0055,
+              "wall_s": 0.0056
+            },
+            {
+              "name": "ScopedNoAliasAA",
+              "cpu_s": 0.0054,
+              "wall_s": 0.0054
+            },
+            {
+              "name": "ShouldNotRunFunctionPassesAnalysis",
+              "cpu_s": 0.0051,
+              "wall_s": 0.0054
+            },
+            {
+              "name": "OptimizationRemarkEmitterAnalysis",
+              "cpu_s": 0.0052,
+              "wall_s": 0.0051
+            },
+            {
+              "name": "LoopAccessAnalysis",
+              "cpu_s": 0.0051,
+              "wall_s": 0.0051
+            },
+            {
+              "name": "InvalidateAnalysisPass<llvm::AAManager>",
+              "cpu_s": 0.0049,
+              "wall_s": 0.0049
+            },
+            {
+              "name": "TypeBasedAA",
+              "cpu_s": 0.0048,
+              "wall_s": 0.0048
+            },
+            {
+              "name": "DeadArgumentEliminationPass",
+              "cpu_s": 0.0047,
+              "wall_s": 0.0048
+            },
+            {
+              "name": "LazyCallGraphAnalysis",
+              "cpu_s": 0.0031,
+              "wall_s": 0.0031
+            },
+            {
+              "name": "SLPVectorizerPass",
+              "cpu_s": 0.0031,
+              "wall_s": 0.0031
+            },
+            {
+              "name": "InferFunctionAttrsPass",
+              "cpu_s": 0.0011,
+              "wall_s": 0.0011
+            },
+            {
+              "name": "HiIPUPassCallingConvPass",
+              "cpu_s": 0.0008,
+              "wall_s": 0.0008
+            },
+            {
+              "name": "WarnMissedTransformationsPass",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "LoopDistributePass",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "RecomputeGlobalsAAPass",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "InvalidateAnalysisPass<llvm::ShouldNotRunFunctionPassesAnalysis>",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "RelLookupTableConverterPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "OpenMPOptPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "CoroEarlyPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "RequireAnalysisPass<llvm::ProfileSummaryAnalysis, llvm::Module>",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Annotation2MetadataPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "VectorCombinePass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "ForceFunctionAttrsPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "ConstantMergePass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "CoroCleanupPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "AlignmentFromAssumptionsPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "AnnotationRemarksPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPUArgSize2ELFPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "ProfileSummaryAnalysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "EliminateAvailableExternallyPass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "InlineAdvisorAnalysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Total",
+              "cpu_s": 108.5694,
+              "wall_s": 108.9037
+            }
+          ]
+        },
+        {
+          "name": "Miscellaneous Ungrouped Timers",
+          "rows": [
+            {
+              "name": "Code Generation Time",
+              "cpu_s": 279.4302,
+              "wall_s": 280.1439
+            },
+            {
+              "name": "LLVM IR Generation Time",
+              "cpu_s": 1.7198,
+              "wall_s": 1.7281
+            },
+            {
+              "name": "Total",
+              "cpu_s": 281.15,
+              "wall_s": 281.872
+            }
+          ]
+        },
+        {
+          "name": "Register Allocation",
+          "rows": [
+            {
+              "name": "Global Splitting",
+              "cpu_s": 0.294,
+              "wall_s": 0.2949
+            },
+            {
+              "name": "Evict",
+              "cpu_s": 0.055,
+              "wall_s": 0.0551
+            },
+            {
+              "name": "Spiller",
+              "cpu_s": 0.0336,
+              "wall_s": 0.0336
+            },
+            {
+              "name": "Local Splitting",
+              "cpu_s": 0.0032,
+              "wall_s": 0.0032
+            },
+            {
+              "name": "Seed Live Regs",
+              "cpu_s": 0.0025,
+              "wall_s": 0.0025
+            },
+            {
+              "name": "Total",
+              "cpu_s": 0.3882,
+              "wall_s": 0.3893
+            }
+          ]
+        },
+        {
+          "name": "Instruction Selection and Scheduling",
+          "rows": [
+            {
+              "name": "Instruction Selection",
+              "cpu_s": 0.1319,
+              "wall_s": 0.1324
+            },
+            {
+              "name": "Instruction Creation",
+              "cpu_s": 0.0553,
+              "wall_s": 0.0553
+            },
+            {
+              "name": "DAG Combining 1",
+              "cpu_s": 0.0525,
+              "wall_s": 0.0528
+            },
+            {
+              "name": "DAG Combining 2",
+              "cpu_s": 0.0326,
+              "wall_s": 0.0325
+            },
+            {
+              "name": "DAG Combining after legalize types",
+              "cpu_s": 0.0307,
+              "wall_s": 0.0307
+            },
+            {
+              "name": "Instruction Scheduling",
+              "cpu_s": 0.0239,
+              "wall_s": 0.024
+            },
+            {
+              "name": "Type Legalization",
+              "cpu_s": 0.0156,
+              "wall_s": 0.0155
+            },
+            {
+              "name": "DAG Legalization",
+              "cpu_s": 0.0082,
+              "wall_s": 0.0082
+            },
+            {
+              "name": "Instruction Scheduling Cleanup",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "Vector Legalization",
+              "cpu_s": 0.0021,
+              "wall_s": 0.0021
+            },
+            {
+              "name": "Total",
+              "cpu_s": 0.3553,
+              "wall_s": 0.3562
+            }
+          ]
+        },
+        {
+          "name": "... Pass execution timing report ...",
+          "rows": [
+            {
+              "name": "HiIPU Assembly Printer",
+              "cpu_s": 166.8691,
+              "wall_s": 167.2198
+            },
+            {
+              "name": "Live DEBUG_VALUE analysis",
+              "cpu_s": 67.0039,
+              "wall_s": 67.2187
+            },
+            {
+              "name": "Loop Strength Reduction",
+              "cpu_s": 1.1018,
+              "wall_s": 1.1053
+            },
+            {
+              "name": "Machine Loop Invariant Code Motion",
+              "cpu_s": 1.0074,
+              "wall_s": 1.0102
+            },
+            {
+              "name": "Virtual Register Rewriter",
+              "cpu_s": 0.6498,
+              "wall_s": 0.6518
+            },
+            {
+              "name": "HiIPU Non VF DAG->DAG Pattern Instruction Selection",
+              "cpu_s": 0.5451,
+              "wall_s": 0.5472
+            },
+            {
+              "name": "Greedy Register Allocator",
+              "cpu_s": 0.4789,
+              "wall_s": 0.4806
+            },
+            {
+              "name": "Early Machine Loop Invariant Code Motion",
+              "cpu_s": 0.3593,
+              "wall_s": 0.3605
+            },
+            {
+              "name": "CodeGen Prepare",
+              "cpu_s": 0.2721,
+              "wall_s": 0.2731
+            },
+            {
+              "name": "Debug Variable Analysis",
+              "cpu_s": 0.2202,
+              "wall_s": 0.2209
+            },
+            {
+              "name": "Nary reassociation",
+              "cpu_s": 0.1782,
+              "wall_s": 0.1789
+            },
+            {
+              "name": "Induction Variable Users",
+              "cpu_s": 0.174,
+              "wall_s": 0.1745
+            },
+            {
+              "name": "Straight line strength reduction",
+              "cpu_s": 0.1676,
+              "wall_s": 0.1683
+            },
+            {
+              "name": "Global Value Numbering #2",
+              "cpu_s": 0.1109,
+              "wall_s": 0.1113
+            },
+            {
+              "name": "Global Value Numbering",
+              "cpu_s": 0.1008,
+              "wall_s": 0.1011
+            },
+            {
+              "name": "HiIPU load/store pair optimization pass",
+              "cpu_s": 0.0912,
+              "wall_s": 0.0915
+            },
+            {
+              "name": "HiIPU load/store pair optimization pass #2",
+              "cpu_s": 0.091,
+              "wall_s": 0.0912
+            },
+            {
+              "name": "PostRA Machine Instruction Scheduler",
+              "cpu_s": 0.0856,
+              "wall_s": 0.086
+            },
+            {
+              "name": "Branch Probability Basic Block Placement",
+              "cpu_s": 0.0832,
+              "wall_s": 0.0835
+            },
+            {
+              "name": "Machine Instruction Scheduler",
+              "cpu_s": 0.0771,
+              "wall_s": 0.0773
+            },
+            {
+              "name": "Prologue/Epilogue Insertion & Frame Finalization",
+              "cpu_s": 0.0716,
+              "wall_s": 0.0719
+            },
+            {
+              "name": "Live Interval Analysis #2",
+              "cpu_s": 0.066,
+              "wall_s": 0.0663
+            },
+            {
+              "name": "Control Flow Optimizer",
+              "cpu_s": 0.065,
+              "wall_s": 0.0651
+            },
+            {
+              "name": "Remove Redundant DEBUG_VALUE analysis",
+              "cpu_s": 0.0644,
+              "wall_s": 0.0646
+            },
+            {
+              "name": "Machine code sinking",
+              "cpu_s": 0.0632,
+              "wall_s": 0.0634
+            },
+            {
+              "name": "Live Interval Analysis",
+              "cpu_s": 0.0596,
+              "wall_s": 0.0598
+            },
+            {
+              "name": "Early CSE",
+              "cpu_s": 0.0478,
+              "wall_s": 0.0479
+            },
+            {
+              "name": "Stack Slot Coloring",
+              "cpu_s": 0.0425,
+              "wall_s": 0.0426
+            },
+            {
+              "name": "HiIPU Optimize SPR",
+              "cpu_s": 0.0328,
+              "wall_s": 0.0329
+            },
+            {
+              "name": "Live Variable Analysis",
+              "cpu_s": 0.0285,
+              "wall_s": 0.0285
+            },
+            {
+              "name": "Split GEPs to a variadic base and a constant offset for better CSE",
+              "cpu_s": 0.0281,
+              "wall_s": 0.0282
+            },
+            {
+              "name": "ObjC ARC contraction",
+              "cpu_s": 0.0248,
+              "wall_s": 0.0248
+            },
+            {
+              "name": "Jump Optimization Pass",
+              "cpu_s": 0.0244,
+              "wall_s": 0.0245
+            },
+            {
+              "name": "Simple Register Coalescing",
+              "cpu_s": 0.0227,
+              "wall_s": 0.0228
+            },
+            {
+              "name": "Free MachineFunction",
+              "cpu_s": 0.0224,
+              "wall_s": 0.0224
+            },
+            {
+              "name": "Branch relaxation pass",
+              "cpu_s": 0.0222,
+              "wall_s": 0.0222
+            },
+            {
+              "name": "Constant Hoisting",
+              "cpu_s": 0.0212,
+              "wall_s": 0.0212
+            },
+            {
+              "name": "Canonicalize Freeze Instructions in Loops",
+              "cpu_s": 0.0201,
+              "wall_s": 0.0202
+            },
+            {
+              "name": "Eliminate PHI nodes for register allocation",
+              "cpu_s": 0.0177,
+              "wall_s": 0.0178
+            },
+            {
+              "name": "HiIPU convert ATOM to soft implementations",
+              "cpu_s": 0.0169,
+              "wall_s": 0.017
+            },
+            {
+              "name": "Machine Copy Propagation Pass",
+              "cpu_s": 0.0168,
+              "wall_s": 0.0169
+            },
+            {
+              "name": "Machine Common Subexpression Elimination",
+              "cpu_s": 0.0164,
+              "wall_s": 0.0165
+            },
+            {
+              "name": "Machine Copy Propagation Pass #2",
+              "cpu_s": 0.0155,
+              "wall_s": 0.0156
+            },
+            {
+              "name": "Partially inline calls to library functions",
+              "cpu_s": 0.0155,
+              "wall_s": 0.0156
+            },
+            {
+              "name": "Branch Probability Analysis",
+              "cpu_s": 0.0149,
+              "wall_s": 0.015
+            },
+            {
+              "name": "Branch Probability Analysis #3",
+              "cpu_s": 0.0148,
+              "wall_s": 0.0149
+            },
+            {
+              "name": "Branch Probability Analysis #4",
+              "cpu_s": 0.0143,
+              "wall_s": 0.0143
+            },
+            {
+              "name": "Expand memcmp() to load/stores",
+              "cpu_s": 0.014,
+              "wall_s": 0.014
+            },
+            {
+              "name": "Branch Probability Analysis #2",
+              "cpu_s": 0.0139,
+              "wall_s": 0.0139
+            },
+            {
+              "name": "Unnamed pass: implement Pass::getPassName()",
+              "cpu_s": 0.0133,
+              "wall_s": 0.0134
+            },
+            {
+              "name": "Replace intrinsics with calls to vector library",
+              "cpu_s": 0.0132,
+              "wall_s": 0.0132
+            },
+            {
+              "name": "Lower constant intrinsics",
+              "cpu_s": 0.0129,
+              "wall_s": 0.0129
+            },
+            {
+              "name": "Scalarize Masked Memory Intrinsics",
+              "cpu_s": 0.0124,
+              "wall_s": 0.0125
+            },
+            {
+              "name": "SpAddrSpaceBufferAllocOptPass",
+              "cpu_s": 0.0124,
+              "wall_s": 0.0124
+            },
+            {
+              "name": "Expand reduction intrinsics",
+              "cpu_s": 0.0121,
+              "wall_s": 0.0121
+            },
+            {
+              "name": "Expand vector predication intrinsics",
+              "cpu_s": 0.012,
+              "wall_s": 0.0121
+            },
+            {
+              "name": "Unnamed pass: implement Pass::getPassName() #2",
+              "cpu_s": 0.0119,
+              "wall_s": 0.0119
+            },
+            {
+              "name": "HiIPU convert generic pointer ATOM to concrete pointer ATOM",
+              "cpu_s": 0.0118,
+              "wall_s": 0.0118
+            },
+            {
+              "name": "HiIPU convert ATOM to RED",
+              "cpu_s": 0.0117,
+              "wall_s": 0.0117
+            },
+            {
+              "name": "Remove dead machine instructions #2",
+              "cpu_s": 0.0108,
+              "wall_s": 0.0109
+            },
+            {
+              "name": "Remove dead machine instructions",
+              "cpu_s": 0.0103,
+              "wall_s": 0.0103
+            },
+            {
+              "name": "PostRA Machine Sink",
+              "cpu_s": 0.0089,
+              "wall_s": 0.0089
+            },
+            {
+              "name": "HiIPUPeepHoleOpt",
+              "cpu_s": 0.0087,
+              "wall_s": 0.0087
+            },
+            {
+              "name": "HiIPU specific alloca hoisting",
+              "cpu_s": 0.0085,
+              "wall_s": 0.0085
+            },
+            {
+              "name": "HiIPU Fix Errata V200 001",
+              "cpu_s": 0.0084,
+              "wall_s": 0.0084
+            },
+            {
+              "name": "Slot index numbering #4",
+              "cpu_s": 0.008,
+              "wall_s": 0.008
+            },
+            {
+              "name": "Slot index numbering #3",
+              "cpu_s": 0.0076,
+              "wall_s": 0.0076
+            },
+            {
+              "name": "HiIPU pseudo instruction expansion pass",
+              "cpu_s": 0.0071,
+              "wall_s": 0.0071
+            },
+            {
+              "name": "Peephole Optimizations",
+              "cpu_s": 0.0069,
+              "wall_s": 0.0069
+            },
+            {
+              "name": "Two-Address instruction pass",
+              "cpu_s": 0.0065,
+              "wall_s": 0.0065
+            },
+            {
+              "name": "HiIPU Fix Errata V220 001",
+              "cpu_s": 0.0063,
+              "wall_s": 0.0063
+            },
+            {
+              "name": "MachineDominator Tree Construction #11",
+              "cpu_s": 0.0059,
+              "wall_s": 0.0059
+            },
+            {
+              "name": "HiIPU pseudo instruction expansion after scheduling pass",
+              "cpu_s": 0.0057,
+              "wall_s": 0.0057
+            },
+            {
+              "name": "Post-RA pseudo instruction expansion pass",
+              "cpu_s": 0.0056,
+              "wall_s": 0.0056
+            },
+            {
+              "name": "Tail Duplication",
+              "cpu_s": 0.0053,
+              "wall_s": 0.0053
+            },
+            {
+              "name": "HiIPU ssa general optimization pass",
+              "cpu_s": 0.005,
+              "wall_s": 0.005
+            },
+            {
+              "name": "HiIPU insert optimization pass",
+              "cpu_s": 0.0049,
+              "wall_s": 0.0049
+            },
+            {
+              "name": "Slot index numbering",
+              "cpu_s": 0.0046,
+              "wall_s": 0.0046
+            },
+            {
+              "name": "Slot index numbering #2",
+              "cpu_s": 0.0043,
+              "wall_s": 0.0043
+            },
+            {
+              "name": "Dominator Tree Construction #2",
+              "cpu_s": 0.004,
+              "wall_s": 0.0041
+            },
+            {
+              "name": "Finalize ISel and expand pseudo-instructions",
+              "cpu_s": 0.004,
+              "wall_s": 0.004
+            },
+            {
+              "name": "Early Tail Duplication",
+              "cpu_s": 0.0036,
+              "wall_s": 0.0036
+            },
+            {
+              "name": "MachineDominator Tree Construction #5",
+              "cpu_s": 0.003,
+              "wall_s": 0.003
+            },
+            {
+              "name": "MachinePostDominator Tree Construction #3",
+              "cpu_s": 0.0028,
+              "wall_s": 0.0028
+            },
+            {
+              "name": "MachinePostDominator Tree Construction",
+              "cpu_s": 0.0027,
+              "wall_s": 0.0028
+            },
+            {
+              "name": "Natural Loop Information #3",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "Process Implicit Definitions",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "HiIPU pseudo instruction expansion pre reg alloc pass",
+              "cpu_s": 0.0026,
+              "wall_s": 0.0026
+            },
+            {
+              "name": "MachinePostDominator Tree Construction #2",
+              "cpu_s": 0.0025,
+              "wall_s": 0.0025
+            },
+            {
+              "name": "Natural Loop Information #5",
+              "cpu_s": 0.0023,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Post-Dominator Tree Construction #2",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0023
+            },
+            {
+              "name": "Post-Dominator Tree Construction",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "MachineDominator Tree Construction #9",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "Machine Natural Loop Construction #8",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "Post-Dominator Tree Construction #3",
+              "cpu_s": 0.0022,
+              "wall_s": 0.0022
+            },
+            {
+              "name": "Dominator Tree Construction #5",
+              "cpu_s": 0.0021,
+              "wall_s": 0.0021
+            },
+            {
+              "name": "Block Frequency Analysis",
+              "cpu_s": 0.0021,
+              "wall_s": 0.0021
+            },
+            {
+              "name": "Post-Dominator Tree Construction #4",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "MachineDominator Tree Construction #4",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "MachineDominator Tree Construction #7",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "Natural Loop Information #2",
+              "cpu_s": 0.0019,
+              "wall_s": 0.002
+            },
+            {
+              "name": "Natural Loop Information #8",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "MachineDominator Tree Construction",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "Dominator Tree Construction #6",
+              "cpu_s": 0.002,
+              "wall_s": 0.002
+            },
+            {
+              "name": "Virtual Register Map",
+              "cpu_s": 0.0019,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "Dominator Tree Construction #4",
+              "cpu_s": 0.0019,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "SROA",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "Dominator Tree Construction #8",
+              "cpu_s": 0.0019,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "MachineDominator Tree Construction #8",
+              "cpu_s": 0.0019,
+              "wall_s": 0.0019
+            },
+            {
+              "name": "Machine Natural Loop Construction #4",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "Machine Natural Loop Construction",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "Machine Cycle Info Analysis",
+              "cpu_s": 0.0018,
+              "wall_s": 0.0018
+            },
+            {
+              "name": "Machine Natural Loop Construction #6",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "MachineDominator Tree Construction #2",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Natural Loop Information",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "MachineDominator Tree Construction #10",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Machine Natural Loop Construction #3",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Natural Loop Information #7",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "SROA #3",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Natural Loop Information #4",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Dominator Tree Construction #3",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Machine Natural Loop Construction #7",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0017
+            },
+            {
+              "name": "Natural Loop Information #6",
+              "cpu_s": 0.0017,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "MachineDominator Tree Construction #3",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "Machine Natural Loop Construction #5",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "Machine Block Frequency Analysis #5",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "Dominator Tree Construction #7",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "Dominator Tree Construction",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "MachineDominator Tree Construction #6",
+              "cpu_s": 0.0016,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "Machine Block Frequency Analysis #4",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0016
+            },
+            {
+              "name": "Machine Natural Loop Construction #2",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0015
+            },
+            {
+              "name": "Machine Block Frequency Analysis #3",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0015
+            },
+            {
+              "name": "Natural Loop Information #9",
+              "cpu_s": 0.0015,
+              "wall_s": 0.0015
+            },
+            {
+              "name": "Speculatively execute instructions",
+              "cpu_s": 0.0014,
+              "wall_s": 0.0014
+            },
+            {
+              "name": "Machine Block Frequency Analysis",
+              "cpu_s": 0.0014,
+              "wall_s": 0.0014
+            },
+            {
+              "name": "Machine Block Frequency Analysis #2",
+              "cpu_s": 0.0013,
+              "wall_s": 0.0013
+            },
+            {
+              "name": "Bundle Machine CFG Edges",
+              "cpu_s": 0.0012,
+              "wall_s": 0.0012
+            },
+            {
+              "name": "Scalar Evolution Analysis #4",
+              "cpu_s": 0.0011,
+              "wall_s": 0.0011
+            },
+            {
+              "name": "Canonicalize natural loops",
+              "cpu_s": 0.0011,
+              "wall_s": 0.0011
+            },
+            {
+              "name": "Scalar Evolution Analysis #3",
+              "cpu_s": 0.0008,
+              "wall_s": 0.0008
+            },
+            {
+              "name": "Remove unreachable machine basic blocks",
+              "cpu_s": 0.0007,
+              "wall_s": 0.0008
+            },
+            {
+              "name": "Remove unreachable blocks from the CFG",
+              "cpu_s": 0.0007,
+              "wall_s": 0.0007
+            },
+            {
+              "name": "HiIPU Hardware Loops",
+              "cpu_s": 0.0006,
+              "wall_s": 0.0006
+            },
+            {
+              "name": "Scalar Evolution Analysis #2",
+              "cpu_s": 0.0006,
+              "wall_s": 0.0006
+            },
+            {
+              "name": "SROA #2",
+              "cpu_s": 0.0006,
+              "wall_s": 0.0006
+            },
+            {
+              "name": "HiIPU VF Label Optimization Pass",
+              "cpu_s": 0.0005,
+              "wall_s": 0.0005
+            },
+            {
+              "name": "Optimize machine instruction PHIs",
+              "cpu_s": 0.0003,
+              "wall_s": 0.0003
+            },
+            {
+              "name": "HiIPU Meta Section Pass",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Live Stack Slot Analysis",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Exception handling preparation",
+              "cpu_s": 0.0002,
+              "wall_s": 0.0002
+            },
+            {
+              "name": "Spill Code Placement Analysis",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Live Register Matrix",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Scalar Evolution Analysis",
+              "cpu_s": 0.0001,
+              "wall_s": 0.0001
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl)",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #7",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Memory Dependence Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Memory Dependence Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #8",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert stack protectors #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Basic Alias Analysis (stateless AA impl) #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Block Local Variable Init",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert stack protectors",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Merge contiguous icmps into a memcmp",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Function Alias Analysis Results #7",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Pre-ISel Intrinsic Lowering",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert fentry calls",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Duplicate Kernel Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert stack protectors #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Phi Values Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Fixup Statepoint Caller Saved",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "TLS Variable Hoist",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Phi Values Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Contiguously Lay Out Funclets",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU VF DAG->DAG Pattern Instruction Selection",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Merge disjoint stack slots",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Shrink Wrapping analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Register Allocation Pass Scoring",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPE DAG->DAG Pattern Instruction Selection",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Analyze Machine Code For Garbage Collection",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Data Cache Preload",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Rename Disconnected Subregister Components",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Implement the 'patchable-function' attribute",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Count Vector Execution Instruction",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU VF SWP Pipeliner Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Insert XRay ops",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Code Size Optimization Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Local Stack Slot Allocation",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPEScoreBoardIdAllocate",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Optimization Remark Emitter #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Branch Probability Analysis #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Machine Block Frequency Analysis #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "StackMap Liveness Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU VloopV2 Lower",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Vector Machine Schedule",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #4",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Optimization Remark Emitter #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Optimization Remark Emitter",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPE Stall Cycle Refactor",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Safe Stack instrumentation pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Assumption Cache Tracker",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Reorder Vector Instructions",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Copy Value",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Vector Instructions Arrangement",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Scalar Init Stack Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Vector LoopN",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Detect Dead Lanes",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiTPE IR optimizer",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Print Kernel Init And Finsh Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Shadow Stack GC Lowering",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #5",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #3",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #2",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lazy Block Frequency Analysis #6",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Lower Garbage Collection Instructions",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Pseudo Expansion Before Machine Code Emittion",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Insert wait_prev_task pipe instructions.",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU embed bitcode",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "HiIPU Mix Kernel Pass",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Scoped NoAlias Alias Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Module Information",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Target Library Information",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Target Pass Configuration",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Type-Based Alias Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Target Transform Information",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Default Regalloc Eviction Advisor",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Profile summary info",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Create Garbage Collector Module Metadata",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Machine Branch Probability Analysis",
+              "cpu_s": 0.0,
+              "wall_s": 0.0
+            },
+            {
+              "name": "Total",
+              "cpu_s": 240.9523,
+              "wall_s": 241.541
+            }
+          ]
+        },
+        {
+          "name": "DWARF Emission",
+          "rows": [
+            {
+              "name": "Debug Info Emission",
+              "cpu_s": 72.6352,
+              "wall_s": 72.9581
+            },
+            {
+              "name": "DWARF Exception Writer",
+              "cpu_s": 27.3073,
+              "wall_s": 28.6729
+            },
+            {
+              "name": "Total",
+              "cpu_s": 99.9425,
+              "wall_s": 101.631
+            }
+          ]
+        },
+        {
+          "name": "Clang front-end time report",
+          "rows": [
+            {
+              "name": "Clang front-end timer",
+              "cpu_s": 285.916,
+              "wall_s": 286.6448
+            },
+            {
+              "name": "Total",
+              "cpu_s": 285.916,
+              "wall_s": 286.6448
+            }
+          ]
+        }
+      ],
+      "warnings": [
+        "4247"
+      ]
+    }
+  }
+}

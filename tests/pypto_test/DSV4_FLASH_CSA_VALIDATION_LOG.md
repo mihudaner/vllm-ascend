@@ -24132,3 +24132,34 @@ function_results.json。正常入口不暴露Top-K，未增加149个debug编译�
 
 测试脚本Ruff、shell语法、diff检查通过；format.sh ci仍因未安装pre-commit未能执行。
 按要求详细中文Signed-off-by本地提交；本轮没有push授权，不推送。
+
+
+### 735.132 拆解最慢SPMD policy 063的210秒编译（2026-10-28）
+
+用户要求明确PyPTO/PTOAS/PTO-ISA阶段。历史063项为T97/B24/max_query6、
+max_seq_len8192、compressed_table_columns2049；总210.200959秒，其中生成
+38.069857秒、二进制172.131102秒。原记录没有内部计时，不倒推虚构逐pass数字。
+沿用6acb0ce9d冻结源码及公共SDK，单项CPU诊断、不占NPU、不重复149项。
+
+完整诊断测得生成36.018710秒：PTOAS子进程21.791835秒，其余PyPTO及接口
+14.226875秒。内置profile：parse1.705679、passes6.397360、IR到MLIR0.134756、
+编排C++0.021530秒；MemoryReuse占passes中的2.196538秒。
+生成AIC/AIV C++各约7.85万行、3.02MB，文本与原始产物相同。
+
+CCEC加-ftime-report后明显扰动，因此另以原C++私有副本、不加内部timer测二进制：
+总166.196754秒，AIV CCEC165.930367秒、其链接0.028860秒、其余关键路径0.237527秒。
+AIC CCEC17.845226秒+链接0.018734秒、AICPU交叉g++3.382000秒与AIV并行，
+不重复相加。二进制慢点明确在AIV CCEC，PTO-ISA是被编译的模板头文件而非独立编译器。
+
+内部诊断运行总323.120039秒，AIV CCEC286.875685秒。内部热点包括Live DEBUG_VALUE
+analysis67.2187秒、HiIPU Assembly Printer167.2198秒、嵌套DWARF Emission101.6310秒，
+Code Generation Time大范围280.1439秒。不能把这些嵌套timer相加，不能拿诊断绝对值
+替换正常计时。默认-g的调试信息分析与生成值得后续评估，但本轮未试去掉-g，
+未承诺收益或二进制等价，也不把不同负载下的新耗时当成优化。
+
+证据见csa_policy_compile_20261027/PROFILE_063.md、profile_063_result.json、
+profile_063_normal_binary.json及两份CCEC timer摘录。任务
+ task_20261028_095137_175859028651完成诊断，task_20261028_100051_22139371652
+完成正常二进制计时。中间测试脚本的参数名遮蔽导致一次启动失败，保留失败记录，
+修正后只重跑二进制，不修改SDK。Ruff、shell语法和diff检查通过；完整format.sh ci
+仍受既有未安装pre-commit限制。本轮按要求本地中文Signed-off-by提交，不push。

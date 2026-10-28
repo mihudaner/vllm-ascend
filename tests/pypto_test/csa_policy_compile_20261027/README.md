@@ -100,3 +100,7 @@ task-submit --device auto --max-time 1200 \
 测试代码的只读prebuilt加载仅用于本次固定产物，不改变SDK或生产JIT缓存行为。
 
 Native对照使用vLLM源码`.cache/migration-v0.25.1rc1/vllm`，commit `752a3a504485790a2e8491cacbb35c137339ad34`。
+
+原始最慢SPMD policy 063（210.20秒）的进一步分段见 [PROFILE_063.md](PROFILE_063.md)。
+只补测同一policy：PyPTO/PTOAS生成分段及正常二进制编译；另附CCEC内部timer，
+明确诊断计时扰动，不把嵌套timer相加，也不冒充历史210.20秒的逐pass原始计时。

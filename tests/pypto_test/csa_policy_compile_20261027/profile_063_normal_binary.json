@@ -1,0 +1,439 @@
+{
+  "status": "PASS",
+  "original": {
+    "mode": "spmd",
+    "index": 63,
+    "policy": {
+      "QUERY_GROUP": 6,
+      "QK_PANEL": 64,
+      "SCORE_TILE": 768,
+      "PREFETCH": 0,
+      "TO_L0": true,
+      "BALANCED": false,
+      "ROOTS": 2,
+      "OA_COLS": 256,
+      "OA_ROWS": 128,
+      "OB_ROWS": 128,
+      "OUTPUT_GROUP_PIPELINE": true,
+      "HC_ROW_DEPENDENCIES": true,
+      "ATTENTION_QUERY_METADATA": false,
+      "HC_CONSUMER_REDUCE": false,
+      "QA_M16_PARALLEL": false,
+      "COOPERATIVE_PREFIX": true,
+      "EARLY_ATTENTION_GEOMETRY": true,
+      "LOCAL_ATTENTION_STATS": false,
+      "SCALE_PAGE_COALESCING": false,
+      "LEAF_SCALE_LAYOUT": false,
+      "PLAN_PHYSICAL_ROWS": true,
+      "SPLIT_SCORE_ROWS": false,
+      "OUTPUT_WORK_BALANCE": false,
+      "SHORT_TOPK_PREFIX": false,
+      "SHORT_HALF_SCORE_UB": false,
+      "QB_WIDE_N": false,
+      "PREFIX_BRANCH_GROUPS": 4,
+      "JOINT_BF16_PREFIX": false,
+      "PREFIX_PROJECTION_ROWS": 128,
+      "SCORE_GROUP_ORDER": false,
+      "PLAN_TABLE_COLUMNS": 2080,
+      "FUSED_INDEXER_COEFF": false
+    },
+    "representative": {
+      "tokens": 97,
+      "requests": 24,
+      "max_query_tokens": 6,
+      "max_seq_len": 8192,
+      "compressed_table_columns": 2049
+    },
+    "status": "PASS",
+    "device_execution": false,
+    "started_wall": 1793116462.413128,
+    "generate_s": 38.06985681410879,
+    "artifact": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/spmd_063-build/decode_csa_spmd_cn1ag4p2",
+    "binary_s": 172.13110191002488,
+    "compile_s": 210.20095872413367,
+    "kernel_count": 2,
+    "warm_hit_s": 0.021912983618676662,
+    "same_artifact": true,
+    "cache_delta": {
+      "requests": 2,
+      "object_hits": 1,
+      "ready_hits": 0,
+      "generated_hits": 0,
+      "misses": 0,
+      "disabled_requests": 2,
+      "forced_rebuilds": 0,
+      "bypasses": 0,
+      "invalid_entries": 0,
+      "storage_errors": 0,
+      "generation_builds": 1,
+      "binary_builds": 0,
+      "lookup_ns": 0,
+      "build_ns": 31559879000
+    },
+    "finished_wall": 1793116672.6362164
+  },
+  "device_execution": false,
+  "policy_workers": 1,
+  "diagnostic_flags": [],
+  "note": "原210.20秒来自32路并发；本次仅编译该policy，保留内部并行，不冒充原时刻的细分计时",
+  "started_wall": 1793152853.3536704,
+  "load_average": [
+    31.44,
+    28.39,
+    31.18
+  ],
+  "artifact": "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063_plain_binary/build/artifact",
+  "generate_s": 0.0004465552046895027,
+  "binary_s": 166.19675368675962,
+  "compile_s": 166.1972002419643,
+  "profiler": {
+    "total_seconds": 166.197189,
+    "stages": [
+      {
+        "name": "load_and_compile_binaries",
+        "seconds": 166.19619,
+        "children": []
+      }
+    ]
+  },
+  "subprocesses": [
+    {
+      "index": 0,
+      "tool": "git",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "start_s": 0.04539923323318362,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.048725469037890434,
+      "wall_s": 0.003326235804706812
+    },
+    {
+      "index": 1,
+      "tool": "git",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "start_s": 0.11935761710628867,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.1222746092826128,
+      "wall_s": 0.002916992176324129
+    },
+    {
+      "index": 2,
+      "tool": "git",
+      "command": [
+        "git",
+        "status",
+        "--porcelain"
+      ],
+      "start_s": 0.12239015009254217,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.13906324096024036,
+      "wall_s": 0.016673090867698193
+    },
+    {
+      "index": 3,
+      "tool": "aarch64-target-linux-gnu-g++",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/tools/hcc/bin/aarch64-target-linux-gnu-g++",
+        "--version"
+      ],
+      "start_s": 0.13943661516532302,
+      "thread": "MainThread",
+      "returncode": 0,
+      "stdout_file": "process_003_aarch64-target-linux-gnu-g++.stdout.txt",
+      "end_s": 0.14110577339306474,
+      "wall_s": 0.0016691582277417183
+    },
+    {
+      "index": 4,
+      "tool": "g++",
+      "command": [
+        "g++",
+        "--version"
+      ],
+      "start_s": 0.14121140399947762,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.14455914124846458,
+      "wall_s": 0.0033477372489869595
+    },
+    {
+      "index": 5,
+      "tool": "git",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "start_s": 0.14469133224338293,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.14729626011103392,
+      "wall_s": 0.0026049278676509857
+    },
+    {
+      "index": 6,
+      "tool": "git",
+      "command": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=normal"
+      ],
+      "start_s": 0.14738259138539433,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.1606963062658906,
+      "wall_s": 0.013313714880496264
+    },
+    {
+      "index": 7,
+      "tool": "git",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "start_s": 0.16082584811374545,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.1633745552971959,
+      "wall_s": 0.0025487071834504604
+    },
+    {
+      "index": 8,
+      "tool": "git",
+      "command": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=normal"
+      ],
+      "start_s": 0.16346077620983124,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.17654976807534695,
+      "wall_s": 0.013088991865515709
+    },
+    {
+      "index": 9,
+      "tool": "git",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "start_s": 0.17667284002527595,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.17910543596372008,
+      "wall_s": 0.0024325959384441376
+    },
+    {
+      "index": 10,
+      "tool": "git",
+      "command": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=normal"
+      ],
+      "start_s": 0.17919334722682834,
+      "thread": "MainThread",
+      "returncode": 0,
+      "end_s": 0.19498555921018124,
+      "wall_s": 0.0157922119833529
+    },
+    {
+      "index": 11,
+      "tool": "ccec",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ccec",
+        "-c",
+        "-O3",
+        "-g",
+        "-x",
+        "cce",
+        "-Wall",
+        "-std=c++17",
+        "--cce-aicore-only",
+        "--cce-aicore-arch=dav-c220-cube",
+        "-mllvm",
+        "-cce-aicore-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-function-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-record-overflow=false",
+        "-mllvm",
+        "-cce-aicore-addr-transform",
+        "-mllvm",
+        "-cce-aicore-dcci-insert-for-scalar=false",
+        "-DMEMORY_BASE",
+        "-Ibuild/pto-isa/include",
+        "-Ibuild/pto-isa/include/pto",
+        "-Isimpler_setup/incore",
+        "-Isrc/common/platform/include",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/a2a3/runtime",
+        "-Isrc/common",
+        "-Isrc/common/task_interface",
+        "-o",
+        "/tmp/pypto-incore-ug3wtk4u/kernel.o",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063_plain_binary/build/artifact/kernels/aic/cube_schedule.cpp"
+      ],
+      "start_s": 0.1987468102015555,
+      "thread": "ThreadPoolExecutor-0_1",
+      "returncode": 0,
+      "stderr_file": "process_011_ccec.stderr.txt",
+      "end_s": 18.043972928076982,
+      "wall_s": 17.845226117875427
+    },
+    {
+      "index": 12,
+      "tool": "ccec",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ccec",
+        "-c",
+        "-O3",
+        "-g",
+        "-x",
+        "cce",
+        "-Wall",
+        "-std=c++17",
+        "--cce-aicore-only",
+        "--cce-aicore-arch=dav-c220-vec",
+        "-mllvm",
+        "-cce-aicore-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-function-stack-size=0x8000",
+        "-mllvm",
+        "-cce-aicore-record-overflow=false",
+        "-mllvm",
+        "-cce-aicore-addr-transform",
+        "-mllvm",
+        "-cce-aicore-dcci-insert-for-scalar=false",
+        "-DMEMORY_BASE",
+        "-Ibuild/pto-isa/include",
+        "-Ibuild/pto-isa/include/pto",
+        "-Isimpler_setup/incore",
+        "-Isrc/common/platform/include",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/a2a3/runtime",
+        "-Isrc/common",
+        "-Isrc/common/task_interface",
+        "-o",
+        "/tmp/pypto-incore-gfcsbuip/kernel.o",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063_plain_binary/build/artifact/kernels/aiv/vector_schedule.cpp"
+      ],
+      "start_s": 0.19969413010403514,
+      "thread": "ThreadPoolExecutor-0_2",
+      "returncode": 0,
+      "stderr_file": "process_012_ccec.stderr.txt",
+      "end_s": 166.13006102619693,
+      "wall_s": 165.9303668960929
+    },
+    {
+      "index": 13,
+      "tool": "aarch64-target-linux-gnu-g++",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/tools/hcc/bin/aarch64-target-linux-gnu-g++",
+        "-shared",
+        "-fPIC",
+        "-O3",
+        "-g",
+        "-std=c++17",
+        "-fno-gnu-unique",
+        "-Wl,--build-id=sha1",
+        "src/a2a3/runtime/tensormap_and_ringbuffer/orchestration/common.cpp",
+        "src/common/platform/onboard/aicpu/cache_ops.cpp",
+        "src/common/platform/onboard/aicpu/device_time.cpp",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/common/task_interface",
+        "-Isrc/common",
+        "-Isrc/a2a3/platform/include",
+        "-Isrc/common/platform/include",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/runtime",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/orchestration",
+        "-Isrc/a2a3/runtime/tensormap_and_ringbuffer/common",
+        "-Isrc/a2a3/runtime",
+        "-o",
+        "/tmp/pypto-orchestration-zs7v3ag1/orchestration.so",
+        "/data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_policy_compile_20261027/runs/profile_spmd_063_plain_binary/build/artifact/orchestration/decode_csa_spmd.cpp"
+      ],
+      "start_s": 0.2016260912641883,
+      "thread": "ThreadPoolExecutor-0_0",
+      "returncode": 0,
+      "end_s": 3.5836257482878864,
+      "wall_s": 3.381999657023698
+    },
+    {
+      "index": 14,
+      "tool": "ld.lld",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ld.lld",
+        "-e",
+        "kernel_entry",
+        "-o",
+        "/tmp/pypto-incore-ug3wtk4u/kernel.elf",
+        "/tmp/pypto-incore-ug3wtk4u/kernel.o"
+      ],
+      "start_s": 18.045055150054395,
+      "thread": "ThreadPoolExecutor-0_1",
+      "returncode": 0,
+      "end_s": 18.06378927314654,
+      "wall_s": 0.018734123092144728
+    },
+    {
+      "index": 15,
+      "tool": "ld.lld",
+      "command": [
+        "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2/bin/ld.lld",
+        "-e",
+        "kernel_entry",
+        "-o",
+        "/tmp/pypto-incore-gfcsbuip/kernel.elf",
+        "/tmp/pypto-incore-gfcsbuip/kernel.o"
+      ],
+      "start_s": 166.13354452326894,
+      "thread": "ThreadPoolExecutor-0_2",
+      "returncode": 0,
+      "end_s": 166.1624040249735,
+      "wall_s": 0.02885950170457363
+    }
+  ],
+  "cache_stats": "CacheStats(requests=0, object_hits=0, ready_hits=0, generated_hits=0, misses=0, disabled_requests=0, forced_rebuilds=0, bypasses=0, last_bypass_reason=None, invalid_entries=0, storage_errors=0, generation_builds=0, binary_builds=0, lookup_ns=0, build_ns=0)",
+  "generated_sources": [
+    {
+      "path": "orchestration/decode_csa_spmd.cpp",
+      "bytes": 32004,
+      "lines": 528
+    },
+    {
+      "path": "ptoas/dynamic_csa_full.cpp",
+      "bytes": 2977302,
+      "lines": 77836
+    },
+    {
+      "path": "kernels/aic/cube_schedule.cpp",
+      "bytes": 3023285,
+      "lines": 78488
+    },
+    {
+      "path": "kernels/aiv/vector_schedule.cpp",
+      "bytes": 3023451,
+      "lines": 78491
+    }
+  ]
+}
