@@ -1,0 +1,77 @@
+{
+  "device": 0,
+  "source": "/data00/wangkai/pto_env/xllm-vllm-ascend",
+  "fixture": "/data00/wangkai/aclnnWorkspace/build/csa94-sync-20261028/device_inputs/pad96",
+  "tokens": 96,
+  "requests_capacity": 2,
+  "actual_tokens": 6,
+  "backend": "aclnn",
+  "super_kernel_optimize": true,
+  "passed": true,
+  "checks": [
+    {
+      "eager_length": 131078,
+      "cpp_bitwise": {
+        "cache_rows": true,
+        "main_state": true,
+        "main_cache": true,
+        "idx_state": true,
+        "idx_cache": true,
+        "output": true
+      }
+    },
+    {
+      "eager_length": 1048576,
+      "cpp_bitwise": {
+        "cache_rows": true,
+        "main_state": true,
+        "main_cache": true,
+        "idx_state": true,
+        "idx_cache": true,
+        "output": true
+      }
+    },
+    {
+      "replay_length": 131078,
+      "seconds": 0.005274944007396698,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 1048576,
+      "seconds": 0.0014828849816694856,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 131078,
+      "seconds": 0.001492254959885031,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 1048576,
+      "seconds": 0.0012310020392760634,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 1048576,
+      "seconds": 0.000966039951890707,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 131078,
+      "seconds": 0.0009996499866247177,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "address_change_safe_fallback": true
+    },
+    {
+      "missing_variant_safe_fallback": true
+    }
+  ]
+}

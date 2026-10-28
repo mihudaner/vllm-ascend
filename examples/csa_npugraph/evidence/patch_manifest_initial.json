@@ -1,0 +1,26 @@
+{
+  "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py": {
+    "before": "e5d9e7e45210f6fd5b489259f2d918e98c491210677493bf73b3b76c5a4c1cee",
+    "after": "2a4c7f3068b694ae5b784df4cae9e343dfe9eb980b6d265bbcc23b9229f661a1"
+  },
+  "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py": {
+    "before": null,
+    "after": "dd9a5e0b41d38bbe981db2c35d3f6d1ae6e0469c0608133e67c3e3281fef3c45"
+  },
+  "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/service.py": {
+    "before": "4376c5b58af510d7a8d21130b889b14f4f8e91260e12a8d55a0cf7d9c968f134",
+    "after": "4f1fb939d39167439ddff82f4927ca91fb8f14960e22829c9e36d50b7cba265d"
+  },
+  "vllm_ascend/models/pypto_deepseek_v4.py": {
+    "before": "69eecf939a447319bd1e5de5214e84f4f4a09248760dc17b8d54de89d851b597",
+    "after": "340a8e834cacd30f247854d06663c65897b040dcf96d1e0930bad61d26ec2f3e"
+  },
+  "vllm_ascend/compilation/acl_graph.py": {
+    "before": "91ea4c7ef976ecb5d73af1c94a03a9ae10868e7786fa7c199efcc9d4c3921814",
+    "after": "4498f72cf8481d62eb1a842f4eda240e0a85ec5b9d93fe8a98bd05f23798946b"
+  },
+  "vllm_ascend/worker/model_runner_v1.py": {
+    "before": "507fcf9dd60927082fa80a99c8f5ca48bbf3259407d5f818b1931765f24e4389",
+    "after": "d22002dcbe368bf9facb15a6324329a50e3b134df3d4318754cf53b8c69f1a42"
+  }
+}

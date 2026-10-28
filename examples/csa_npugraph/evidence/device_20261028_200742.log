@@ -1,0 +1,14 @@
+INFO 10-28 20:07:49 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 20:07:49 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 20:07:49 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 20:07:49 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 20:07:49 [platform.py:61] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py:604: UserWarning: After using 'torch_npu.npu.set_deterministic_level', please do not use 'torch.use_deterministic_algorithms' anymore, as it may cause unknown errors.
+  warnings.warn("After using 'torch_npu.npu.set_deterministic_level', "
+[W1028 20:07:56.704385848 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+INFO 10-28 20:08:00 [backend.py:164] PTO_CSA_ACLNN_READY reference=9141a7bed4900d4817c12adb71563df56cef25c7 policies=94 library=/usr/local/python3.12.13/lib/python3.12/site-packages/bytenn_pto_ops/lib/bytenn_pto_ops_npu.so
+Traceback (most recent call last):
+  File "/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_npugraph/scripts/device_csa_policy_graphs.py", line 160, in <module>
+    assert snapshot()==reference[length]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

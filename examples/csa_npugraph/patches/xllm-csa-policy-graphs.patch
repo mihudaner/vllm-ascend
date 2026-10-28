@@ -1,0 +1,313 @@
+diff --git a/vllm_ascend/compilation/acl_graph.py b/vllm_ascend/compilation/acl_graph.py
+index de674e139..ff452e4e8 100644
+--- a/vllm_ascend/compilation/acl_graph.py
++++ b/vllm_ascend/compilation/acl_graph.py
+@@ -22,6 +22,9 @@ from vllm.platforms import current_platform
+ 
+ from vllm_ascend.ascend_config import get_ascend_config
+ from vllm_ascend.ascend_forward_context import _EXTRA_CTX
++from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_variants import (
++    CSAGraphKey, TND_GRAPH_CAPTURE, csa_graph_key,
++)
+ from vllm_ascend.ops.pypto.trace import csa_trace_enabled, trace_event
+ 
+ from ..utils import weak_ref_tensors
+@@ -133,7 +136,7 @@ class ACLGraphWrapper:
+         self.aclgraph_options = cudagraph_options
+         # the entries for different batch descriptors that we need to capture
+         # aclgraphs for.
+-        self.concrete_aclgraph_entries: dict[BatchDescriptor, ACLGraphEntry] = {}
++        self.concrete_aclgraph_entries: dict[Any, ACLGraphEntry] = {}
+         self.enable_enpu = enable_enpu
+         self.use_eagle = use_eagle
+         _acl_graph_wrappers.add(self)
+@@ -152,6 +155,22 @@ class ACLGraphWrapper:
+         # in case we need to access the original runnable.
+         return self.runnable
+ 
++    def _run_without_graph(self, context, *args, **kwargs):
++        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import TND_PADDED_REDISPATCH
++
++        previous_mode = context.cudagraph_runtime_mode
++        previous_redispatch = context.additional_kwargs.get(TND_PADDED_REDISPATCH)
++        context.cudagraph_runtime_mode = CUDAGraphMode.NONE
++        context.additional_kwargs[TND_PADDED_REDISPATCH] = True
++        try:
++            return self.runnable(*args, **kwargs)
++        finally:
++            context.cudagraph_runtime_mode = previous_mode
++            if previous_redispatch is None:
++                context.additional_kwargs.pop(TND_PADDED_REDISPATCH, None)
++            else:
++                context.additional_kwargs[TND_PADDED_REDISPATCH] = previous_redispatch
++
+     def __call__(self, *args, **kwargs):
+         forward_context = get_forward_context()
+         batch_descriptor = forward_context.batch_descriptor
+@@ -166,11 +185,16 @@ class ACLGraphWrapper:
+             # runtime modes.
+             return self.runnable(*args, **kwargs)
+ 
+-        if batch_descriptor not in self.concrete_aclgraph_entries:
+-            # create a new entry for this batch descriptor
+-            self.concrete_aclgraph_entries[batch_descriptor] = ACLGraphEntry(batch_descriptor=batch_descriptor)
++        graph_key = csa_graph_key(forward_context, batch_descriptor)
++        if isinstance(graph_key, CSAGraphKey) and graph_key not in self.concrete_aclgraph_entries:
++            if not forward_context.additional_kwargs.get(TND_GRAPH_CAPTURE, False):
++                trace_event("csa_graph_variant_miss", "tnd_graph_variant_miss", batch=batch_descriptor)
++                return self._run_without_graph(forward_context, *args, **kwargs)
++
++        if graph_key not in self.concrete_aclgraph_entries:
++            self.concrete_aclgraph_entries[graph_key] = ACLGraphEntry(batch_descriptor=batch_descriptor)
+ 
+-        entry = self.concrete_aclgraph_entries[batch_descriptor]
++        entry = self.concrete_aclgraph_entries[graph_key]
+ 
+         if entry.aclgraph is None:
+             if self.aclgraph_options.debug_log_enable:
+@@ -298,10 +322,6 @@ class ACLGraphWrapper:
+         else:
+             can_replay = True
+         if entry.csa_tnd_contracts and not can_replay:
+-            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import (
+-                TND_PADDED_REDISPATCH,
+-            )
+-
+             # 旧图可能捕获了Native/空路径，或请求容量/策略/输入地址已经变化。
+             # 走正常Python派发，支持的调用仍可进入SPMD，范围外由服务回退Native。
+             if csa_trace_enabled():
+@@ -315,18 +335,7 @@ class ACLGraphWrapper:
+                     "tnd_replay_redispatch_python",
+                     blocked_layers=blocked,
+                 )
+-            previous_mode = forward_context.cudagraph_runtime_mode
+-            previous_redispatch = forward_context.additional_kwargs.get(TND_PADDED_REDISPATCH)
+-            forward_context.cudagraph_runtime_mode = CUDAGraphMode.NONE
+-            forward_context.additional_kwargs[TND_PADDED_REDISPATCH] = True
+-            try:
+-                return self.runnable(*args, **kwargs)
+-            finally:
+-                forward_context.cudagraph_runtime_mode = previous_mode
+-                if previous_redispatch is None:
+-                    forward_context.additional_kwargs.pop(TND_PADDED_REDISPATCH, None)
+-                else:
+-                    forward_context.additional_kwargs[TND_PADDED_REDISPATCH] = previous_redispatch
++            return self._run_without_graph(forward_context, *args, **kwargs)
+ 
+         if entry.csa_hbg_host_metadata:
+             from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.host_metadata import validate_graph_replay
+diff --git a/vllm_ascend/models/pypto_deepseek_v4.py b/vllm_ascend/models/pypto_deepseek_v4.py
+index 34af89794..175abfa24 100644
+--- a/vllm_ascend/models/pypto_deepseek_v4.py
++++ b/vllm_ascend/models/pypto_deepseek_v4.py
+@@ -167,6 +167,7 @@ def prepare_csa_model(model):
+         attention = layer.self_attn
+         if attention.compress_ratio == 4:
+             attention.dsa_attn._pto_csa_runtime = CSAServiceRuntime(attention, operators, max_num_seqs, layer)
++            attention.dsa_attn._pto_csa_runtime.policy_graphs = variant == "spmd_tnd"
+             count += 1
+     if not count:
+         raise ValueError("No target C4 attention layers found for PTO CSA")
+@@ -181,6 +182,7 @@ def prepare_csa_model(model):
+         capture_length = config.model_config.max_model_len
+         if MIN_SEQUENCE_LENGTH <= capture_length <= MAX_SEQUENCE_LENGTH:
+             model._pto_csa_tnd_capture_sequence_length = capture_length
++            model._pto_csa_policy_graphs = variant == "spmd_tnd"
+     logger.info(
+         "PTO_CSA_LAYOUT variant=%s effective_mode=%d root_layouts=%s nz_packed=%s",
+         variant,
+diff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py
+new file mode 100644
+index 000000000..6008b9e7e
+--- /dev/null
++++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py
+@@ -0,0 +1,71 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Host-only graph variants for the existing SPMD policy domains.
++
++These keys choose a graph, not a kernel override. The full TND contract still
++validates descriptors and addresses before replay. Tensor contents are never
++read here, and missing variants are never captured on a live request.
++"""
++
++from dataclasses import dataclass
++from typing import Any
++
++from .policy import (
++    LEAF_LAYOUT_MAX_CACHE_ROWS,
++    SHORT_HISTORY_MAX_CACHE_ROWS,
++    SHORT_PREFETCH_HALF_SORT_LIMIT,
++    SHORT_SCORE_TILE,
++    SINGLE_REQUEST_MAX_CACHE_ROWS,
++    select_policy,
++)
++from .service_config import MAX_QUERY_TOKENS, MAX_SEQUENCE_LENGTH, MIN_SEQUENCE_LENGTH
++
++TND_GRAPH_CAPTURE = "pto_csa_policy_graph_capture"
++COMPRESS_RATIO = 4
++
++
++@dataclass(frozen=True)
++class CSAGraphKey:
++    batch_descriptor: Any
++    policies: tuple
++
++
++def csa_graph_key(context, batch_descriptor):
++    """Include every opted-in layer; never assume the first layer represents all."""
++    policies = []
++    for name, wrapper in context.no_compile_layers.items():
++        runtime = getattr(wrapper, "_pto_csa_runtime", None)
++        if runtime is not None and getattr(runtime, "policy_graphs", False):
++            policies.append((name, runtime.graph_policy_key(context, batch_descriptor.num_tokens)))
++    if not policies:
++        return batch_descriptor
++    return CSAGraphKey(batch_descriptor, tuple(sorted(policies)))
++
++
++def capture_sequence_lengths(*, tokens, requests, max_sequence_length):
++    """One representative per policy, derived from the selector's boundaries.
++
++    select_policy uses floor(L/4), so an inclusive row boundary r ends at
++    L=4*(r+1)-1. Keep the largest history representative when policies coincide.
++    Table width is constant across histories for a given allocated graph;
++    its plan-column specialization does not add a history boundary.
++    """
++    limit = min(max_sequence_length, MAX_SEQUENCE_LENGTH)
++    if limit < MIN_SEQUENCE_LENGTH:
++        return ()
++    prefetch_rows = (SHORT_PREFETCH_HALF_SORT_LIMIT // (SHORT_SCORE_TILE // 2)) * SHORT_SCORE_TILE
++    row_limits = (
++        prefetch_rows,
++        SHORT_HISTORY_MAX_CACHE_ROWS,
++        LEAF_LAYOUT_MAX_CACHE_ROWS,
++        SINGLE_REQUEST_MAX_CACHE_ROWS,
++    )
++    lengths = {limit}
++    lengths.update(min(limit, COMPRESS_RATIO * (r + 1) - 1) for r in row_limits)
++    representatives = {}
++    for length in sorted(lengths):
++        policy = select_policy(
++            tokens=tokens, requests=requests, max_query_tokens=MAX_QUERY_TOKENS,
++            max_seq_len=length,
++        )
++        representatives[policy] = length
++    return tuple(sorted(representatives.values(), reverse=True))
+diff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py
+index 2f908489b..51b31903a 100644
+--- a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py
++++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py
+@@ -42,6 +42,8 @@ EARLY_GEOMETRY_MIN_TOKENS = 64
+ LOCAL_STATS_MAX_TOKENS = 96
+ # 非balanced Score既有交接宽度；两AIV各消费一半。对应indexer_score_stages。
+ SHORT_SCORE_TILE = 768
++SHORT_HISTORY_MAX_CACHE_ROWS = 8192
++SINGLE_REQUEST_MAX_CACHE_ROWS = 65536
+ # 既有TopK半叶直接归并的资源边界；更大范围用2560/3072/4096分支。
+ SHORT_PREFETCH_HALF_SORT_LIMIT = 2048
+ # 沿已有QA的小M16并行区间边界，两个完整M16行块起再启用Score新流水。
+@@ -179,7 +181,7 @@ def select_policy(
+                 compressed_table_columns=compressed_table_columns,
+             )
+         )
+-    long_history = cache_rows > 8192
++    long_history = cache_rows > SHORT_HISTORY_MAX_CACHE_ROWS
+     group = 2
+     if long_history:
+         # 24个query起可用多叶填满24组；query长度不足6时不为复用Key扩张M384。
+@@ -200,7 +202,7 @@ def select_policy(
+     short_key_prefetch = group == 2 and short_half_span_upper <= SHORT_PREFETCH_HALF_SORT_LIMIT
+     # 用户允许单请求独立分档。仅改变已有G2的历史工作分配，
+     # 保留动态Q/L及原半叶边界（末叶可小于4096）；较大容量及S1维持原策略。
+-    single_request_leaves = requests == 1 and long_history and cache_rows <= 65536 and 5 <= max_query_tokens <= 6
++    single_request_leaves = requests == 1 and long_history and cache_rows <= SINGLE_REQUEST_MAX_CACHE_ROWS and 5 <= max_query_tokens <= 6
+     ob_rows = 32 if tokens <= 32 else 96 if tokens <= 96 else 128
+     parallel_small_qa = group == 6 and 16 < tokens < 32
+     leaf_scale_layout = (
+diff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/service.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/service.py
+index 46e7ca1f2..0f6fa3121 100644
+--- a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/service.py
++++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/service.py
+@@ -131,6 +131,30 @@ class CSAServiceRuntime(AttentionServiceBase):
+         cache[key] = (req, value)
+         return value
+ 
++    def graph_policy_key(self, context, tokens):
++        """Select the same policy as execution using existing Host metadata."""
++        metadata = context.attn_metadata
++        if metadata is None or getattr(context, "is_draft_model", False):
++            return None
++        item = metadata.get(self.prefixes["indexer"])
++        compressed = metadata.get(self.prefixes["compressed"])
++        if item is None or item.num_prefills or item.decode is None:
++            return None
++        if compressed is None or compressed.decode is None:
++            return None
++        req = item.decode
++        table = compressed.decode.block_table
++        if table is None or table.ndim != 2 or not supported_descriptor(
++            tokens=tokens, requests=req.seq_lens.numel(),
++            actual_tokens=item.num_actual_tokens, max_query_tokens=native_query_bound(req),
++            max_seq_len=req.max_seq_lens, batch_capacity=self.batch_capacity,
++        ):
++            return None
++        return (self.execution_backend, self._select_policy(
++            tokens=tokens, requests=req.seq_lens.numel(), max_query_tokens=MAX_QUERY_TOKENS,
++            max_seq_len=req.max_seq_lens, compressed_table_columns=table.shape[1],
++        ))
++
+     def graph_signature(self, context, tokens):
+         """不执行metadata生产者或读取Tensor内容，避免旧图绕过真实服务判定。"""
+         from vllm_ascend.ops.dsa import _build_kv_cache
+diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
+index a8cc2f2e0..1912e9db2 100644
+--- a/vllm_ascend/worker/model_runner_v1.py
++++ b/vllm_ascend/worker/model_runner_v1.py
+@@ -3720,6 +3720,10 @@ class NPUModelRunner(GPUModelRunner):
+                 input_ids=input_ids,
+                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
+             ):
++                if is_graph_capturing and getattr(self.get_model(), "_pto_csa_policy_graphs", False):
++                    from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_variants import TND_GRAPH_CAPTURE
++
++                    get_forward_context().additional_kwargs[TND_GRAPH_CAPTURE] = True
+                 outputs = self._model_forward(
+                     num_tokens_padded, input_ids, positions, intermediate_tensors, inputs_embeds
+                 )
+@@ -5337,6 +5341,36 @@ class NPUModelRunner(GPUModelRunner):
+             if fn is not None:
+                 fn(capture_sizes, self.device)
+ 
++    def _warmup_and_capture(
++        self, desc, cudagraph_runtime_mode, profile_seq_lens=None,
++        allow_microbatching=False, num_warmups=None, profiler=None,
++    ):
++        if not (
++            getattr(self.get_model(), "_pto_csa_policy_graphs", False)
++            and cudagraph_runtime_mode == CUDAGraphMode.FULL and desc.uniform
++        ):
++            return super()._warmup_and_capture(
++                desc, cudagraph_runtime_mode, profile_seq_lens=profile_seq_lens,
++                allow_microbatching=allow_microbatching, num_warmups=num_warmups, profiler=profiler,
++            )
++        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_variants import capture_sequence_lengths
++
++        requests = desc.num_reqs or min(
++            self.scheduler_config.max_num_seqs, cdiv(desc.num_tokens, self.uniform_decode_query_len)
++        )
++        lengths = capture_sequence_lengths(
++            tokens=desc.num_tokens, requests=requests, max_sequence_length=self.max_model_len,
++        )
++        warmups = self.compilation_config.cudagraph_num_of_warmups if num_warmups is None else num_warmups
++        logger.info("CSA policy graph capture tokens=%d requests=%d histories=%s", desc.num_tokens, requests, lengths)
++        for length in lengths:
++            # Warm each policy outside capture to initialize bindings/workspaces.
++            # The same expansion is used during graph-memory estimation.
++            super()._warmup_and_capture(
++                desc, cudagraph_runtime_mode, profile_seq_lens=length,
++                allow_microbatching=allow_microbatching, num_warmups=max(1, warmups), profiler=profiler,
++            )
++
+     def capture_model(self) -> int:
+         """Capture NPU graphs and return actual graph pool memory bytes consumed."""
+         self._prebuild_force_eplb_topk_tables()

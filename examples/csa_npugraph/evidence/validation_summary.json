@@ -1,0 +1,33 @@
+{
+  "source": "cbc6310cb7776661daa9dfce6cfef34e7199d84d",
+  "cpu": {
+    "mode": "cpu",
+    "exit_code": 0,
+    "log": "/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_npugraph/evidence/cpu_20261028_202353.log",
+    "command": [
+      "/usr/local/python3.12.13/bin/python3",
+      "/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_npugraph/scripts/test_csa_policy_graphs.py"
+    ]
+  },
+  "device": {
+    "pad96": {
+      "passed": true,
+      "tokens": 96,
+      "requests_capacity": 2,
+      "actual_tokens": 6,
+      "checks": 10
+    },
+    "b16s6": {
+      "passed": true,
+      "tokens": 96,
+      "requests_capacity": 16,
+      "actual_tokens": 96,
+      "checks": 10
+    }
+  },
+  "syntax": "PASS",
+  "diff_check": "PASS",
+  "reverse_patch_check": "PASS",
+  "lint": "BLOCKED: pre-commit and ruff unavailable",
+  "full_model_pd": "NOT RUN"
+}

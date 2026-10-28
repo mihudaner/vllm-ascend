@@ -1,0 +1,9 @@
+{
+  "mode": "device",
+  "exit_code": 0,
+  "log": "/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_npugraph/evidence/device_20261028_202347.log",
+  "command": [
+    "/usr/local/python3.12.13/bin/python3",
+    "/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_npugraph/scripts/device_csa_policy_graphs.py"
+  ]
+}

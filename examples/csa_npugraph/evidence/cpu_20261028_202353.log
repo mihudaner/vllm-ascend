@@ -1,0 +1,22 @@
+INFO 10-28 20:24:00 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 20:24:00 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 20:24:00 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 20:24:00 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 20:24:00 [platform.py:61] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+test_address_change_still_rejects_replay (__main__.PolicyGraphsTest.test_address_change_still_rejects_replay) ... ok
+test_all_history_rows_and_boundaries (__main__.PolicyGraphsTest.test_all_history_rows_and_boundaries) ... ok
+test_all_layers_participate_and_non_csa_key_unchanged (__main__.PolicyGraphsTest.test_all_layers_participate_and_non_csa_key_unchanged) ... ok
+test_fallback_exception_restores_context (__main__.PolicyGraphsTest.test_fallback_exception_restores_context) ... ok
+test_non_csa_runner_preserves_original_capture_arguments (__main__.PolicyGraphsTest.test_non_csa_runner_preserves_original_capture_arguments) ... ok
+test_other_capacities_limits_and_physical_tables (__main__.PolicyGraphsTest.test_other_capacities_limits_and_physical_tables) ... ok
+test_runner_expands_capture_and_memory_estimation (__main__.PolicyGraphsTest.test_runner_expands_capture_and_memory_estimation) ... INFO 10-28 20:24:12 [model_runner_v1.py:5365] CSA policy graph capture tokens=96 requests=16 histories=(1048576, 196611, 32771, 15363)
+INFO 10-28 20:24:12 [model_runner_v1.py:5365] CSA policy graph capture tokens=96 requests=16 histories=(1048576, 196611, 32771, 15363)
+ok
+test_switch_and_reuse_within_history_domain (__main__.PolicyGraphsTest.test_switch_and_reuse_within_history_domain) ... INFO 10-28 20:24:12 [acl_graph.py:359] Replaying aclgraph
+ok
+test_unprepared_variant_does_not_capture_live (__main__.PolicyGraphsTest.test_unprepared_variant_does_not_capture_live) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 3.889s
+
+OK

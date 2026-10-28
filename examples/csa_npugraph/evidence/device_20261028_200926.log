@@ -1,0 +1,97 @@
+INFO 10-28 20:09:32 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 20:09:32 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 20:09:32 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 20:09:32 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 20:09:32 [platform.py:61] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/__init__.py:604: UserWarning: After using 'torch_npu.npu.set_deterministic_level', please do not use 'torch.use_deterministic_algorithms' anymore, as it may cause unknown errors.
+  warnings.warn("After using 'torch_npu.npu.set_deterministic_level', "
+[W1028 20:09:39.832144060 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+INFO 10-28 20:09:43 [backend.py:164] PTO_CSA_ACLNN_READY reference=9141a7bed4900d4817c12adb71563df56cef25c7 policies=94 library=/usr/local/python3.12.13/lib/python3.12/site-packages/bytenn_pto_ops/lib/bytenn_pto_ops_npu.so
+EAGER_CPP_PASS 131072
+EAGER_CPP_PASS 1048576
+CAPTURED 131072
+CAPTURED 1048576
+INFO 10-28 20:09:44 [acl_graph.py:359] Replaying aclgraph
+REPLAY_PASS 131072
+REPLAY_PASS 1048576
+REPLAY_PASS 131072
+REPLAY_PASS 1048576
+REPLAY_PASS 1048576
+REPLAY_PASS 131072
+{
+  "device": 0,
+  "source": "/data00/wangkai/pto_env/xllm-vllm-ascend",
+  "fixture": "/data00/wangkai/aclnnWorkspace/build/csa94-sync-20261028/device_inputs/pad96",
+  "tokens": 96,
+  "requests_capacity": 2,
+  "actual_tokens": 6,
+  "backend": "aclnn",
+  "super_kernel_optimize": true,
+  "passed": true,
+  "checks": [
+    {
+      "eager_length": 131072,
+      "cpp_bitwise": {
+        "cache_rows": true,
+        "main_state": true,
+        "main_cache": true,
+        "idx_state": true,
+        "idx_cache": true,
+        "output": true
+      }
+    },
+    {
+      "eager_length": 1048576,
+      "cpp_bitwise": {
+        "cache_rows": true,
+        "main_state": true,
+        "main_cache": true,
+        "idx_state": true,
+        "idx_cache": true,
+        "output": true
+      }
+    },
+    {
+      "replay_length": 131072,
+      "seconds": 0.0019776899716816843,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 1048576,
+      "seconds": 0.0029781910125166178,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 131072,
+      "seconds": 0.001252302958164364,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 1048576,
+      "seconds": 0.0031317019602283835,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 1048576,
+      "seconds": 0.0010130300070159137,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "replay_length": 131072,
+      "seconds": 0.0010002210037782788,
+      "bitwise_eager": true,
+      "python_calls": 2
+    },
+    {
+      "address_change_safe_fallback": true
+    },
+    {
+      "missing_variant_safe_fallback": true
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "base_commit": "cbc6310cb7776661daa9dfce6cfef34e7199d84d",
+  "branch": "dev/0.26rc_dsv4__csa_pypto",
+  "stat": " vllm_ascend/compilation/acl_graph.py               | 51 +++++++++-------\n vllm_ascend/models/pypto_deepseek_v4.py            |  2 +\n .../graph_variants.py                              | 71 ++++++++++++++++++++++\n .../pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py |  6 +-\n .../deepseek_v4_flash_csa_spmd_tnd/service.py      | 24 ++++++++\n vllm_ascend/worker/model_runner_v1.py              | 34 +++++++++++\n 6 files changed, 165 insertions(+), 23 deletions(-)\n",
+  "files": {
+    "vllm_ascend/compilation/acl_graph.py": "4498f72cf8481d62eb1a842f4eda240e0a85ec5b9d93fe8a98bd05f23798946b",
+    "vllm_ascend/models/pypto_deepseek_v4.py": "340a8e834cacd30f247854d06663c65897b040dcf96d1e0930bad61d26ec2f3e",
+    "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py": "dd9a5e0b41d38bbe981db2c35d3f6d1ae6e0469c0608133e67c3e3281fef3c45",
+    "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy.py": "2a4c7f3068b694ae5b784df4cae9e343dfe9eb980b6d265bbcc23b9229f661a1",
+    "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/service.py": "4f1fb939d39167439ddff82f4927ca91fb8f14960e22829c9e36d50b7cba265d",
+    "vllm_ascend/worker/model_runner_v1.py": "d22002dcbe368bf9facb15a6324329a50e3b134df3d4318754cf53b8c69f1a42"
+  },
+  "timestamp": "2026-10-28T20:24:59.092866"
+}
