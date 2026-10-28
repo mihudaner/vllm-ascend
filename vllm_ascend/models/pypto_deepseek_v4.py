@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Opt-in Native DeepSeek V4 model with a complete PTO CSA decode call."""
+"""Opt-in CSA decode model with PyPTO or packaged ACLNN execution."""
 
 from types import MethodType
 
@@ -115,21 +115,27 @@ def prepare_csa_model(model):
         root_weight_layouts,
         validate_weight_nz_mode,
     )
-    from vllm_ascend.ops.pypto.variant import csa_runtime, selected_variant, variant_package
+    from vllm_ascend.ops.pypto.variant import csa_runtime, selected_csa_backend, selected_variant, variant_package
 
     # 默认保持多task；TND单SPMD使用独立Native直调入口和工作区管理。
     # service_config与model_runner的图合同必须与所选实现一致。
+    backend = selected_csa_backend()
     package = variant_package()
+    variant = selected_variant()
     hbg = csa_runtime() == "host_build_graph"
+    if variant in ("spmd_tnd", "mpmd_tnd") and hbg:
+        raise ValueError("TND CSA不支持PTO_CSA_RUNTIME=host_build_graph")
     effective_mode = get_ascend_config().weight_nz_mode
     validate_weight_nz_mode(effective_mode)
+    if backend == "aclnn":
+        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.backend import validate_backend_installation
+
+        validate_backend_installation()
     CSAServiceRuntime = importlib.import_module(f"{package}.service").CSAServiceRuntime
-    if selected_variant() in ("spmd_tnd", "mpmd_tnd"):
-        if hbg:
-            raise ValueError("TND CSA使用tensormap_and_ringbuffer运行时")
+    if variant in ("spmd_tnd", "mpmd_tnd"):
         CSAOperators = None
         entry = importlib.import_module(f"{package}.entry")
-        root_function = entry.decode_csa_spmd if selected_variant() == "spmd_tnd" else entry.decode_csa_tnd
+        root_function = entry.decode_csa_spmd if variant == "spmd_tnd" else entry.decode_csa_tnd
     else:
         adapter = importlib.import_module(f"{package}.native_adapter")
         CSAOperators = adapter.HBGCSAOperators if hbg else adapter.CSAOperators
@@ -137,9 +143,9 @@ def prepare_csa_model(model):
     layouts = root_weight_layouts(root_function)
     from vllm_ascend.ops.pypto.deepseek_v4_flash_csa.reduction import ATOMIC_ADD
 
-    if selected_variant() == "spmd_tnd":
+    if variant == "spmd_tnd":
         logger.info("PTO_CSA_SINGLE_SPMD_TND package=%s atomic_add=%d", package, ATOMIC_ADD)
-    elif selected_variant() == "mpmd_tnd":
+    elif variant == "mpmd_tnd":
         logger.info("PTO_CSA_MULTITASK_TND package=%s atomic_add=%d", package, ATOMIC_ADD)
     else:
         reduction = importlib.import_module(f"{package}.qkv_proj_rope")
@@ -150,7 +156,9 @@ def prepare_csa_model(model):
             reduction.KV_OK,
         )
 
-    init_pto_runtime()
+    if backend == "python":
+        init_pto_runtime()
+    logger.info("CSA execution backend=%s variant=%s", backend, variant)
     operators = CSAOperators.register() if CSAOperators is not None else None
     config = get_current_vllm_config()
     max_num_seqs = config.scheduler_config.max_num_seqs
@@ -162,7 +170,7 @@ def prepare_csa_model(model):
             count += 1
     if not count:
         raise ValueError("No target C4 attention layers found for PTO CSA")
-    if selected_variant() in ("spmd_tnd", "mpmd_tnd"):
+    if variant in ("spmd_tnd", "mpmd_tnd"):
         from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.service_config import (
             MAX_SEQUENCE_LENGTH,
             MIN_SEQUENCE_LENGTH,
@@ -175,14 +183,14 @@ def prepare_csa_model(model):
             model._pto_csa_tnd_capture_sequence_length = capture_length
     logger.info(
         "PTO_CSA_LAYOUT variant=%s effective_mode=%d root_layouts=%s nz_packed=%s",
-        selected_variant(),
+        variant,
         effective_mode,
         layouts,
         [name for name, layout in layouts.items() if layout == "NZ"],
     )
     logger.info(
-        "Prepared PTO CSA (%s variant) for %d target C4 layers; prefill and unsupported decode batches use Native",
-        selected_variant(),
+        "Prepared CSA (%s variant) for %d target C4 layers; prefill and unsupported decode batches use Native",
+        variant,
         count,
     )
 

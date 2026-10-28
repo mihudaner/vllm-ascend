@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""TND单SPMD服务：Native描述符判定、按描述符准备绑定、调用内申请工作区、直接提交。
+"""TND单SPMD服务：Native描述符判定、按描述符准备绑定、提交PyPTO或ACLNN融合算子。
 
 沿用Native的cache connector生命周期及同一步跨层compact metadata复用。
 与旧多task入口分开，绝不从token数反算请求数。已有Host字段只用于支持范围
 和策略选择，逐请求计算仍读device Q/L。首版短历史范围见service_config。
 
 准备对象按根Tensor描述符和策略缓存，不持有外部工作区；capture可替换同描述符
-的输入/输出地址。临时Tensor及信号的初始化和生命周期均在PTO调用内部。图重放不会经过Python判定，因此
+的输入/输出地址。临时工作区由选定后端管理，信号初始化保留在核内。图重放不会经过Python判定，因此
 服务路由集成还必须验证捕获的请求容量、策略和metadata地址合同。
 """
 
@@ -17,6 +17,7 @@ from vllm_ascend.ops.pypto.trace import trace_event
 from ..deepseek_v4_flash_csa.native_adapter import prepare_weights
 from ..deepseek_v4_flash_csa.service import AttentionServiceBase
 from ..deepseek_v4_flash_csa.validation import validation_error
+from ..variant import selected_csa_backend
 from .binding import PreparedDynamicCSA
 from .entry import decode_csa_spmd
 from .graph_contract import TNDGraphContract, compact_metadata_capacity, graph_compact_request, tensor_descriptor
@@ -73,9 +74,8 @@ class CSAServiceRuntime(AttentionServiceBase):
     def _select_policy(**descriptors):
         return select_policy(**descriptors)
 
-    @staticmethod
-    def _prepare_binding(native, **options):
-        return PreparedDynamicCSA(native, **options)
+    def _prepare_binding(self, native, **options):
+        return PreparedDynamicCSA(native, execution_backend=self.execution_backend, **options)
 
     def __init__(self, attention, operators, max_num_seqs, layer=None):
         # operators参数保留模型准备钩子的统一调用约定；本实现不注册多task算子。
@@ -85,6 +85,9 @@ class CSAServiceRuntime(AttentionServiceBase):
                     "TND CSA直接提交，不接受旧BSH CSAOperators", operators=operators, max_num_seqs=max_num_seqs
                 )
             )
+        # Freeze once per service so a later new-shape binding cannot change
+        # the execution backend of an existing service or captured graph.
+        self.execution_backend = selected_csa_backend()
         self.wrapper = attention.dsa_attn
         self.layer_name = self.wrapper.dsa_attn.layer_name
         self.weights = self._prepare_weights(attention, layer)
@@ -504,6 +507,8 @@ class CSAServiceRuntime(AttentionServiceBase):
             tokens=tokens,
             requests=requests,
             next_submission=self.submissions + 1,
+            backend=self.execution_backend,
+            binding=f"{type(prepared).__module__}.{type(prepared).__name__}",
         )
         prepared()
         self.submissions += 1

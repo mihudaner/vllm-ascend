@@ -26,6 +26,18 @@ def csa_runtime() -> str:
     return runtime
 
 
+def selected_csa_backend() -> str:
+    """Validate the worker's startup selection; runtimes retain the chosen backend."""
+    from vllm_ascend import envs
+
+    backend = envs.VLLM_ASCEND_PTO_CSA_BACKEND.strip().lower()
+    if backend not in ("python", "aclnn"):
+        raise ValueError(f"Unsupported VLLM_ASCEND_PTO_CSA_BACKEND={backend!r}; expected python or aclnn")
+    if backend == "aclnn" and selected_variant() != "spmd_tnd":
+        raise ValueError("VLLM_ASCEND_PTO_CSA_BACKEND=aclnn requires PTO_CSA_VARIANT=spmd_tnd")
+    return backend
+
+
 def selected_variant() -> str:
     """返回明确选择的实现，不将旧precision配置静默改名。"""
     package = variant_package()

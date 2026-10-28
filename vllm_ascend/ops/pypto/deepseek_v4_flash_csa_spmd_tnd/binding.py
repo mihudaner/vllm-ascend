@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Native TND零拷贝绑定；临时Tensor由PTO编排经Simpler内部申请。
+"""Native TND共用零拷贝绑定；临时Tensor由所选执行后端管理。
 
-本层只保存Native输入/输出、描述符和策略；不读回metadata值，
-不分配临时工作区或信号。显式提供Top-K输出时使用诊断入口。
+本层共用Native输入/输出、描述符和策略；不读回metadata值。
+末端选择Python PTO或ACLNN。ACLNN业务入口在准备期补两份Top-K输出；
+设备临时工作区及信号由后端管理，显式Top-K输出由调用方持有。
 """
 
 from collections.abc import Mapping
@@ -32,7 +33,7 @@ def validate_core_geometry(cube_core_num: int, vector_core_num: int) -> None:
 
 
 class PreparedDynamicCSA:
-    """准备Native根参数；无外部scratch，调用内由Simpler管理临时内存。"""
+    """共用Native根参数；执行器管理临时内存及可选诊断输出。"""
 
     def __init__(
         self,
@@ -41,7 +42,14 @@ class PreparedDynamicCSA:
         max_query_tokens: int,
         max_seq_len: int,
         policy: CSASPMDPolicy | None = None,
+        execution_backend: str | None = None,
     ):
+        from ..variant import selected_csa_backend
+
+        self.execution_backend = selected_csa_backend() if execution_backend is None else execution_backend
+        if self.execution_backend not in ("python", "aclnn"):
+            raise ValueError(f"Unsupported CSA execution backend: {self.execution_backend!r}")
+        self._executor = None
         if envs.VLLM_ASCEND_ENABLE_NZ != 2:
             raise NotImplementedError(
                 validation_error(
@@ -200,15 +208,20 @@ class PreparedDynamicCSA:
             main_cache=native["cmp_kv"].view(-1, 512),
             attn_sink=native["attn_sink"].view(64, 1),
         )
-        self.allocations: dict[str, torch.Tensor] = {}  # 外部工作区计数为零。
+        self.allocations: dict[str, torch.Tensor] = {}  # ACLNN仅记录辅助Top-K输出。
         cache = self.buffers["idx_cache"]
         if cache.dtype != torch.int8 or cache.ndim != 2 or cache.shape[1] < 4160 or cache.shape[1] % 64:
             raise ValueError(
                 validation_error("Indexer cache须为Native对齐INT8页，页内至少4096B key+64B scale", cache=cache)
             )
 
+        if self.execution_backend == "aclnn":
+            from .backend import AclnnExecutor
+
+            self._executor = AclnnExecutor(self)
+
     def rebind(self, native: Mapping[str, torch.Tensor]) -> None:
-        """替换同描述符的Native根参数；内部临时内存由每次PTO调用管理。"""
+        """验证后替换同描述符的Native根参数；失败保留原绑定。"""
         roots = {target: native[source] for target, source in self._direct_names}
         roots.update(
             x=native["x_hc"].view(self.tokens, 16384),
@@ -234,11 +247,18 @@ class PreparedDynamicCSA:
                         actual=value,
                     )
                 )
+        if self._executor is not None:
+            self._executor.rebind({**self.buffers, **roots})
         self.native = dict(native)
         self.buffers.update(roots)
 
     def __call__(self, *, config=None):
-        """直接走PyPTO native prepare/enqueue；不依赖Torch dispatcher的参数数量上限。"""
+        """使用准备时固定的执行器；Python后端保留PyPTO RunConfig。"""
+        if self._executor is not None:
+            if config is not None:
+                raise ValueError("ACLNN 后端不接受 PyPTO RunConfig；请使用 CANN/Torch profiler")
+            self._executor()
+            return self.native["x_out"]
         from .entry import decode_csa_spmd, decode_csa_spmd_debug
 
         options = {} if config is None else {"config": config}
