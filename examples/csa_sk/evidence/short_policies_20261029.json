@@ -1,0 +1,99 @@
+{
+  "passed": true,
+  "sequence": [
+    20,
+    22,
+    20
+  ],
+  "numeric_checks": [
+    {
+      "mode": "static",
+      "variant": 20,
+      "pid": 268913,
+      "csa_count": 2,
+      "checks": [
+        {
+          "iteration": 0,
+          "bytewise_equal": true
+        },
+        {
+          "iteration": 1,
+          "bytewise_equal": true
+        },
+        {
+          "iteration": 2,
+          "bytewise_equal": true
+        }
+      ],
+      "numeric_pass": true,
+      "sk_fusion": "requires log audit"
+    },
+    {
+      "mode": "static",
+      "variant": 22,
+      "pid": 268913,
+      "csa_count": 2,
+      "checks": [
+        {
+          "iteration": 0,
+          "bytewise_equal": true
+        },
+        {
+          "iteration": 1,
+          "bytewise_equal": true
+        },
+        {
+          "iteration": 2,
+          "bytewise_equal": true
+        }
+      ],
+      "numeric_pass": true,
+      "sk_fusion": "requires log audit"
+    },
+    {
+      "mode": "static",
+      "variant": 20,
+      "pid": 268913,
+      "csa_count": 2,
+      "checks": [
+        {
+          "iteration": 0,
+          "bytewise_equal": true
+        },
+        {
+          "iteration": 1,
+          "bytewise_equal": true
+        },
+        {
+          "iteration": 2,
+          "bytewise_equal": true
+        }
+      ],
+      "numeric_pass": true,
+      "sk_fusion": "requires log audit"
+    }
+  ],
+  "static_dispatch_nodes": {
+    "20": [
+      4,
+      5
+    ],
+    "22": [
+      4,
+      5
+    ]
+  },
+  "compiled_variants_by_phase": {
+    "policy_0_20": [
+      20
+    ],
+    "policy_1_22": [
+      22
+    ],
+    "policy_2_20": []
+  },
+  "kernel_to_policy": {
+    "static_kernel_DsfCsaPtoBnn_138150528d2a29449c49bfe81856de32498792367190c076701467615c6055be_269406_d0": 20,
+    "static_kernel_DsfCsaPtoBnn_166f629922afd2bf81f5eb96ae9e347f7e9a389f967f93485075d0b27ac293ff_279685_d0": 22
+  }
+}

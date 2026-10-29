@@ -1,0 +1,530 @@
+diff --git a/vllm_ascend/compilation/compiler_interface.py b/vllm_ascend/compilation/compiler_interface.py
+index 34dd8b1aa..9e7bd94b4 100644
+--- a/vllm_ascend/compilation/compiler_interface.py
++++ b/vllm_ascend/compilation/compiler_interface.py
+@@ -32,6 +32,7 @@ from vllm.config import VllmConfig
+ from vllm.config.utils import Range
+ from vllm.logger import logger
+ 
++from vllm_ascend import envs
+ from vllm_ascend.ascend_config import AscendCompilationConfig, get_ascend_config
+ from vllm_ascend.utils import COMPILATION_PASS_KEY
+ 
+@@ -86,6 +87,11 @@ def _configure_backend(
+     process_kwargs_options: Callable | None = None,
+ ) -> None:
+     if ascend_compilation_config.enable_static_kernel:
++        if envs.VLLM_ASCEND_PTO_CSA_BACKEND == "aclnn":
++            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.static_compile import prepare_static_compile
++
++            include = prepare_static_compile()
++            logger.info("CSA static compilation PTO include: %s", include)
+         # npugraph_ex's static_kernel requires LOCAL_WORLD_SIZE to determine the
+         # physical node topology for creating per-node Gloo groups, which
+         # coordinate static kernel compilation and .run package installation.
+@@ -149,6 +155,10 @@ def _configure_backend(
+             config.experimental_config.aclgraph._aclnn_static_shape_kernel_sym_value_range = (
+                 _compute_decode_cudagraph_batch_sizes(vllm_config)
+             )
++            if ascend_compilation_config.enable_super_kernel:
++                config.experimental_config.aclgraph._super_kernel_optimize = True
++                config.experimental_config.aclgraph._super_kernel_optimize_options = {"dcci_after_kernel_end": [".*"]}
++
+ 
+ 
+ def npugraph_ex_compile(
+diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
+index 1912e9db2..fcac3c395 100644
+--- a/vllm_ascend/worker/model_runner_v1.py
++++ b/vllm_ascend/worker/model_runner_v1.py
+@@ -5363,12 +5363,39 @@ class NPUModelRunner(GPUModelRunner):
+         )
+         warmups = self.compilation_config.cudagraph_num_of_warmups if num_warmups is None else num_warmups
+         logger.info("CSA policy graph capture tokens=%d requests=%d histories=%s", desc.num_tokens, requests, lengths)
++        from vllm_ascend import envs as ascend_envs
++        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.policy_compile import warmup_policy_static_kernels
++
++        compilation = self.ascend_config.ascend_compilation_config
++        compile_policies = (
++            ascend_envs.VLLM_ASCEND_PTO_CSA_BACKEND == "aclnn"
++            and compilation.enable_static_kernel
++            and compilation.enable_super_kernel
++        )
+         for length in lengths:
+-            # Warm each policy outside capture to initialize bindings/workspaces.
++            capture_warmups = max(1, warmups)
++            if compile_policies:
++                logger.info("CSA policy static compile warmup tokens=%d history=%d", desc.num_tokens, length)
++                warmup_policy_static_kernels(
++                    partial(
++                        self._dummy_run,
++                        desc.num_tokens,
++                        cudagraph_runtime_mode=CUDAGraphMode.NONE,
++                        force_attention=True,
++                        uniform_decode=desc.uniform,
++                        allow_microbatching=allow_microbatching,
++                        skip_eplb=True,
++                        remove_lora=False,
++                        num_active_loras=desc.num_active_loras,
++                        profile_seq_lens=length,
++                    ),
++                    num_warmups=capture_warmups,
++                )
++                capture_warmups = 0
+             # The same expansion is used during graph-memory estimation.
+             super()._warmup_and_capture(
+                 desc, cudagraph_runtime_mode, profile_seq_lens=length,
+-                allow_microbatching=allow_microbatching, num_warmups=max(1, warmups), profiler=profiler,
++                allow_microbatching=allow_microbatching, num_warmups=capture_warmups, profiler=profiler,
+             )
+ 
+     def capture_model(self) -> int:
+diff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/static_compile.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/static_compile.py
+new file mode 100644
+index 000000000..f30701729
+--- /dev/null
++++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/static_compile.py
+@@ -0,0 +1,98 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Validate/relocate the CSA wheel's online compiler include path.
++
++The compiled kernels are unaffected. The explicit repair command only changes
++one -I string in the installed Python compiler descriptor, with a backup.
++"""
++
++import argparse
++import importlib.util
++import os
++import re
++import shutil
++import tempfile
++from pathlib import Path
++
++_INCLUDE_OPTION = re.compile(r"(?P<quote>['\"])-I(?P<path>[^'\"]*/pto-isa/include)(?P=quote)")
++_DESCRIPTOR = "ascend/vendors/dsf_csa_pto_bnn/op_impl/ai_core/tbe/dsf_csa_pto_bnn_impl/dynamic/dsf_csa_pto_bnn.py"
++_REPAIR_COMMAND = "python3 -m vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.static_compile --apply"
++
++
++def _package_root(name: str) -> Path:
++    spec = importlib.util.find_spec(name)
++    if spec is None or spec.origin is None:
++        raise RuntimeError(f"CSA static compilation requires {name}")
++    return Path(spec.origin).resolve().parent
++
++
++def _validate_headers(include: Path) -> None:
++    header = include / "pto/common/type.hpp"
++    if not (include / "pto/pto-inst.hpp").is_file() or not header.is_file():
++        raise RuntimeError(f"PTO SDK headers missing: {include}")
++    if "TFillPadMode" not in header.read_text():
++        raise RuntimeError(f"PTO SDK headers lack TFillPadMode: {header}")
++
++
++def _include_match(source: str):
++    matches = list(_INCLUDE_OPTION.finditer(source))
++    if len(matches) != 1:
++        raise RuntimeError("Expected exactly one CSA PTO -I option; inspect the wheel compiler descriptor manually")
++    return matches[0]
++
++
++def prepare_static_compile() -> Path:
++    """Fail early on the stale build-host path, without modifying the wheel."""
++    descriptor = _package_root("bytenn_pto_ops") / _DESCRIPTOR
++    include = Path(_include_match(descriptor.read_text())["path"])
++    try:
++        _validate_headers(include)
++    except RuntimeError as error:
++        raise RuntimeError(
++            f"CSA online static compilation would use incompatible PTO headers: {error}. "
++            f"With the matching Simpler SDK installed, run: {_REPAIR_COMMAND}"
++        ) from error
++    return include
++
++
++def repair_compile_include(descriptor: Path, include: Path, *, apply: bool = False) -> bool:
++    """Relocate only the compiler -I option; return whether a change is needed."""
++    include = include.resolve()
++    _validate_headers(include)
++    source = descriptor.read_text()
++    match = _include_match(source)
++    updated = source[: match.start()] + repr("-I" + str(include)) + source[match.end() :]
++    if Path(match["path"]) == include:
++        return False
++    if apply:
++        backup = descriptor.with_suffix(descriptor.suffix + ".before-csa-sk")
++        # Preserve the first original for an explicit rollback.
++        try:
++            with backup.open("x") as handle:
++                handle.write(source)
++        except FileExistsError:
++            pass
++        with tempfile.NamedTemporaryFile(mode="w", dir=descriptor.parent, delete=False) as handle:
++            temporary = Path(handle.name)
++            handle.write(updated)
++        try:
++            shutil.copymode(descriptor, temporary)
++            os.replace(temporary, descriptor)
++        finally:
++            temporary.unlink(missing_ok=True)
++    return True
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--apply", action="store_true", help="Write the repair; default is dry-run")
++    parser.add_argument("--descriptor", type=Path)
++    parser.add_argument("--include", type=Path, help="Matching PTO SDK include directory")
++    args = parser.parse_args()
++    descriptor = args.descriptor or _package_root("bytenn_pto_ops") / _DESCRIPTOR
++    include = args.include or _package_root("simpler_setup").parent / "build/pto-isa/include"
++    changed = repair_compile_include(descriptor, include, apply=args.apply)
++    print(f"descriptor={descriptor} include={include} change_needed={changed} applied={changed and args.apply}")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy_compile.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy_compile.py
+new file mode 100644
+index 000000000..8bd3bd80b
+--- /dev/null
++++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy_compile.py
+@@ -0,0 +1,34 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Static-kernel coverage for CSA policies sharing the same symbolic shape."""
++
++from collections.abc import Callable
++
++
++def warmup_policy_static_kernels(
++    warmup: Callable[[], object],
++    *,
++    num_warmups: int,
++    build_dir: str | None = None,
++    compile_kernel: Callable | None = None,
++) -> None:
++    """Observe this policy before capture, bypassing shape-only FX deduplication.
++
++    Run ordinary warmup first: it initializes bindings and completes any lazy
++    FX/static compilation. Only then may the compiler dump another execution;
++    otherwise its dump can recursively trigger the first FX static compile.
++
++    All ranks must call this in the same capture order, even when a rank has
++    no new operators. TorchAir deduplicates the dumped operator JSON (including
++    variant and tensor metadata), coordinates compilation/installation across
++    ranks, and reselects kernels. Do not clear its compiled_shape/op caches.
++    """
++    for _ in range(max(1, num_warmups)):
++        warmup()
++    if compile_kernel is None:
++        # Lazy import: CPU tests and the non-static path need no NPU runtime.
++        from torchair._acl_concrete_graph.static_kernel import compile_static_kernel
++
++        compile_kernel = compile_static_kernel
++    compile_kernel(warmup, build_dir=build_dir, super_kernel_optimize=True)
++    # Exercise the selected static kernels outside capture as well.
++    warmup()
+diff --git a/tests/ut/ops/test_csa_static_compile.py b/tests/ut/ops/test_csa_static_compile.py
+new file mode 100644
+index 000000000..834453dc6
+--- /dev/null
++++ b/tests/ut/ops/test_csa_static_compile.py
+@@ -0,0 +1,58 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Regression tests for the stale build-machine PTO include in CSA wheels."""
++
++import importlib.util
++import tempfile
++import unittest
++from pathlib import Path
++from unittest.mock import patch
++
++SOURCE = Path(__file__).resolve().parents[3] / "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/static_compile.py"
++spec = importlib.util.spec_from_file_location("csa_static_compile", SOURCE)
++module = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(module)
++
++
++class TestStaticCompileHeaders(unittest.TestCase):
++    def setUp(self):
++        self.directory = tempfile.TemporaryDirectory()
++        self.addCleanup(self.directory.cleanup)
++        self.root = Path(self.directory.name)
++        self.include = self.root / "sdk/build/pto-isa/include"
++        (self.include / "pto/common").mkdir(parents=True)
++        (self.include / "pto/pto-inst.hpp").write_text("// SDK entry")
++        (self.include / "pto/common/type.hpp").write_text("enum class TFillPadMode {};")
++        self.descriptor = self.root / module._DESCRIPTOR
++        self.descriptor.parent.mkdir(parents=True)
++        self.original = "options = ['-I/nonexistent/build/pto-isa/include', '-O3']\n"
++        self.descriptor.write_text(self.original)
++
++    def test_regression_stale_path_repaired_and_original_preserved(self):
++        with patch.object(module, "_package_root", return_value=self.root):
++            with self.assertRaisesRegex(RuntimeError, "--apply"):
++                module.prepare_static_compile()
++            self.assertTrue(module.repair_compile_include(self.descriptor, self.include))
++            self.assertEqual(self.descriptor.read_text(), self.original)
++            self.assertTrue(module.repair_compile_include(self.descriptor, self.include, apply=True))
++            self.assertEqual(module.prepare_static_compile(), self.include)
++            self.assertFalse(module.repair_compile_include(self.descriptor, self.include, apply=True))
++        self.assertEqual(self.descriptor.with_suffix(".py.before-csa-sk").read_text(), self.original)
++        self.assertIn("'-O3'", self.descriptor.read_text())
++
++    def test_incompatible_or_missing_sdk_does_not_modify_descriptor(self):
++        (self.include / "pto/common/type.hpp").write_text("// old SDK")
++        with self.assertRaisesRegex(RuntimeError, "TFillPadMode"):
++            module.repair_compile_include(self.descriptor, self.include, apply=True)
++        (self.include / "pto/pto-inst.hpp").unlink()
++        with self.assertRaisesRegex(RuntimeError, "missing"):
++            module.repair_compile_include(self.descriptor, self.include, apply=True)
++        self.assertEqual(self.descriptor.read_text(), self.original)
++
++    def test_ambiguous_descriptor_rejected(self):
++        self.descriptor.write_text(self.original * 2)
++        with self.assertRaisesRegex(RuntimeError, "exactly one"):
++            module.repair_compile_include(self.descriptor, self.include, apply=True)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/ut/ops/test_csa_policy_compile.py b/tests/ut/ops/test_csa_policy_compile.py
+new file mode 100644
+index 000000000..4f7d9e2d4
+--- /dev/null
++++ b/tests/ut/ops/test_csa_policy_compile.py
+@@ -0,0 +1,77 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Regression: one symbolic shape may select several hidden CSA variants."""
++
++import importlib.util
++import unittest
++from pathlib import Path
++
++SOURCE = Path(__file__).resolve().parents[3] / "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/policy_compile.py"
++spec = importlib.util.spec_from_file_location("csa_policy_compile", SOURCE)
++module = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(module)
++
++
++class TestPolicyCompile(unittest.TestCase):
++    def test_same_shape_policies_are_observed_before_capture(self):
++        compiled_shapes = set()
++        static_variants = set()
++        dumping = False
++        installed = set()
++        reselected = set()
++        variants = (25, 3, 22, 20)
++        for variant in variants:
++
++            def warmup(variant=variant):
++                nonlocal dumping
++                # Model the ordinary FX shape-only compilation on first call.
++                if 96 not in compiled_shapes:
++                    self.assertFalse(dumping, "nested compilation inside dump")
++                    compiled_shapes.add(96)
++                    static_variants.add(variant)
++                if dumping:
++                    static_variants.add(variant)
++
++            def compiler(fn, **options):
++                nonlocal dumping
++                self.assertTrue(options["super_kernel_optimize"])
++                dumping = True
++                fn()
++                dumping = False
++                installed.update(static_variants)
++                reselected.update(installed)
++
++            module.warmup_policy_static_kernels(warmup, num_warmups=0, compile_kernel=compiler)
++            # This is the boundary where the caller would capture this policy.
++            self.assertIn(variant, reselected)
++        self.assertEqual(static_variants, set(variants))
++        self.assertEqual(compiled_shapes, {96})
++
++    def test_all_ranks_enter_compiler_even_without_new_local_ops(self):
++        entries = []
++        for _ in range(2):
++            module.warmup_policy_static_kernels(
++                lambda: None,
++                num_warmups=1,
++                compile_kernel=lambda fn, **kw: entries.append("collective"),
++            )
++        self.assertEqual(entries, ["collective", "collective"])
++
++    def test_selected_kernel_warmup_follows_compilation(self):
++        events = []
++        module.warmup_policy_static_kernels(
++            lambda: events.append("warmup"),
++            num_warmups=2,
++            compile_kernel=lambda fn, **kw: events.append("compile-register-reselect"),
++        )
++        self.assertEqual(events, ["warmup", "warmup", "compile-register-reselect", "warmup"])
++
++    def test_compiler_exception_propagates_before_capture(self):
++        def fail(*args, **kwargs):
++            raise RuntimeError("compile failed")
++
++        with self.assertRaisesRegex(RuntimeError, "compile failed"):
++            module.warmup_policy_static_kernels(lambda: None, num_warmups=0, compile_kernel=fail)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/ut/ops/test_csa_policy_capture.py b/tests/ut/ops/test_csa_policy_capture.py
+new file mode 100644
+index 000000000..e6c2c4479
+--- /dev/null
++++ b/tests/ut/ops/test_csa_policy_capture.py
+@@ -0,0 +1,93 @@
++# SPDX-License-Identifier: Apache-2.0
++"""Exercise the real runner method without loading a model or NPU runtime."""
++
++import ast
++import functools
++import sys
++import unittest
++from pathlib import Path
++from types import ModuleType, SimpleNamespace
++from unittest.mock import Mock, patch
++
++
++class TestPolicyCapture(unittest.TestCase):
++    def run_capture(self, backend="aclnn", static=True, sk=True):
++        events = []
++        runner_source = Path(__file__).resolve().parents[3] / "vllm_ascend/worker/model_runner_v1.py"
++        tree = ast.parse(runner_source.read_text())
++        method = next(
++            n
++            for c in tree.body
++            if isinstance(c, ast.ClassDef)
++            for n in c.body
++            if isinstance(n, ast.FunctionDef) and n.name == "_warmup_and_capture"
++        )
++
++        class Base:
++            def _warmup_and_capture(self, desc, mode, **kwargs):
++                events.append(("capture", kwargs))
++
++        namespace = {
++            "Base": Base,
++            "partial": functools.partial,
++            "CUDAGraphMode": SimpleNamespace(FULL="full", NONE="none"),
++            "cdiv": lambda a, b: (a + b - 1) // b,
++            "logger": Mock(),
++        }
++        cls = ast.ClassDef(
++            name="Runner", bases=[ast.Name(id="Base", ctx=ast.Load())], keywords=[], body=[method], decorator_list=[]
++        )
++        exec(
++            compile(ast.fix_missing_locations(ast.Module(body=[cls], type_ignores=[])), str(runner_source), "exec"),
++            namespace,
++        )
++        runner = namespace["Runner"]()
++        runner.get_model = lambda: SimpleNamespace(_pto_csa_policy_graphs=True)
++        runner.scheduler_config = SimpleNamespace(max_num_seqs=16)
++        runner.uniform_decode_query_len = 6
++        runner.max_model_len = 1048576
++        runner.compilation_config = SimpleNamespace(cudagraph_num_of_warmups=2)
++        runner.ascend_config = SimpleNamespace(
++            ascend_compilation_config=SimpleNamespace(enable_static_kernel=static, enable_super_kernel=sk)
++        )
++        runner._dummy_run = lambda *args, **kwargs: events.append(("dummy", kwargs))
++        root = ModuleType("vllm_ascend")
++        root.envs = SimpleNamespace(VLLM_ASCEND_PTO_CSA_BACKEND=backend)
++        variants = ModuleType("variants")
++        variants.capture_sequence_lengths = lambda **kw: (1048576, 196611, 32771, 15363)
++        helper = ModuleType("helper")
++
++        def prepare(warmup, **kwargs):
++            events.append(("compile", kwargs))
++            warmup()
++
++        helper.warmup_policy_static_kernels = prepare
++        prefix = "vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd."
++        with patch.dict(
++            sys.modules, {"vllm_ascend": root, prefix + "graph_variants": variants, prefix + "policy_compile": helper}
++        ):
++            runner._warmup_and_capture(
++                SimpleNamespace(num_tokens=96, num_reqs=16, uniform=True, num_active_loras=0), "full"
++            )
++        return events
++
++    def test_each_policy_compiles_before_capture(self):
++        events = self.run_capture()
++        self.assertEqual([e[0] for e in events], ["compile", "dummy", "capture"] * 4)
++        for kind, kw in events:
++            if kind == "dummy":
++                self.assertEqual(kw["cudagraph_runtime_mode"], "none")
++                self.assertTrue(kw["force_attention"])
++            elif kind == "capture":
++                self.assertEqual(kw["num_warmups"], 0)
++
++    def test_non_static_paths_keep_original_warmup(self):
++        for options in ({"backend": "python"}, {"static": False}, {"sk": False}):
++            with self.subTest(options=options):
++                events = self.run_capture(**options)
++                self.assertEqual([e[0] for e in events], ["capture"] * 4)
++                self.assertTrue(all(kw["num_warmups"] == 2 for _, kw in events))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/ut/ops/test_csa_static_config.py b/tests/ut/ops/test_csa_static_config.py
+new file mode 100644
+index 000000000..7aa33b059
+--- /dev/null
++++ b/tests/ut/ops/test_csa_static_config.py
+@@ -0,0 +1,53 @@
++# SPDX-License-Identifier: Apache-2.0
++"""TorchAir fallback must compile relocatable SK kernels on the first shape."""
++
++import ast
++import os
++import unittest
++from collections.abc import Callable
++from pathlib import Path
++from types import SimpleNamespace
++from typing import Any
++from unittest.mock import Mock, patch
++
++
++class TestStaticConfig(unittest.TestCase):
++    def test_fallback_forwards_sk_options_only_when_enabled(self):
++        source = Path(__file__).resolve().parents[3] / "vllm_ascend/compilation/compiler_interface.py"
++        node = next(
++            n
++            for n in ast.parse(source.read_text()).body
++            if isinstance(n, ast.FunctionDef) and n.name == "_configure_backend"
++        )
++        namespace = {
++            "Any": Any,
++            "Callable": Callable,
++            "AscendCompilationConfig": Any,
++            "VllmConfig": Any,
++            "os": os,
++            "logger": Mock(),
++            "envs": SimpleNamespace(VLLM_ASCEND_PTO_CSA_BACKEND="python"),
++            "_compute_decode_cudagraph_batch_sizes": lambda _: [96],
++        }
++        exec(
++            compile(ast.fix_missing_locations(ast.Module(body=[node], type_ignores=[])), str(source), "exec"), namespace
++        )
++        for enabled in (False, True):
++            config = SimpleNamespace(
++                debug=SimpleNamespace(aclgraph=SimpleNamespace()),
++                experimental_config=SimpleNamespace(aclgraph=SimpleNamespace()),
++            )
++            with patch.dict(os.environ, {"LOCAL_WORLD_SIZE": "16"}):
++                namespace["_configure_backend"](
++                    config, SimpleNamespace(enable_static_kernel=True, enable_super_kernel=enabled), None
++                )
++            options = config.experimental_config.aclgraph
++            self.assertTrue(options._aclnn_static_shape_kernel)
++            self.assertEqual(options._aclnn_static_shape_kernel_sym_value_range, [96])
++            self.assertEqual(getattr(options, "_super_kernel_optimize", False), enabled)
++            if enabled:
++                self.assertEqual(options._super_kernel_optimize_options, {"dcci_after_kernel_end": [".*"]})
++
++
++if __name__ == "__main__":
++    unittest.main()

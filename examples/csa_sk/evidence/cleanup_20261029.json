@@ -1,0 +1,33 @@
+{
+  "test_root": "/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_sk/artifacts/policy_compile_20261029",
+  "packages_checked": [
+    "static_kernel_261029100703260110_258052",
+    "static_kernel_261029101043021662_268249",
+    "static_kernel_261029101512722585_269406",
+    "static_kernel_261029101850651088_279685"
+  ],
+  "remaining_test_packages": [],
+  "removed_plog_files": [
+    "/root/ascend/log/debug/plog/plog-257517_20261029100550499.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029101424521.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029100700947.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029100657715.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029100658777.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029100643120.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029101039883.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029101422396.log",
+    "/root/ascend/log/debug/plog/plog-257559_20261029100700663.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029101508131.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029101847154.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029102223402.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029101507005.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029101510378.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029101510094.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029101450244.log",
+    "/root/ascend/log/debug/plog/plog-268913_20261029102226069.log",
+    "/root/ascend/log/run/plog/plog-257517_20261029100550701.log",
+    "/root/ascend/log/run/plog/plog-257559_20261029100643321.log",
+    "/root/ascend/log/run/plog/plog-268913_20261029101450445.log"
+  ],
+  "scope": "Only recorded test PIDs and named static packages; mounted artifacts retained"
+}
