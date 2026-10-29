@@ -50,5 +50,43 @@ class PackageCoverageTest(unittest.TestCase):
                 builder.check_vendor(vendor)
 
 
+class RelocatableIsaTest(unittest.TestCase):
+    def test_descriptor_uses_only_bundled_headers_after_move(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original_include = root / 'build-machine/include'
+            (original_include / 'pto').mkdir(parents=True)
+            (original_include / 'pto/pto-inst.hpp').write_text('// ISA fixture\n')
+            package = root / 'wheel/bytenn_pto_ops'
+            vendor = package / 'ascend/vendors/dsf_csa_pto_bnn'
+            descriptor = vendor / 'op_impl/ai_core/tbe/dsf_csa_pto_bnn_impl/dynamic/dsf_csa_pto_bnn.py'
+            descriptor.parent.mkdir(parents=True)
+            original_option = '-I' + str(original_include)
+            descriptor.write_text('import os\ndef options():\n'
+                + '    custom_all_compile_options = {"__ALLSOC__": [' + repr(original_option)
+                + ', "-O3", "-DMEMORY_BASE"]},\n'
+                + '    return custom_all_compile_options[0]["__ALLSOC__"]\n')
+            before = builder.sha(descriptor)
+            metadata, provenance = builder.bundle_static_compiler(package, vendor)
+            self.assertEqual(provenance['input_descriptor_sha256'], before)
+            self.assertNotEqual(before, metadata['descriptor_sha256'])
+            self.assertNotIn(original_option, descriptor.read_text())
+            relocated = root / 'another-machine/bytenn_pto_ops'
+            relocated.parent.mkdir()
+            shutil.move(str(package), relocated)
+            shutil.rmtree(root / 'build-machine')
+            descriptor = relocated / metadata['descriptor']
+            include = relocated / metadata['isa_include']
+            namespace = {'__file__': str(descriptor)}
+            # Execute only this test's tiny descriptor fixture, never a real OPP module.
+            exec(compile(descriptor.read_text(), str(descriptor), 'exec'), namespace)
+            self.assertEqual(namespace['options'](), ['-I' + str(include.resolve()), '-O3', '-DMEMORY_BASE'])
+            self.assertEqual(builder.sha(descriptor), metadata['descriptor_sha256'])
+            self.assertEqual(builder.isa_tree_sha256(include), metadata['isa_tree_sha256'])
+            (include / 'pto/pto-inst.hpp').write_text('// changed\n')
+            self.assertNotEqual(builder.isa_tree_sha256(include), metadata['isa_tree_sha256'])
+
+
 if __name__ == '__main__':
     unittest.main()

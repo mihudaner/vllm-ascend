@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """Execute production loader/executor/hooks on CPU; never initializes an NPU."""
 import ast
+import shutil
+import hashlib
 import copy
 import importlib.util
 import json
@@ -212,28 +214,105 @@ class TestDeviceService(unittest.TestCase):
 
 
 class TestStaticCompile(unittest.TestCase):
-    def test_readonly_preflight_and_package_cache_identity(self):
-        mod=load_file('static_compile_cpu',CSA/'static_compile.py')
-        with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp)
-            include=root/'pto-isa/include'
-            (include/'pto/common').mkdir(parents=True)
-            (include/'pto/pto-inst.hpp').write_text('header')
-            (include/'pto/common/type.hpp').write_text('enum TFillPadMode {};')
-            for vendor in ('dsf_csa_pto_bnn',):
-                descriptor=root/f'ascend/vendors/{vendor}/op_impl/ai_core/tbe/{vendor}_impl/dynamic/{vendor}.py'
-                descriptor.parent.mkdir(parents=True)
-                descriptor.write_text(repr('-I'+str(include)))
-                with patch.object(mod,'_package_root',return_value=root):
-                    self.assertEqual(mod.prepare_static_compile(),include)
-            manifest=root/'package_manifest.json'
-            manifest.write_text('{"binary":"one"}')
-            with patch.object(mod,'_package_root',return_value=root):
-                first=mod.package_compile_identity()
-                manifest.write_text('{"binary":"two"}')
-                self.assertNotEqual(first,mod.package_compile_identity())
-                (include/'pto/common/type.hpp').write_text('old header')
-                with self.assertRaisesRegex(RuntimeError,'incompatible'):mod.prepare_static_compile()
+    def setUp(self):
+        self.preflight = load_file("static_compile_cpu", CSA / "static_compile.py")
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = (Path(self.temp.name) / 'wheel_a').resolve()
+        self.descriptor = self.root / self.preflight._DESCRIPTOR
+        self.include = self.root / self.preflight._ISA_INCLUDE
+        self.descriptor.parent.mkdir(parents=True)
+        self.descriptor.write_text("_BYTENN_PTO_ISA_INCLUDE = os.path.realpath(os.path.join(os.path.dirname(__file__), '../pto_isa/include'))\n")
+        (self.include / 'pto/common').mkdir(parents=True)
+        (self.include / 'pto/common/type.hpp').write_bytes(b'enum TFillPadMode {};')
+        (self.include / 'pto/pto-inst.hpp').write_bytes(b'#include "common/type.hpp"')
+        # Independent builder-side representation of the agreed schema 1 digest.
+        entries = {
+            'pto/common/type.hpp': b'enum TFillPadMode {};',
+            'pto/pto-inst.hpp': b'#include "common/type.hpp"',
+        }
+        tree_bytes = b''.join(name.encode() + b'\0' + hashlib.sha256(data).digest() + b'\n'
+                              for name, data in sorted(entries.items()))
+        self.contract = dict(schema=1, descriptor=self.preflight._DESCRIPTOR, isa_include=self.preflight._ISA_INCLUDE,
+                             descriptor_sha256=hashlib.sha256(self.descriptor.read_bytes()).hexdigest(),
+                             isa_tree_sha256=hashlib.sha256(tree_bytes).hexdigest())
+        self.write_manifest()
+
+    def write_manifest(self):
+        (self.root / 'package_manifest.json').write_text(json.dumps({'static_compile': self.contract}))
+
+    def check(self, root=None):
+        with patch.object(self.preflight, '_package_root', return_value=root or self.root):
+            return self.preflight.prepare_static_compile()
+
+    def test_package_relocates_without_original_absolute_path(self):
+        self.assertEqual(self.check(), self.include)
+        relocated = self.root.parent / 'different_host_mount/wheel_b'
+        shutil.copytree(self.root, relocated)
+        shutil.rmtree(self.root)
+        self.assertEqual(self.check(relocated), relocated / self.preflight._ISA_INCLUDE)
+
+    def test_requires_schema_and_relative_in_package_contract(self):
+        for key, bad in [('schema', 2), ('schema', True), ('descriptor', '/tmp/external.py'),
+                         ('isa_include', '../external/include'), ('isa_include', 'wrong/relative/include')]:
+            with self.subTest(key=key, bad=bad):
+                old = self.contract[key]
+                self.contract[key] = bad
+                self.write_manifest()
+                with self.assertRaises(RuntimeError): self.check()
+                self.contract[key] = old
+        self.write_manifest()
+        (self.root / 'package_manifest.json').write_text('{}')
+        with self.assertRaisesRegex(RuntimeError, 'incomplete'): self.check()
+
+    def test_descriptor_tamper_is_rejected_without_executing_it(self):
+        self.descriptor.write_text('raise AssertionError("must never execute")')
+        with self.assertRaisesRegex(RuntimeError, 'descriptor hash mismatch'): self.check()
+
+    def test_isa_payload_change_or_added_header_is_rejected(self):
+        header = self.include / 'pto/pto-inst.hpp'
+        original = header.read_bytes()
+        header.write_bytes(original + b'changed')
+        with self.assertRaisesRegex(RuntimeError, 'ISA hash mismatch'): self.check()
+        header.write_bytes(original)
+        (self.include / 'extra.hpp').write_bytes(b'extra')
+        with self.assertRaisesRegex(RuntimeError, 'ISA hash mismatch'): self.check()
+
+    def test_missing_header_and_incompatible_header_are_rejected(self):
+        header = self.include / 'pto/common/type.hpp'
+        header.unlink()
+        with self.assertRaisesRegex(RuntimeError, 'headers missing'): self.check()
+        header.write_bytes(b'old ISA header')
+        self.contract['isa_tree_sha256'] = self.preflight._isa_tree_sha256(self.include)
+        self.write_manifest()
+        with self.assertRaisesRegex(RuntimeError, 'incompatible'): self.check()
+
+    def test_symlinked_descriptor_and_isa_header_are_rejected(self):
+        external = self.root.parent / 'external.py'
+        self.descriptor.rename(external)
+        self.descriptor.symlink_to(external)
+        with self.assertRaisesRegex(RuntimeError, 'symlinks'): self.check()
+        self.descriptor.unlink()
+        external.rename(self.descriptor)
+        header = self.include / 'pto/pto-inst.hpp'
+        external = self.root.parent / 'external.hpp'
+        header.rename(external)
+        header.symlink_to(external)
+        with self.assertRaisesRegex(RuntimeError, 'symlinks'): self.check()
+
+    def test_symlinked_isa_directory_is_rejected(self):
+        outside = self.root.parent / 'outside_include'
+        self.include.rename(outside)
+        self.include.symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(RuntimeError, 'symlinks'): self.check()
+
+    def test_fx_identity_still_changes_with_package_manifest(self):
+        with patch.object(self.preflight, '_package_root', return_value=self.root):
+            before = self.preflight.package_compile_identity()
+            self.contract['isa_tree_sha256'] = 'new-package-identity'
+            self.write_manifest()
+            self.assertNotEqual(before, self.preflight.package_compile_identity())
+
 
 
 

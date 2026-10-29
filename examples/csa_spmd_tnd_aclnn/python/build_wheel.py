@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Package the complete family-0 device dispatcher, without installing it."""
 import argparse
+import ast
 import hashlib
 import json
 import platform
@@ -11,6 +12,77 @@ from pathlib import Path
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def isa_tree_sha256(directory):
+    """Schema 1: sorted POSIX path + NUL + raw file SHA256 + LF."""
+    digest = hashlib.sha256()
+    files = sorted((p for p in directory.rglob('*') if p.is_file()),
+                   key=lambda p: p.relative_to(directory).as_posix())
+    for path in files:
+        digest.update(path.relative_to(directory).as_posix().encode('utf-8'))
+        digest.update(b'\0')
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+        digest.update(b'\n')
+    return digest.hexdigest()
+
+
+def bundle_static_compiler(package, vendor):
+    """Relocate only the wheel's extracted vendor; the input .run stays intact."""
+    implementation = vendor / 'op_impl/ai_core/tbe/dsf_csa_pto_bnn_impl'
+    descriptor = implementation / 'dynamic/dsf_csa_pto_bnn.py'
+    original = descriptor.read_text()
+    tree = ast.parse(original)
+    assignments = [node for node in ast.walk(tree) if isinstance(node, ast.Assign)
+                   and any(isinstance(t, ast.Name) and t.id == 'custom_all_compile_options'
+                           for t in node.targets)]
+    candidates = []
+    for assignment in assignments:
+        for node in ast.walk(assignment.value):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.startswith('-I'):
+                directory = Path(node.value[2:])
+                if directory.is_absolute() and (directory / 'pto/pto-inst.hpp').is_file():
+                    candidates.append((node, directory.resolve()))
+    if len(candidates) != 1:
+        raise ValueError('Expected exactly one concrete PTO-ISA include in the generated descriptor')
+    node, original_include = candidates[0]
+    include = implementation / 'pto_isa/include'
+    shutil.copytree(original_include, include, symlinks=False)
+    if any(p.is_symlink() for p in include.rglob('*')):
+        raise ValueError('Bundled ISA headers must not contain symlinks')
+    # AST offsets are UTF-8 byte offsets. Change only that compiler option.
+    raw = original.encode('utf-8')
+    lines = raw.splitlines(keepends=True)
+    begin = sum(map(len, lines[:node.lineno-1])) + node.col_offset
+    end = sum(map(len, lines[:node.end_lineno-1])) + node.end_col_offset
+    updated = (raw[:begin] + b"('-I' + _BYTENN_PTO_ISA_INCLUDE)" + raw[end:]).decode('utf-8')
+    imports = [n for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))]
+    if not any(isinstance(n, ast.Import) and any(a.name == 'os' for a in n.names) for n in imports):
+        raise ValueError('Generated descriptor no longer imports os; inspect its new structure')
+    if '_BYTENN_PTO_ISA_INCLUDE' in original:
+        raise ValueError('Descriptor already postprocessed')
+    lines = updated.splitlines(keepends=True)
+    insert_at = max(n.end_lineno for n in imports)
+    lines.insert(insert_at, "\n_BYTENN_PTO_ISA_INCLUDE = os.path.realpath(os.path.join(os.path.dirname(__file__), '../pto_isa/include'))\n")
+    updated = ''.join(lines)
+    ast.parse(updated)
+    original_hash = sha(descriptor)
+    descriptor.write_text(updated)
+    transformed_hash = sha(descriptor)
+    static_compile = {
+        'schema': 1,
+        'descriptor': descriptor.relative_to(package).as_posix(),
+        'descriptor_sha256': transformed_hash,
+        'isa_include': include.relative_to(package).as_posix(),
+        'isa_tree_sha256': isa_tree_sha256(include),
+    }
+    postprocess = {
+        'schema': 1, 'kind': 'bundle-pto-isa-relative-include',
+        'input_descriptor_sha256': original_hash,
+        'output_descriptor_sha256': transformed_hash,
+        'source_include': str(original_include),
+    }
+    return static_compile, postprocess
 
 
 def check_vendor(vendor):
@@ -76,6 +148,7 @@ def main():
     vendor = ascend / 'vendors/dsf_csa_pto_bnn'
     if not (vendor / 'op_api/lib/libcust_opapi.so').is_file():
         raise ValueError('Missing ACLNN API library')
+    static_compile, postprocess = bundle_static_compiler(pkg, vendor)
     manifest = dict(provenance)
     manifest.update({
         'kernel_keys': check_vendor(vendor),
@@ -86,6 +159,10 @@ def main():
         'torch': torch.__version__, 'torch_npu': torch_npu.__version__,
         'run_sha256': sha(run), 'torch_library_sha256': sha(library),
     })
+    manifest['static_compile'] = static_compile
+    manifest['vendor_postprocess'] = postprocess
+    manifest['adapter_commit'] = subprocess.check_output(
+        ['git', '-C', str(project.parents[1]), 'rev-parse', 'HEAD'], text=True).strip()
     (pkg / 'package_manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     subprocess.run([sys.executable, 'setup.py', 'bdist_wheel'], cwd=build, check=True)
     for wheel in sorted((build / 'dist').glob('*.whl')):
