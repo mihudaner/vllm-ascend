@@ -1,86 +1,59 @@
-# CSA 单 SPMD：94 个 policy 改为设备内选择的可行性分析
+# CSA 94个policy合并C++：设备选档原型
 
-日期：2026-10-29。基线：`41ba392f4`。
-公共 SDK：`csa-shared-20261024-group-dims`，本轮没有修改 SDK 或正式 CSA 实现。
+2026-10-29。公共工具链`csa-shared-20261024-group-dims`，CANN9.2。
+最新可执行产物：`probe/cpp94_v2`。精简结果：`cpp_progress.json`。
+正式CSA、MPMD、共享SDK均未修改；PyTorch通过现有运行时加载预编译产物。
+ACLNN接入和正式服务路径尚未完成，不声称本轮已完成全部接入或性能验收。
 
-## 用户确认的边界
+## 已确认实现
 
-- 修改 `deepseek_v4_flash_csa_spmd_tnd`，覆盖 PyTorch 和 ACLNN 入口；MPMD 保持现状。
-- 沿用 policy 规则，根据真实入参选择；整个 batch 每次调用统一使用一套策略。
-- Vector 可以通过设备内同步将选择结果交给 Cube。
-- 保留全部 94 种策略各自的 tile 和流水，仅增加设备选择；遇到必须改变策略的
-  具体限制先讨论，不擅自减少策略或统一成较慢的通用 tile。
-- 接受设备选档的额外开销；本分析没有测量该开销，也不把“几微秒”当作实测结果。
+94种tile/数值策略全部保留，以独立命名空间分开编译，最后链接为一个MIX入口
+使用的AIC/AIV镜像。每次调用只执行所选分支，不提交94个任务。
+原计算代码取自既有wrapper内的`ptoas-generated code`区段，不重新走PyPTO/PTOAS。
 
-## 现状证据
+48个AIV清零各自11520个INT32 phase信号；仅AIV0根据设备上实际Q/L、T/B容量
+及已分配页表宽度计算整批policy。失活请求不贡献Q/L最大值。AIV0通过Scalar写入
+与DCache刷回发布ID，所有核复用清零结束的唯一一次MIX syncall，过屏障后选分支。
+原分支的启动清零和首个屏障移到公共入口；后续流水依赖的预置event保留。
+独立512B policy_state不会被phase清零覆盖；replay每次重新计算。
 
-参考提交：
-[mihudaner/vllm-ascend@0aadd3877b04536760ce335a2e6b19b862275118](https://github.com/mihudaner/vllm-ascend/commit/0aadd3877b04536760ce335a2e6b19b862275118)。
-其 `examples/csa_spmd_tnd_aclnn/op_host/csa_spmd_tnd_pto.cpp` 根据输入 variant
-选择 `Layout0..Layout93`，随后 `SetTilingKey(*v)`；生成脚本按编译 tiling key
-过滤对应代码。现有 PyTorch 绑定同样通过 `select_policy` 传递 constexpr。
+workspace沿用78号策略的容量上界，按本次T/B分配，不累加94份空间，不改变KV布局。
+正常外部ABI仍为55个Tensor；内部133项payload末尾追加policy_state。
+非融合分支的group_offset_words扣除共享空间中额外T个尾部元素，保持原逻辑长度。
 
-本地 policy 枚举文件保存 94 个组合，共 32 个 constexpr，其中 25 项在组合间变化。
-不仅有 KV 长短差异，也包含 T/B 容量、query 上界和已分配页表宽度。
-主要数值变化包括 G2/G6、QK panel 128/64、Score tile 768/1024、O-A 列宽
-128/192/256、O-A 行块 128/160、O-B 行块 32/96/128，以及页表证明宽度2048/2080。
+## 本轮超时根因及修复
 
-`entry.py` 的系数、Score/transfer arena、offset 尾区及 O projection 工作区也
-使用这些 constexpr。不能只给 Host selector 套一个 device if 而沿用旧布局。
-当前 `service.py` 的绑定缓存和 `graph_signature` 包含 policy；ACLNN 包 ABI
-又显式传 variant。消除长度分档需要同步修改这些地方。
+v1错误地直接编译`ptoas/dynamic_csa_full.cpp`，漏掉正式wrapper预处理。
+原始文件含`set_ffts_base_addr()`，但普通GM Tensor不是硬件FFTS控制地址；
+正式后端会删除这些调用，使用Simpler已初始化的地址。v1因此在硬同步处超时。
+这是合并脚本错误，不是PyPTO缺陷、镜像大小限制或策略数限制。
 
-## 实现方向和主要难点
+隔离验证：保留完整94份镜像但只写回时72核正常返回；单纯policy计算通过；
+单个错误FFTS初始化后的syncall即可超时；只去掉错误地址覆盖后，原selector
+探针通过，72核均得到policy50。随后v2采用处理后的C++并融合公共启动段。
 
-1. **运行时选分支，分支内部保留静态 tile。** 将 policy 决策转成 Vector Scalar
-   逻辑，生成统一的分支 ID；每条分支调用原常量版本的数学和流水 helper。
-   不把 `QUERY_GROUP/SCORE_TILE` 等直接变成 Tile 类型的运行时维度。
-   可以复用完全相同的公共代码，但不能改变某一 policy 原有的运算或通知顺序。
-2. **统一内部 GM 容量及分支视图。** Host/Simpler 仍需按输入描述符预留足够容量，
-   但不再选计算 policy。互斥分支复用空间，按上界而不是94份累加；设备根据所选
-   策略建立与原分支一致的行宽/偏移。G2/G6 的 `score_arena` 分别为3/9 MiB；
-   同一输入容量可能命中两者时需要覆盖9 MiB。系数和 transfer 也有额外差额。
-   这是容量增加，不是修改tile；实际峰值仍需核对，禁止恢复每层外部分配大工作区。
-3. **选择和同步必须整批一致。** T/B/页表宽保留张量容量语义；实际 Q/L 从设备读取，
-   padding 请求不能贡献真实 query/KV 最大值。要在每次调用包含 replay 时重新
-   选档，保证全部 AIC/AIV 读到本轮同一个 ID；不能复用上一步的值，也不能把
-   分支信息放进随后被原启动代码清零的区域。尽量复用已有启动同步。
-4. **编译体积、片上内存和事件分配。** 94份整链展开会显著放大IR和C++；必须
-   核对互斥分支能复用UB/L1/L0及同步事件，不能让未执行分支长期占用资源。
-   本轮尚未发现必须改tile的硬限制，也未证明94档全量可编译。后续如发现编译器
-   无法正确处理分支互斥，应修编译器，而不是先删策略。共享SDK变更须统一发布。
-5. **两种入口和图合同一起收敛。** PyTorch不再用policy constexpr产生94份特化；
-   ACLNN改成统一kernel/固定tiling key，不再要求调用者给variant。
-   Host保留描述符检查和workspace容量计算。图仍检查容量、输入地址与布局，
-   但不能再因真实KV长度跨policy而要求换图。vLLM原有T/B容量分档并不因此消失。
-   MPMD继承了部分TND服务代码，需隔离新机制，保持其现有行为。
+## 已有验证
 
-## 本轮最小验证及边界
+- 188/188对象编译和两镜像链接通过，C++ selector的94组代表描述符与原policy一致。
+- 128K/B1/S6、128K/B16/S6：eager及图重放输出、更新cache/state与原对应策略逐bit一致。
+- B16在输入地址、容量及已捕获图不变时，从真实128K切到8K；Q/L、位置、slot、
+  RoPE一起更新。policy76切到26，重放结果与原26号策略逐bit一致。
+- 混长+padding：容量B16/T96，8个有效请求Q=[1,2,3,4,5,6,1,2]、24个有效token，
+  历史为8K至128K；其余72行集中到L=0的失活请求。eager/replay及保护区通过。
+- 上述所有场景只读metadata不变，cache/state保护区完整。
 
-详见 [feasibility_result.json](feasibility_result.json)。全部是CPU任务，没有占卡。
+这些是3个实际策略（50/76/26）的代表场景设备验证，不能写成94档全部上卡通过。
+未新增Native/整模型/token/DSpark结论，未测稳定态性能。result中的首次墙钟包含
+加载和注册，不能当作CSA耗时。
 
-- 小MIX：设备标量选择N64/N128，两侧各保留自己的静态Tile。完成C++及二进制
-  编译，约2.01秒，编排只有一次 `rt_submit_task`。AIC/AIV分别有镜像属于同一个
-  MIX，不代表两个独立的策略kernel。任务 `task_20261029_154314_165202917763`。
-- 真实CSA：私有模块将policy 6/7的完整原调度置于设备分支，二者仅
-  `PLAN_TABLE_COLUMNS=2048/2080` 不同。通过PyPTO资源规划和PTOAS代码生成，
-  约53.57秒；生成4,978,381字节、129,050行C++，仍仅一次任务提交。
-  **未进行这份大源码的二进制编译，也未执行设备。** 任务
-  `task_20261029_155023_180782112655`。
-- 真实CSA探针用两侧已有的 `indexer_table` 宽度构造动态条件，仅检验编译器。
-  它不是正式policy选择器，不能替代按 compressed table 和真实Q/L选择的功能验证。
-- 初始探针修正了SPMD/cluster包装方式、测试模块导入路径及函数属性的声明位置；
-  这些是探针接线问题，没有据此认定PyPTO缺陷。
-- 没有完成94档合并、设备选择广播、图复用、数值或性能验收。
+## 重跑与后续
 
-## 重跑编译探针
+同目录`run_probe.sh`统一加载公共SDK。依次运行`build_cpp.py --output <目录> --jobs 188`、
+`cpp_dispatch.py --output <目录>`、`link_cpp.py --output <目录>`；最后一步可与对象编译
+重叠，会等对象就绪。`validate_cpp.py --artifact <目录> --case C04 --cross-policy-replay
+--output <新结果目录>`直接加载已有二进制，不触发JIT。
+CPU构建经task-submit --no-device，NPU验证经task-submit --device auto。
 
-```bash
-task-submit --no-device \
-  'bash /data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_device_policy_20261029/run_probe.sh'
-task-submit --no-device \
-  'bash /data/pyptouser/qinchuanyu/pto-eager/vllm-ascend-dsv4-pto-0251rc1/tests/pypto_test/csa_device_policy_20261029/run_probe.sh probe_csa_branches.py'
-```
-
-生成的私有源码和编译产物只用于诊断，不接入业务。下一阶段先实现共用的设备
-选择和workspace合同，用差异较大的少数policy验证，再扩展到全部94档。
+下一阶段接通正式PyTorch/ACLNN入口及图合同，再测稳定态开销。保持94份实现，
+遇到具体限制再讨论，不擅自删策略或改tile。早期Python前端合并尝试已放弃；
+初始探针过程见验证日志735.135。详细文件与分工见CPP_MERGE_HANDOFF.md。
