@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "draft_uses_original_batch_key_without_querying_target_CSA",
+    "draft_reaches_normal_capture_entry",
+    "target_keeps_policy_key_and_missing_variant_guard",
+    "target_capture_marker_still_allows_capture",
+    "non_CSA_retains_original_key",
+    "DSpark_reserves_query_capacity_other_models_unchanged"
+  ],
+  "passed": 6,
+  "python_syntax": "PASS",
+  "shell_syntax": "PASS",
+  "npu_used": false,
+  "full_service_replay": "NOT_RUN"
+}

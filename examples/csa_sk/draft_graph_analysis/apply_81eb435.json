@@ -1,0 +1,73 @@
+{
+  "requested_commit": "81eb4351703a30d323242c7c11b891a563beaa85",
+  "target_branch": "csa-sk-verify-20261029",
+  "target_base": "7b9fedbae5eaa696c2efef22549bfbad0e2663a8",
+  "files": [
+    "vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py",
+    "vllm_ascend/worker/model_runner_v1.py",
+    "benchmarks/scripts/dummy_decode/README.md",
+    "benchmarks/scripts/dummy_decode/diagnostics.py",
+    "benchmarks/scripts/dummy_decode/draft_eager.py",
+    "benchmarks/scripts/dummy_decode/dummy_decode_forward.py",
+    "benchmarks/scripts/dummy_decode/engine_scheduled_decode_profile.py",
+    "benchmarks/scripts/dummy_decode/run_ep.sh",
+    "benchmarks/scripts/dummy_decode/runtime_compat.py",
+    "benchmarks/scripts/dummy_decode/summarize_ep.py",
+    "benchmarks/scripts/dummy_decode/validate_residual_performance.py",
+    "benchmarks/scripts/dummy_decode/validate_results.py"
+  ],
+  "source_state_unchanged": true,
+  "main_state_and_index_unchanged": true,
+  "before": {
+    "source": {
+      "head": "7aca9b1b3feffa38ddd906990125f4bc8b30dd07",
+      "head_ref": "dev/0.26rc_dsv4__csa_pypto",
+      "index_sha256": "1968ae3afa11affd932363600707aedd5f14f968bf4ec861f614b79632fb5927",
+      "status": "",
+      "worktree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "main": {
+      "head": "cbc6310cb7776661daa9dfce6cfef34e7199d84d",
+      "head_ref": "csa_sk_fix_movebind",
+      "index_sha256": "3a164ddea582dfa52e3db1653cc1d4fb659b70abd67c77fa2ce9516433575635",
+      "status": " A csrc/csa_device_dispatch/device_policy.h\n A csrc/csa_device_dispatch/generate.py\n A examples/csa_sk/.gitignore\n A examples/csa_sk/MOVEBIND_STATUS.md\n A examples/csa_sk/scripts/check_device_policy.py\n A examples/csa_sk/scripts/device_dispatch_demo.py\n A examples/csa_sk/scripts/run_device_dispatch.sh\n A \"examples/csa_sk/\\345\\220\\216\\347\\247\\273\\346\\224\\271\\346\\263\\225.md\"\n",
+      "worktree_diff_sha256": "e3b9f5ef20f63526bb0a730fc4828421d171276425a48dd00242fa952bc6cc59",
+      "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "after": {
+    "source": {
+      "head": "7aca9b1b3feffa38ddd906990125f4bc8b30dd07",
+      "head_ref": "dev/0.26rc_dsv4__csa_pypto",
+      "index_sha256": "1968ae3afa11affd932363600707aedd5f14f968bf4ec861f614b79632fb5927",
+      "status": "",
+      "worktree_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "main": {
+      "head": "cbc6310cb7776661daa9dfce6cfef34e7199d84d",
+      "head_ref": "csa_sk_fix_movebind",
+      "index_sha256": "3a164ddea582dfa52e3db1653cc1d4fb659b70abd67c77fa2ce9516433575635",
+      "status": " A csrc/csa_device_dispatch/device_policy.h\n A csrc/csa_device_dispatch/generate.py\n A examples/csa_sk/.gitignore\n A examples/csa_sk/MOVEBIND_STATUS.md\n A examples/csa_sk/scripts/check_device_policy.py\n A examples/csa_sk/scripts/device_dispatch_demo.py\n A examples/csa_sk/scripts/run_device_dispatch.sh\n A \"examples/csa_sk/\\345\\220\\216\\347\\247\\273\\346\\224\\271\\346\\263\\225.md\"\n",
+      "worktree_diff_sha256": "e3b9f5ef20f63526bb0a730fc4828421d171276425a48dd00242fa952bc6cc59",
+      "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "target_commit": "e6d3d0b2f879d2338f15e059808c2d2615018fa6",
+  "validation": {
+    "checks": [
+      "draft_uses_original_batch_key_without_querying_target_CSA",
+      "draft_reaches_normal_capture_entry",
+      "target_keeps_policy_key_and_missing_variant_guard",
+      "target_capture_marker_still_allows_capture",
+      "non_CSA_retains_original_key",
+      "DSpark_reserves_query_capacity_other_models_unchanged"
+    ],
+    "passed": 6,
+    "python_syntax": "PASS",
+    "shell_syntax": "PASS",
+    "npu_used": false,
+    "full_service_replay": "NOT_RUN"
+  }
+}

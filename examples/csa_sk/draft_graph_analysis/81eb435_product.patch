@@ -1,0 +1,64 @@
+diff --git a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py
+index 6008b9e7e..50292062a 100644
+--- a/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py
++++ b/vllm_ascend/ops/pypto/deepseek_v4_flash_csa_spmd_tnd/graph_variants.py
+@@ -30,7 +30,13 @@ class CSAGraphKey:
+ 
+ 
+ def csa_graph_key(context, batch_descriptor):
+-    """Include every opted-in layer; never assume the first layer represents all."""
++    """Use ordinary Draft keys and include every opted-in Target CSA layer."""
++    # Draft shares the Target's layer registry but executes Native attention.
++    # Match graph_policy_key's Draft exclusion before building a CSA graph key;
++    # otherwise Target layers returning None prevent ordinary Draft capture.
++    if getattr(context, "is_draft_model", False):
++        return batch_descriptor
++
+     policies = []
+     for name, wrapper in context.no_compile_layers.items():
+         runtime = getattr(wrapper, "_pto_csa_runtime", None)
+diff --git a/vllm_ascend/worker/model_runner_v1.py b/vllm_ascend/worker/model_runner_v1.py
+index fcac3c395..7801125d2 100644
+--- a/vllm_ascend/worker/model_runner_v1.py
++++ b/vllm_ascend/worker/model_runner_v1.py
+@@ -3562,8 +3562,13 @@ class NPUModelRunner(GPUModelRunner):
+                     tnd_capture_length = getattr(self.get_model(), "_pto_csa_tnd_capture_sequence_length", None)
+                     if tnd_capture_length is None:
+                         tnd_capture_length = getattr(self.get_model(), "_pto_hca_tnd_capture_sequence_length", None)
+-                if tnd_capture_length is not None and profile_seq_lens is None:
+-                    seq_lens = tnd_capture_length
++                if tnd_capture_length is not None:
++                    # Target length already includes its query block. Reserve
++                    # space for the DSpark queries appended by draft dummy_run.
++                    seq_lens = min(
++                        tnd_capture_length if profile_seq_lens is None else profile_seq_lens,
++                        self._get_tnd_capture_sequence_limit(),
++                    )
+ 
+                 self.optimistic_seq_lens_cpu[:num_reqs] = seq_lens
+                 self.optimistic_seq_lens_cpu[num_reqs:].fill_(0)
+@@ -5341,6 +5346,15 @@ class NPUModelRunner(GPUModelRunner):
+             if fn is not None:
+                 fn(capture_sizes, self.device)
+ 
++    def _get_tnd_capture_sequence_limit(self) -> int:
++        """Bound target dummy length before DSpark appends its query block."""
++        draft_query_tokens = (
++            self.drafter.num_query_per_req
++            if isinstance(self.drafter, AscendDSparkProposer)
++            else 0
++        )
++        return self.max_model_len - draft_query_tokens
++
+     def _warmup_and_capture(
+         self, desc, cudagraph_runtime_mode, profile_seq_lens=None,
+         allow_microbatching=False, num_warmups=None, profiler=None,
+@@ -5359,7 +5373,7 @@ class NPUModelRunner(GPUModelRunner):
+             self.scheduler_config.max_num_seqs, cdiv(desc.num_tokens, self.uniform_decode_query_len)
+         )
+         lengths = capture_sequence_lengths(
+-            tokens=desc.num_tokens, requests=requests, max_sequence_length=self.max_model_len,
++            tokens=desc.num_tokens, requests=requests, max_sequence_length=self._get_tnd_capture_sequence_limit(),
+         )
+         warmups = self.compilation_config.cudagraph_num_of_warmups if num_warmups is None else num_warmups
+         logger.info("CSA policy graph capture tokens=%d requests=%d histories=%s", desc.num_tokens, requests, lengths)

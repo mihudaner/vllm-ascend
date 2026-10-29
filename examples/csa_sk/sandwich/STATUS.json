@@ -1,0 +1,8 @@
+{
+  "source_commit": "7b9fedbae5eaa696c2efef22549bfbad0e2663a8",
+  "target": "Add -> CSA -> Mul",
+  "script_status": "PREPARED_NOT_DEVICE_VALIDATED",
+  "profile_status": "NOT_COLLECTED",
+  "reason": "User requested waiting for an available NPU; independent verification container is not yet prepared.",
+  "c3_new_artifacts": false
+}

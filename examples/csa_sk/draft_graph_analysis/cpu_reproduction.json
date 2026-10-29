@@ -1,0 +1,19 @@
+{
+  "commit": "869b1aed3dfd2f83a4b64e1b7878239715d40867",
+  "kind": "CPU-only branch reproduction, not a live-service replay measurement",
+  "assumptions": [
+    "FULL draft context",
+    "shared static_forward_context contains target CSA runtime",
+    "draft context has no pto_csa_policy_graph_capture marker"
+  ],
+  "key": "CSAGraphKey(batch_descriptor=BatchDescriptor(num_tokens=96), policies=(('target.csa', None),))",
+  "routes": [
+    "eager_redispatch",
+    "eager_redispatch",
+    "eager_redispatch"
+  ],
+  "captured_entries": 0,
+  "simulated_draft_bypass_reaches_normal_graph_entry": true,
+  "production_source_modified": false,
+  "npu_used": false
+}
