@@ -110,3 +110,7 @@ c2 / zgj_026 的双 CSA demo 也已成功：`artifacts/run_20261028_233545_17671
 - c2 容器内 /opt ISA 与 descriptor 指向的 /data00 include 共 588 个文件完全一致，未修改容器 include 配置。镜像 tar 只读检查，未加载。
 
 最终记录：evidence/long_policies_20261029.json、short_policies_20261029.json、cleanup_20261029.json、unit_tests_20261029.log。
+
+### 测试位置更正
+
+4 个 CPU 测试已迁移到 examples/csa_sk/tests，xllm 源仓不保留测试文件；交付补丁同步移除测试，只包含适配代码。测试直接引用指定 xllm 开发目录。

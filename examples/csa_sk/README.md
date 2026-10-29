@@ -4,8 +4,9 @@
 
 产品源码修改在 c2 `/data00/wangkai/pto_env/xllm-vllm-ascend`，基线 `c3dac71b7b8fd39b008940e6874b9b5a03f34a08`。本目录记录分析、完整源码补丁、复现脚本和证据，提交到记录仓的 `csa_spmd_tnd_aclnn` 分支。沿用 `examples/csa_npugraph` 的交付方式：记录仓的产品源码基线不同，不能把本补丁直接应用到记录仓根目录。
 
-- `patches/xllm-csa-sk-policy-compile.patch`：应用到上述 xllm 源码基线的完整补丁，含新文件和测试。
+- `patches/xllm-csa-sk-policy-compile.patch`：应用到上述 xllm 源码基线的完整补丁，仅含适配代码，不含测试文件。
 - `ANALYSIS.md`：原始失败、升级后缺少 policy 编译覆盖的证据，以及环境核对记录。
+- `tests/`：4 个 CPU 回归测试文件，直接检查指定 xllm 开发目录的适配代码。
 - `evidence/`：可提交的检查结果和日志摘录。
 - `artifacts/`：大型编译输出、fixture、运行日志；忽略 Git。
 
@@ -85,3 +86,15 @@ bash /data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_sk/scripts/run_poli
 - 四档均实际进入 SK 双节点融合；共 18 次输出/状态逐字节对比通过。
 - `evidence/cleanup_20261029.json`：4 个测试包无残留，删除 20 个所属 plog；已有 config 目录保留。上轮 /tmp/csa-sk-lint 和本轮短路径 TMPDIR 已清理。
 - 完整 16-worker 服务和性能尚未验证，c3 未部署/重启。
+
+### 测试目录约定
+
+所有测试文件均位于本目录 `tests/`，xllm 源仓只保留适配代码。运行方式（c2 宿主机，临时文件也放挂载目录）：
+
+```bash
+docker exec -e PYTHONDONTWRITEBYTECODE=1 \
+  -e TMPDIR=/data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_sk/artifacts \
+  zgj_026 bash -c 'for f in /data00/wangkai/aclnnWorkspace/vllm-ascend/examples/csa_sk/tests/test_*.py; do python3 "$f" || exit; done'
+```
+
+此命令只运行 CPU 回归，不启动 NPU 编译或安装依赖。源码补丁也已剔除测试文件。

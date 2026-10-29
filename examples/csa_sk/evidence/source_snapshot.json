@@ -1,6 +1,8 @@
 {
   "base": "c3dac71b7b8fd39b008940e6874b9b5a03f34a08",
   "source": "/data00/wangkai/pto_env/xllm-vllm-ascend",
-  "patch_sha256": "7750dd997035cade8e201b13d8692d1433ced3cc9a9ec486405f5e5b0e339b59",
-  "reverse_apply_check": true
+  "patch_sha256": "5a6a6410e4a476bb8d9a97411e4098df1dba8d22a8c532f88eb9788ec9937fcd",
+  "reverse_apply_check": true,
+  "tests_location": "examples/csa_sk/tests",
+  "patch_contains_tests": false
 }
