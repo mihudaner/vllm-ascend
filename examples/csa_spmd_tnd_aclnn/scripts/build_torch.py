@@ -15,11 +15,11 @@ parser.add_argument("--build-dir", type=Path, required=True)
 args = parser.parse_args()
 build = args.build_dir.resolve()
 repo = root.parents[1]
-if build == repo or repo in build.parents:
+if build == root or root in build.parents:
     parser.error("Build directory must be outside the source repository")
 build.mkdir(parents=True, exist_ok=True)
 load(
-    name="csa_pto_npu",
+    name="bytenn_pto_ops_npu",
     sources=[str(root / "torch/binding.cpp"), str(adapter / "NPUBridge.cpp"), str(adapter / "NPUStorageImpl.cpp")],
     extra_include_paths=[
         str(adapter),
@@ -33,4 +33,4 @@ load(
     is_python_module=False,
     verbose=True,
 )
-print(build / "csa_pto_npu.so")
+print(build / "bytenn_pto_ops_npu.so")

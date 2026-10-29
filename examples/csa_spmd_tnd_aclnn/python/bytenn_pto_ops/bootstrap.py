@@ -7,11 +7,11 @@ _HANDLES = []
 
 
 def ensure_vendor():
-    import csa_pto_ops_ascend_env
+    import bytenn_pto_ops_ascend_env
 
-    csa_pto_ops_ascend_env.activate()
+    bytenn_pto_ops_ascend_env.activate()
     root = Path(__file__).resolve().parent
-    vendor = root / "ascend/vendors/csa_spmd_tnd_pto"
+    vendor = root / "ascend/vendors/dsf_csa_pto_bnn"
     library = vendor / "op_api/lib/libcust_opapi.so"
     if not library.is_file():
         raise RuntimeError("Incomplete CSA wheel: bundled OPP vendor missing; reinstall the wheel")

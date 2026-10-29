@@ -1,34 +1,53 @@
-"""CPU-only packaging tests; no torch, CANN, or device initialization."""
+# SPDX-License-Identifier: Apache-2.0
+"""CPU regression checks for the only supported package: family 0, all 94 policies."""
 import importlib.util
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-spec = importlib.util.spec_from_file_location('wheel_builder', Path(__file__).with_name('build_wheel.py'))
+spec = importlib.util.spec_from_file_location('csa_builder', Path(__file__).with_name('build_wheel.py'))
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
 
-class BuildConfigTest(unittest.TestCase):
-    def test_kernel_coverage(self):
+class PackageCoverageTest(unittest.TestCase):
+    def test_complete_device_package_is_required(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            kernel = root / 'op_impl/ai_core/tbe/kernel/ascend910_93/csa_spmd_tnd_pto'
-            kernel.mkdir(parents=True)
-            meta = kernel / 'CsaSpmdTndPto_fixture.json'
-            binary = kernel / 'CsaSpmdTndPto_fixture.o'
-            spec = {'binFileName': binary.stem, 'binFileSuffix': '.o',
-                    'kernelList': [{'tilingKey': k} for k in range(62)]}
-            meta.write_text(json.dumps(spec)); binary.write_bytes(b'fixture')
-            with self.assertRaisesRegex(ValueError, 'OPP key mismatch'):
-                builder.check_kernel_coverage(root, range(94))
-            spec['kernelList'] = [{'tilingKey': k} for k in range(94)]
-            meta.write_text(json.dumps(spec))
-            self.assertEqual(builder.check_kernel_coverage(root, range(94)), list(range(94)))
+            vendor = Path(tmp)
+            kernel = vendor / 'op_impl/ai_core/tbe/kernel/ascend910_93'
+            implementation = vendor / 'op_impl/ai_core/tbe/dsf_csa_pto_bnn_impl'
+            dynamic = implementation / 'dynamic'
+            generated = implementation / 'generated'
+            for path in (kernel, dynamic, generated):
+                path.mkdir(parents=True)
+            binary = kernel / 'test.o'
+            binary.write_bytes(b'fixture')
+            metadata = kernel / 'DsfCsaPtoBnn_test.json'
+            data = {'binFileName': 'test', 'binFileSuffix': '.o', 'kernelList': [{'tilingKey': 0}]}
+            metadata.write_text(json.dumps(data))
+            (dynamic / 'dsf_csa_pto_bnn.py').write_text('# fixture\n')
+            for i in range(94):
+                (generated / f'policy_{i:03d}.cpp').write_text('// fixture\n')
+            self.assertEqual(builder.check_vendor(vendor), [0])
+
+            # Equal file counts cannot hide a missing policy and a stray ID.
+            (generated / 'policy_093.cpp').rename(generated / 'policy_094.cpp')
+            with self.assertRaises(ValueError):
+                builder.check_vendor(vendor)
+            (generated / 'policy_094.cpp').rename(generated / 'policy_093.cpp')
+
+            # Reject the old multi-key package even when all source files exist.
+            data['kernelList'].append({'tilingKey': 1})
+            metadata.write_text(json.dumps(data))
+            with self.assertRaises(ValueError):
+                builder.check_vendor(vendor)
+            data['kernelList'].pop()
+            metadata.write_text(json.dumps(data))
+
             binary.unlink()
-            with self.assertRaisesRegex(ValueError, 'Missing kernel binary'):
-                builder.check_kernel_coverage(root, range(94))
+            with self.assertRaises(ValueError):
+                builder.check_vendor(vendor)
 
 
 if __name__ == '__main__':

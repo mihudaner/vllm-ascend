@@ -1,4 +1,4 @@
-set(ops_srcs ${CMAKE_CURRENT_SOURCE_DIR}/csa_spmd_tnd_pto.cpp)
+set(ops_srcs ${CMAKE_CURRENT_SOURCE_DIR}/dsf_csa_pto_bnn.cpp)
 npu_op_code_gen(SRC ${ops_srcs} PACKAGE ${package_name} OUT_DIR ${ASCEND_AUTOGEN_PATH} JOIN_OP_DEF True)
 file(GLOB api_src ${ASCEND_AUTOGEN_PATH}/aclnn_*.cpp)
 file(GLOB proto_src ${ASCEND_AUTOGEN_PATH}/op_proto.cc ${ASCEND_AUTOGEN_PATH}/group_op_proto/*.cc)

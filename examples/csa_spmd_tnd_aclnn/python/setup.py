@@ -16,18 +16,18 @@ class BuildPy(build_py):
     def run(self):
         super().run()
         # Interpreter startup must discover the vendor before torch_npu imports.
-        for name in ("csa_pto_ops_ascend_env.py", "csa_pto_ops_ascend_env.pth"):
+        for name in ("bytenn_pto_ops_ascend_env.py", "bytenn_pto_ops_ascend_env.pth"):
             self.copy_file(name, str(Path(self.build_lib) / name))
 
 
-manifest = json.loads(Path("csa_pto_ops/package_manifest.json").read_text())
+manifest = json.loads(Path("bytenn_pto_ops/package_manifest.json").read_text())
 
 setup(
-    name="csa_pto_ops",
+    name="bytenn_pto_ops",
     version="0.1.0",
     description="CSA TND SPMD ACLNN operator and packaged OPP vendor",
-    packages=["csa_pto_ops"],
-    package_data={"csa_pto_ops": ["**/*"]},
+    packages=["bytenn_pto_ops"],
+    package_data={"bytenn_pto_ops": ["**/*"]},
     include_package_data=True,
     python_requires=">=3.10",
     install_requires=["torch==" + manifest["torch"].split("+")[0],

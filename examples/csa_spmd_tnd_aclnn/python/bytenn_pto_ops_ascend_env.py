@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def activate():
-    vendor = Path(__file__).resolve().parent / "csa_pto_ops/ascend/vendors/csa_spmd_tnd_pto"
+    vendor = Path(__file__).resolve().parent / "bytenn_pto_ops/ascend/vendors/dsf_csa_pto_bnn"
     if vendor.is_dir():
         paths = [p for p in os.environ.get("ASCEND_CUSTOM_OPP_PATH", "").split(":") if p]
         # Prefer this exact package for CSA while preserving unrelated vendors.

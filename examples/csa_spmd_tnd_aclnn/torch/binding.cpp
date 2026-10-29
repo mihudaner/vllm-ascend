@@ -8,8 +8,8 @@
 namespace {
 void Check(at::TensorList a,int64_t variant){
  TORCH_CHECK(a.size()==57,"Expected 57 diagnostic entry buffers");
- TORCH_CHECK(variant>=0 && variant<csa::kVariantCount,"Invalid variant");
- for(const auto& t:a){TORCH_CHECK(t.device()==a[0].device(),"Mixed devices");
+ TORCH_CHECK(variant==0,"Invalid variant");
+ for(const auto& t:a){TORCH_CHECK(t.numel()>0,"Empty CSA tensor");TORCH_CHECK(t.device()==a[0].device(),"Mixed devices");
  TORCH_CHECK(t.is_contiguous(),"Contiguous buffers required");}
 TORCH_CHECK(a[0].scalar_type()==at::kBFloat16 && a[0].dim()==2, "Invalid dtype/rank: x");
 TORCH_CHECK(a[0].size(1)==16384,"Invalid shape: x");
@@ -136,9 +136,9 @@ TORCH_CHECK(a[56].size(1)==16384,"Invalid shape: output");
 void Meta(at::TensorList a,int64_t variant){Check(a,variant);}
 void Run(at::TensorList a,int64_t variant){
  Check(a,variant); const c10_npu::OptionalNPUGuard guard(a[0].device());
- EXEC_NPU_CMD(aclnnCsaSpmdTndPto, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26], a[27], a[28], a[29], a[30], a[31], a[32], a[33], a[34], a[35], a[36], a[37], a[38], a[39], a[40], a[41], a[42], a[43], a[44], a[45], a[46], a[47], a[48], a[49], a[52], a[53], a[54], a[55], variant, a[15], a[18], a[29], a[32], a[43], a[50], a[51], a[56]);
+ EXEC_NPU_CMD(aclnnDsfCsaPtoBnn, a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15], a[16], a[17], a[18], a[19], a[20], a[21], a[22], a[23], a[24], a[25], a[26], a[27], a[28], a[29], a[30], a[31], a[32], a[33], a[34], a[35], a[36], a[37], a[38], a[39], a[40], a[41], a[42], a[43], a[44], a[45], a[46], a[47], a[48], a[49], a[52], a[53], a[54], a[55], variant, a[15], a[18], a[29], a[32], a[43], a[50], a[51], a[56]);
 }
 }
-TORCH_LIBRARY(csa_pto,m){m.def("run(Tensor(a!)[] buffers, int variant) -> ()");}
-TORCH_LIBRARY_IMPL(csa_pto,PrivateUse1,m){m.impl("run",&Run);}
-TORCH_LIBRARY_IMPL(csa_pto,Meta,m){m.impl("run",&Meta);}
+TORCH_LIBRARY(bytenn_pto_ops,m){m.def("dsf_csa_pto_bnn(Tensor(a!)[] buffers, int variant) -> ()");}
+TORCH_LIBRARY_IMPL(bytenn_pto_ops,PrivateUse1,m){m.impl("dsf_csa_pto_bnn",&Run);}
+TORCH_LIBRARY_IMPL(bytenn_pto_ops,Meta,m){m.impl("dsf_csa_pto_bnn",&Meta);}

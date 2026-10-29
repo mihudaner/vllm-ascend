@@ -5,13 +5,13 @@
 #include "../include/layout_generated.h"
 #include "../include/contract.h"
 namespace optiling {
-BEGIN_TILING_DATA_DEF(CsaSpmdTndPtoTilingData)
-TILING_DATA_FIELD_DEF(uint32_t, variant);
+BEGIN_TILING_DATA_DEF(DsfCsaPtoBnnTilingData)
+TILING_DATA_FIELD_DEF(uint64_t, policyStateOffset);
 TILING_DATA_FIELD_DEF_ARR(uint64_t, 133, offsets);
 TILING_DATA_FIELD_DEF_ARR(int32_t, 133, sources);
 TILING_DATA_FIELD_DEF_ARR(int64_t, 28, scalars);
 END_TILING_DATA_DEF;
-REGISTER_TILING_DATA_CLASS(CsaSpmdTndPto, CsaSpmdTndPtoTilingData)
+REGISTER_TILING_DATA_CLASS(DsfCsaPtoBnn, DsfCsaPtoBnnTilingData)
 }
 namespace {
 bool Read(const gert::StorageShape* s,csa::Tensor& t,int source,int bytes) {
@@ -23,10 +23,7 @@ bool Read(const gert::StorageShape* s,csa::Tensor& t,int source,int bytes) {
 }
 ge::graphStatus Tiling(gert::TilingContext* c) {
  if(!c->GetPlatformInfo() || !c->GetAttrs())return ge::GRAPH_FAILED;
- const auto* v=c->GetAttrs()->GetInt(0);if(!v || *v<0 || *v>=csa::kVariantCount)return ge::GRAPH_FAILED;
-#if defined(CSA_VARIANT) && CSA_VARIANT >= 0
- if(*v!=CSA_VARIANT)return ge::GRAPH_FAILED;
-#endif
+ const auto* v=c->GetAttrs()->GetInt(0);if(!v || *v!=0)return ge::GRAPH_FAILED;
  platform_ascendc::PlatformAscendC platform(c->GetPlatformInfo());
  if(platform.GetCoreNumAic()!=24 || platform.GetCoreNumAiv()!=48)return ge::GRAPH_FAILED;
  csa::Tensor ext[57]{};
@@ -208,106 +205,10 @@ if (ext[56].rank != 2) return ge::GRAPH_FAILED;
 if (ext[56].shapes[1] != 16384) return ge::GRAPH_FAILED;
  if(!csa::ValidDynamicShape(*v, [&](int i,int axis){return int64_t(ext[i].shapes[axis]);})) return ge::GRAPH_FAILED;
  csa::Layout layout{};
- try {switch(*v){
-case 0: layout=csa::Layout0(ext);break;
-case 1: layout=csa::Layout1(ext);break;
-case 2: layout=csa::Layout2(ext);break;
-case 3: layout=csa::Layout3(ext);break;
-case 4: layout=csa::Layout4(ext);break;
-case 5: layout=csa::Layout5(ext);break;
-case 6: layout=csa::Layout6(ext);break;
-case 7: layout=csa::Layout7(ext);break;
-case 8: layout=csa::Layout8(ext);break;
-case 9: layout=csa::Layout9(ext);break;
-case 10: layout=csa::Layout10(ext);break;
-case 11: layout=csa::Layout11(ext);break;
-case 12: layout=csa::Layout12(ext);break;
-case 13: layout=csa::Layout13(ext);break;
-case 14: layout=csa::Layout14(ext);break;
-case 15: layout=csa::Layout15(ext);break;
-case 16: layout=csa::Layout16(ext);break;
-case 17: layout=csa::Layout17(ext);break;
-case 18: layout=csa::Layout18(ext);break;
-case 19: layout=csa::Layout19(ext);break;
-case 20: layout=csa::Layout20(ext);break;
-case 21: layout=csa::Layout21(ext);break;
-case 22: layout=csa::Layout22(ext);break;
-case 23: layout=csa::Layout23(ext);break;
-case 24: layout=csa::Layout24(ext);break;
-case 25: layout=csa::Layout25(ext);break;
-case 26: layout=csa::Layout26(ext);break;
-case 27: layout=csa::Layout27(ext);break;
-case 28: layout=csa::Layout28(ext);break;
-case 29: layout=csa::Layout29(ext);break;
-case 30: layout=csa::Layout30(ext);break;
-case 31: layout=csa::Layout31(ext);break;
-case 32: layout=csa::Layout32(ext);break;
-case 33: layout=csa::Layout33(ext);break;
-case 34: layout=csa::Layout34(ext);break;
-case 35: layout=csa::Layout35(ext);break;
-case 36: layout=csa::Layout36(ext);break;
-case 37: layout=csa::Layout37(ext);break;
-case 38: layout=csa::Layout38(ext);break;
-case 39: layout=csa::Layout39(ext);break;
-case 40: layout=csa::Layout40(ext);break;
-case 41: layout=csa::Layout41(ext);break;
-case 42: layout=csa::Layout42(ext);break;
-case 43: layout=csa::Layout43(ext);break;
-case 44: layout=csa::Layout44(ext);break;
-case 45: layout=csa::Layout45(ext);break;
-case 46: layout=csa::Layout46(ext);break;
-case 47: layout=csa::Layout47(ext);break;
-case 48: layout=csa::Layout48(ext);break;
-case 49: layout=csa::Layout49(ext);break;
-case 50: layout=csa::Layout50(ext);break;
-case 51: layout=csa::Layout51(ext);break;
-case 52: layout=csa::Layout52(ext);break;
-case 53: layout=csa::Layout53(ext);break;
-case 54: layout=csa::Layout54(ext);break;
-case 55: layout=csa::Layout55(ext);break;
-case 56: layout=csa::Layout56(ext);break;
-case 57: layout=csa::Layout57(ext);break;
-case 58: layout=csa::Layout58(ext);break;
-case 59: layout=csa::Layout59(ext);break;
-case 60: layout=csa::Layout60(ext);break;
-case 61: layout=csa::Layout61(ext);break;
-case 62: layout=csa::Layout62(ext);break;
-case 63: layout=csa::Layout63(ext);break;
-case 64: layout=csa::Layout64(ext);break;
-case 65: layout=csa::Layout65(ext);break;
-case 66: layout=csa::Layout66(ext);break;
-case 67: layout=csa::Layout67(ext);break;
-case 68: layout=csa::Layout68(ext);break;
-case 69: layout=csa::Layout69(ext);break;
-case 70: layout=csa::Layout70(ext);break;
-case 71: layout=csa::Layout71(ext);break;
-case 72: layout=csa::Layout72(ext);break;
-case 73: layout=csa::Layout73(ext);break;
-case 74: layout=csa::Layout74(ext);break;
-case 75: layout=csa::Layout75(ext);break;
-case 76: layout=csa::Layout76(ext);break;
-case 77: layout=csa::Layout77(ext);break;
-case 78: layout=csa::Layout78(ext);break;
-case 79: layout=csa::Layout79(ext);break;
-case 80: layout=csa::Layout80(ext);break;
-case 81: layout=csa::Layout81(ext);break;
-case 82: layout=csa::Layout82(ext);break;
-case 83: layout=csa::Layout83(ext);break;
-case 84: layout=csa::Layout84(ext);break;
-case 85: layout=csa::Layout85(ext);break;
-case 86: layout=csa::Layout86(ext);break;
-case 87: layout=csa::Layout87(ext);break;
-case 88: layout=csa::Layout88(ext);break;
-case 89: layout=csa::Layout89(ext);break;
-case 90: layout=csa::Layout90(ext);break;
-case 91: layout=csa::Layout91(ext);break;
-case 92: layout=csa::Layout92(ext);break;
-case 93: layout=csa::Layout93(ext);break;
- default:return ge::GRAPH_FAILED;
- }}catch(const std::exception&){return ge::GRAPH_FAILED;}
- c->SetBlockDim(24);c->SetTilingKey(*v);
- c->GetWorkspaceSizes(1)[0]=layout.workspaceBytes+platform.GetLibApiWorkSpaceSize();
- optiling::CsaSpmdTndPtoTilingData data;data.set_variant(*v);
+ try {layout=csa::Layout4(ext);} catch(const std::exception&) {return ge::GRAPH_FAILED;}
+ c->SetBlockDim(24);c->SetTilingKey(0);
+ c->GetWorkspaceSizes(1)[0]=csa::Align(layout.workspaceBytes)+512+platform.GetLibApiWorkSpaceSize();
+ optiling::DsfCsaPtoBnnTilingData data;data.set_policyStateOffset(csa::Align(layout.workspaceBytes));
  data.set_offsets(layout.offsets);data.set_sources(layout.sources);data.set_scalars(layout.scalars);
  data.SaveToBuffer(c->GetRawTilingData()->GetData(),c->GetRawTilingData()->GetCapacity());
  c->GetRawTilingData()->SetDataSize(data.GetDataSize());return ge::GRAPH_SUCCESS;
@@ -334,7 +235,7 @@ c->SetOutputDataType(7,ge::DT_BF16);
 return ge::GRAPH_SUCCESS;}
 }
 namespace ops {
-class CsaSpmdTndPto: public OpDef { public: explicit CsaSpmdTndPto(const char* name):OpDef(name){
+class DsfCsaPtoBnn: public OpDef { public: explicit DsfCsaPtoBnn(const char* name):OpDef(name){
 Input("x").ParamType(REQUIRED).DataType({ge::DT_BF16}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
 Input("hc_fn").ParamType(REQUIRED).DataType({ge::DT_FLOAT}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
 Input("hc_scale").ParamType(REQUIRED).DataType({ge::DT_FLOAT}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
@@ -401,5 +302,5 @@ Output("output_out").ParamType(REQUIRED).DataType({ge::DT_BF16}).Format({ge::FOR
  SetInferShape(InferShape).SetInferDataType(InferType);
  AICore().SetTiling(Tiling).AddConfig("ascend910_93");
 }};
-OP_ADD(CsaSpmdTndPto);
+OP_ADD(DsfCsaPtoBnn);
 }
