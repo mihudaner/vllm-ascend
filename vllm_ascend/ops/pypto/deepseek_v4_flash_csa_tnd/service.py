@@ -7,12 +7,18 @@
 
 from ..deepseek_v4_flash_csa.native_adapter import prepare_weights
 from ..deepseek_v4_flash_csa_spmd_tnd.service import CSAServiceRuntime as TNDServiceRuntime
+from ..deepseek_v4_flash_csa_spmd_tnd.service_config import MIN_MPMD_SEQUENCE_LENGTH, supported_descriptor
 from .binding import PreparedDynamicCSA
 from .entry import decode_csa_tnd
 from .policy import select_policy
 
 
 class CSAServiceRuntime(TNDServiceRuntime):
+    @staticmethod
+    def _supported_descriptor(**descriptors):
+        # 共享绑定/图生命周期，不共享尚未在多task验收的新增短历史范围。
+        return supported_descriptor(**descriptors) and descriptors["max_seq_len"] >= MIN_MPMD_SEQUENCE_LENGTH
+
     @staticmethod
     def _prepare_weights(attention, layer):
         return prepare_weights(attention, None, layer, root_function=decode_csa_tnd)

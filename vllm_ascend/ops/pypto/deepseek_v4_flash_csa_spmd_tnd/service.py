@@ -64,6 +64,10 @@ def _native_token_views(requests, layer_name, tokens):
 
 class CSAServiceRuntime(AttentionServiceBase):
     @staticmethod
+    def _supported_descriptor(**descriptors):
+        return supported_descriptor(**descriptors)
+
+    @staticmethod
     def _prepare_weights(attention, layer):
         return prepare_weights(attention, None, layer, root_function=decode_csa_spmd)
 
@@ -135,7 +139,7 @@ class CSAServiceRuntime(AttentionServiceBase):
             req = item.decode
             requests = req.seq_lens.numel()
             query_bound = native_query_bound(req)
-            if not supported_descriptor(
+            if not self._supported_descriptor(
                 tokens=tokens,
                 requests=requests,
                 actual_tokens=item.num_actual_tokens,
@@ -255,7 +259,7 @@ class CSAServiceRuntime(AttentionServiceBase):
             req = item.decode
             requests = req.seq_lens.numel()
             query_bound = native_query_bound(req)
-            if not supported_descriptor(
+            if not self._supported_descriptor(
                 tokens=tokens,
                 requests=requests,
                 actual_tokens=item.num_actual_tokens,

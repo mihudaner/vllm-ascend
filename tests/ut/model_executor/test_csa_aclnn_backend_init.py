@@ -76,7 +76,11 @@ def model_preparation(monkeypatch):
     fake_module(_TND_PACKAGE + ".backend", validate_backend_installation=install_check)
     fake_module(_TND_PACKAGE + ".service", CSAServiceRuntime=Service)
     fake_module(_TND_PACKAGE + ".entry", decode_csa_spmd=root)
-    fake_module(_TND_PACKAGE + ".service_config", MIN_SEQUENCE_LENGTH=8192, MAX_SEQUENCE_LENGTH=1048576)
+    fake_module(
+        _TND_PACKAGE + ".service_config",
+        minimum_sequence_length=lambda variant: 1 if variant == "spmd_tnd" else 8192,
+        MAX_SEQUENCE_LENGTH=1048576,
+    )
     fake_module(_COMMON_PACKAGE + ".nz_mode", root_weight_layouts=layout, validate_weight_nz_mode=nz_check)
     fake_module(_COMMON_PACKAGE + ".reduction", ATOMIC_ADD=0)
     monkeypatch.setattr(pypto_deepseek_v4, "init_pto_runtime", runtime_init)

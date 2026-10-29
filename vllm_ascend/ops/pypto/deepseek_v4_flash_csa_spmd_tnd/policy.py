@@ -157,17 +157,8 @@ def select_policy(
     # 有效token/query的合法性由service_config.supported_descriptor检查；
     # 此处只选资源策略，不回读Q/L，也不扩大真实query上界来迁就padding。
     cache_rows = max_seq_len // 4
-    if cache_rows < 2048:
-        raise NotImplementedError(
-            validation_error(
-                "完整动态SPMD的小历史Vector Score路径尚未接入",
-                tokens=tokens,
-                requests=requests,
-                max_query_tokens=max_query_tokens,
-                max_seq_len=max_seq_len,
-                compressed_table_columns=compressed_table_columns,
-            )
-        )
+    # Cube Score已有零候选/不足Top-K/尾块路径；短历史沿用同容量8K策略，
+    # 不需要先实现另一套Vector Score，也不把实际device长度填成8K。
     if cache_rows > 262144:
         raise ValueError(
             validation_error(

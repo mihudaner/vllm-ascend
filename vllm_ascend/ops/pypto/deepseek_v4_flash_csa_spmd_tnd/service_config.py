@@ -1,14 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 """首版TND服务的显式支持范围，只使用已有Host描述符。
 
-query长度上界是当前DSpark服务配置，不能用它反算请求归属。历史下界保留
-当前完整SPMD的Cube Score能力边界；更短历史仍待独立数值和设备验收，
-在服务层回退Native，不借较大的max_model_len伪装成已支持。
+query长度上界是当前DSpark服务配置，不能用它反算请求归属。单SPMD的
+Cube Score可处理短历史和零压缩候选；总长度必须为正，包含本轮query。
+MPMD尚未完成同轮短历史验收，继续保留原有下界。实际Q/L不填充成资源上界。
 """
 
 MAX_QUERY_TOKENS = 6
-MIN_SEQUENCE_LENGTH = 8192
+MIN_SEQUENCE_LENGTH = 1
+MIN_MPMD_SEQUENCE_LENGTH = 8192
 MAX_SEQUENCE_LENGTH = 1048576
+
+
+def minimum_sequence_length(variant):
+    """图准备/派发使用所选实现的已验证范围，不把SPMD验收扩散给MPMD。"""
+    if variant == "spmd_tnd":
+        return MIN_SEQUENCE_LENGTH
+    if variant == "mpmd_tnd":
+        return MIN_MPMD_SEQUENCE_LENGTH
+    raise ValueError(f"不是TND CSA实现：{variant}")
 
 
 def native_query_bound(request):

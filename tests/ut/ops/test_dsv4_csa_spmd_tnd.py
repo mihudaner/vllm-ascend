@@ -419,7 +419,9 @@ def test_binding_validation_reports_actual_hidden_dtype(monkeypatch, package):
         (16, 1, 1, 1, 8193, True),  # graph容量可超过有效请求的query上界之和
         (0, 0, 0, 0, 0, False),  # 空调用不能初始化全核等待
         (9, 3, 9, 7, 8198, False),  # 超出首版query上界
-        (9, 3, 9, 6, 8191, False),  # 短历史缺口显式回退
+        (9, 3, 9, 6, 8191, True),  # 单SPMD沿用Cube Score支持短历史
+        (1, 1, 1, 1, 1, True),  # 首token，尚无压缩候选
+        (9, 3, 9, 6, 0, False),  # 空长度不能启动全核等待
         (9, 3, 9, 6, 1048577, False),  # 超出模型候选容量
         (9, 3, 10, 6, 8198, False),  # 容量不足
         (9, 3, 9, 1, 8198, False),  # Native Host字段不一致
@@ -615,7 +617,7 @@ def test_tnd_service_gate_rejects_unsupported_native_calls(fault):
         main.decode.max_seqlen_q = 7
     elif fault == "history":
         for metadata in context.attn_metadata.values():
-            metadata.decode.max_seq_lens = 8191
+            metadata.decode.max_seq_lens = 0
     elif fault == "group_mismatch":
         main.num_decodes = 2
     else:
@@ -931,11 +933,18 @@ def test_native_redispatch_compact_capacity_matches_native_builder(ratio, expect
 
 
 @pytest.mark.parametrize(
-    "history,expected_graph",
-    [(8192, True), (8185, False), (8186, True), (0, False), (1048575, False)],
+    "history,expected_spmd,expected_mpmd",
+    [
+        (8192, True, True),
+        (8185, True, False),
+        (8186, True, True),
+        (1, True, False),
+        (0, False, False),
+        (1048575, False, False),
+    ],
 )
 @pytest.mark.parametrize("variant", ["spmd_tnd", "mpmd_tnd"])
-def test_tnd_runner_preserves_framework_mixed_graph_choice(monkeypatch, history, expected_graph, variant):
+def test_tnd_runner_preserves_framework_mixed_graph_choice(monkeypatch, history, expected_spmd, expected_mpmd, variant):
     from unittest.mock import Mock
 
     import numpy as np
@@ -969,7 +978,7 @@ def test_tnd_runner_preserves_framework_mixed_graph_choice(monkeypatch, history,
         6,
         False,
     )
-    if expected_graph:
+    if expected_spmd if variant == "spmd_tnd" else expected_mpmd:
         assert mode == CUDAGraphMode.FULL and descriptor.num_tokens == 12
         # Mixed inputs must never be relabeled uniform just to obtain a graph.
         assert not dispatch.call_args.kwargs["uniform_decode"]

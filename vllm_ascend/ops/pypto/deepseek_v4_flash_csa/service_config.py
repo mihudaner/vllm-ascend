@@ -27,12 +27,12 @@ def tnd_graph_lengths_supported(*, all_decode, max_query_tokens, max_seq_len) ->
     from ..deepseek_v4_flash_csa_spmd_tnd.service_config import (
         MAX_QUERY_TOKENS,
         MAX_SEQUENCE_LENGTH,
-        MIN_SEQUENCE_LENGTH,
+        minimum_sequence_length,
     )
 
     return bool(
         all_decode and 1 <= max_query_tokens <= MAX_QUERY_TOKENS
-        and MIN_SEQUENCE_LENGTH <= max_seq_len <= MAX_SEQUENCE_LENGTH
+        and minimum_sequence_length(selected_variant()) <= max_seq_len <= MAX_SEQUENCE_LENGTH
     )
 
 
