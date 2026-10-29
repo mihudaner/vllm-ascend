@@ -30,7 +30,13 @@ class CSAGraphKey:
 
 
 def csa_graph_key(context, batch_descriptor):
-    """Include every opted-in layer; never assume the first layer represents all."""
+    """Use ordinary Draft keys and include every opted-in Target CSA layer."""
+    # Draft shares the Target's layer registry but executes Native attention.
+    # Match graph_policy_key's Draft exclusion before building a CSA graph key;
+    # otherwise Target layers returning None prevent ordinary Draft capture.
+    if getattr(context, "is_draft_model", False):
+        return batch_descriptor
+
     policies = []
     for name, wrapper in context.no_compile_layers.items():
         runtime = getattr(wrapper, "_pto_csa_runtime", None)

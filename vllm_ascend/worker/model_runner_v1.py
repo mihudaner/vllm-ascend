@@ -3562,8 +3562,13 @@ class NPUModelRunner(GPUModelRunner):
                     tnd_capture_length = getattr(self.get_model(), "_pto_csa_tnd_capture_sequence_length", None)
                     if tnd_capture_length is None:
                         tnd_capture_length = getattr(self.get_model(), "_pto_hca_tnd_capture_sequence_length", None)
-                if tnd_capture_length is not None and profile_seq_lens is None:
-                    seq_lens = tnd_capture_length
+                if tnd_capture_length is not None:
+                    # Target length already includes its query block. Reserve
+                    # space for the DSpark queries appended by draft dummy_run.
+                    seq_lens = min(
+                        tnd_capture_length if profile_seq_lens is None else profile_seq_lens,
+                        self._get_tnd_capture_sequence_limit(),
+                    )
 
                 self.optimistic_seq_lens_cpu[:num_reqs] = seq_lens
                 self.optimistic_seq_lens_cpu[num_reqs:].fill_(0)
@@ -5341,6 +5346,15 @@ class NPUModelRunner(GPUModelRunner):
             if fn is not None:
                 fn(capture_sizes, self.device)
 
+    def _get_tnd_capture_sequence_limit(self) -> int:
+        """Bound target dummy length before DSpark appends its query block."""
+        draft_query_tokens = (
+            self.drafter.num_query_per_req
+            if isinstance(self.drafter, AscendDSparkProposer)
+            else 0
+        )
+        return self.max_model_len - draft_query_tokens
+
     def _warmup_and_capture(
         self, desc, cudagraph_runtime_mode, profile_seq_lens=None,
         allow_microbatching=False, num_warmups=None, profiler=None,
@@ -5359,7 +5373,7 @@ class NPUModelRunner(GPUModelRunner):
             self.scheduler_config.max_num_seqs, cdiv(desc.num_tokens, self.uniform_decode_query_len)
         )
         lengths = capture_sequence_lengths(
-            tokens=desc.num_tokens, requests=requests, max_sequence_length=self.max_model_len,
+            tokens=desc.num_tokens, requests=requests, max_sequence_length=self._get_tnd_capture_sequence_limit(),
         )
         warmups = self.compilation_config.cudagraph_num_of_warmups if num_warmups is None else num_warmups
         logger.info("CSA policy graph capture tokens=%d requests=%d histories=%s", desc.num_tokens, requests, lengths)
