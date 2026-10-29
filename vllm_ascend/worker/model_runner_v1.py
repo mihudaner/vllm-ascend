@@ -5363,12 +5363,39 @@ class NPUModelRunner(GPUModelRunner):
         )
         warmups = self.compilation_config.cudagraph_num_of_warmups if num_warmups is None else num_warmups
         logger.info("CSA policy graph capture tokens=%d requests=%d histories=%s", desc.num_tokens, requests, lengths)
+        from vllm_ascend import envs as ascend_envs
+        from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.policy_compile import warmup_policy_static_kernels
+
+        compilation = self.ascend_config.ascend_compilation_config
+        compile_policies = (
+            ascend_envs.VLLM_ASCEND_PTO_CSA_BACKEND == "aclnn"
+            and compilation.enable_static_kernel
+            and compilation.enable_super_kernel
+        )
         for length in lengths:
-            # Warm each policy outside capture to initialize bindings/workspaces.
+            capture_warmups = max(1, warmups)
+            if compile_policies:
+                logger.info("CSA policy static compile warmup tokens=%d history=%d", desc.num_tokens, length)
+                warmup_policy_static_kernels(
+                    partial(
+                        self._dummy_run,
+                        desc.num_tokens,
+                        cudagraph_runtime_mode=CUDAGraphMode.NONE,
+                        force_attention=True,
+                        uniform_decode=desc.uniform,
+                        allow_microbatching=allow_microbatching,
+                        skip_eplb=True,
+                        remove_lora=False,
+                        num_active_loras=desc.num_active_loras,
+                        profile_seq_lens=length,
+                    ),
+                    num_warmups=capture_warmups,
+                )
+                capture_warmups = 0
             # The same expansion is used during graph-memory estimation.
             super()._warmup_and_capture(
                 desc, cudagraph_runtime_mode, profile_seq_lens=length,
-                allow_microbatching=allow_microbatching, num_warmups=max(1, warmups), profiler=profiler,
+                allow_microbatching=allow_microbatching, num_warmups=capture_warmups, profiler=profiler,
             )
 
     def capture_model(self) -> int:

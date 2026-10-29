@@ -32,6 +32,7 @@ from vllm.config import VllmConfig
 from vllm.config.utils import Range
 from vllm.logger import logger
 
+from vllm_ascend import envs
 from vllm_ascend.ascend_config import AscendCompilationConfig, get_ascend_config
 from vllm_ascend.utils import COMPILATION_PASS_KEY
 
@@ -86,6 +87,11 @@ def _configure_backend(
     process_kwargs_options: Callable | None = None,
 ) -> None:
     if ascend_compilation_config.enable_static_kernel:
+        if envs.VLLM_ASCEND_PTO_CSA_BACKEND == "aclnn":
+            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.static_compile import prepare_static_compile
+
+            include = prepare_static_compile()
+            logger.info("CSA static compilation PTO include: %s", include)
         # npugraph_ex's static_kernel requires LOCAL_WORLD_SIZE to determine the
         # physical node topology for creating per-node Gloo groups, which
         # coordinate static kernel compilation and .run package installation.
@@ -149,6 +155,10 @@ def _configure_backend(
             config.experimental_config.aclgraph._aclnn_static_shape_kernel_sym_value_range = (
                 _compute_decode_cudagraph_batch_sizes(vllm_config)
             )
+            if ascend_compilation_config.enable_super_kernel:
+                config.experimental_config.aclgraph._super_kernel_optimize = True
+                config.experimental_config.aclgraph._super_kernel_optimize_options = {"dcci_after_kernel_end": [".*"]}
+
 
 
 def npugraph_ex_compile(
