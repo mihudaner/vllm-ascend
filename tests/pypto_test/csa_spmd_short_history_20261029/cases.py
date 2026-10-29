@@ -102,6 +102,15 @@ def all_cases():
         make_case("b24_ascending", [8191] * 24, [6] * 24, pages="ascending_history"),
         make_case("one_active_large_padding", [4], [1], tokens=96, requests=2, lifecycle=True),
     ]
+    # 性能关注原业务S6，另加B1以区分低负载下的AICPU固定开销。
+    for length in (6, 32, 128, 2048, 4096, 8191):
+        cases.append(make_case(f"b1_q6_l{length}", [length], [6], lifecycle=length in (6, 8191)))
+    # 发现极短历史回退后定向补齐性能分界，不能把单一测点外推整个8K区间。
+    for batch in (16, 24):
+        for length in (256, 512, 1024):
+            cases.append(make_case(f"b{batch}_q6_l{length}", [length] * batch, [6] * batch))
+    for batch, query in ((4, 6), (16, 1), (24, 1)):
+        cases.append(make_case(f"b{batch}_q{query}_l128", [128] * batch, [query] * batch))
     assert len({c["name"] for c in cases}) == len(cases)
     for index, case in enumerate(cases):
         case["seed"] = 2026102900 + index

@@ -61,9 +61,13 @@ DeepSeek V4 Flash、BF16激活、Native W8A8、NZ2权重、32-token ND分页KV�
   描述符，不复制、不回读Q/L。
 - `binding.py` 按Tensor描述符及策略准备工作区。捕获前可以重新绑定相同描述符
   的输入地址；工作区与信号代际不重新清零。一个准备对象不能供并发流同时使用。
-- 服务策略的Host长度上界当前为 **8192～1048576，包含本轮query**。
+- 服务策略的Host长度上界当前为 **1～1048576，包含本轮query**。
   这是batch的最大未压缩长度；同批较短请求仍由各自device Q/L限定。
-  更短的整个batch及范围外请求回退Native。短历史Vector Score没有在本轮新增。
+  8K以下沿用现有Cube Score的零候选、Top-K不足和尾块处理，不需要新增
+  Vector Score；MPMD仍单独保留8192下界。其它不支持的调用继续回退Native。
+  功能支持不等于所有短历史都更快，本轮没有增加任何按性能的fallback。
+  [短历史功能、Native数值差异和性能对照](../../../../tests/pypto_test/csa_spmd_short_history_20261029/README.md)
+  分别记录三个结论，不能用原SPMD逐bit回归代替Native严格精度验收。
 - 空token或全dummy调用不启动SPMD、不更新cache/state。dummy输出不作为有效
   token使用；有效写入范围和整个cache/state分配都参与验证。
 - prefill、混合prefill/decode、draft侧、HCA组合模型、新并行方式和

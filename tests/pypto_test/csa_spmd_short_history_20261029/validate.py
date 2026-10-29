@@ -3,6 +3,7 @@
 
 import argparse
 import ctypes
+import hashlib
 import json
 import os
 import sys
@@ -22,12 +23,15 @@ def main():
     parser.add_argument("--names", nargs="+")
     parser.add_argument("--device", type=int)
     parser.add_argument("--service", action="store_true")
+    parser.add_argument("--performance", action="store_true")
     args = parser.parse_args()
     if args.mode == "candidate" and args.reference is None:
         parser.error("候选验证必须与同输入原SPMD基线逐bit比较")
     args.output.mkdir(parents=True, exist_ok=False)
     states = args.output / "states"
     states.mkdir()
+    inputs_directory = args.output / "inputs"
+    inputs_directory.mkdir()
     report = dict(
         passed=False,
         backend=args.backend,
@@ -56,6 +60,7 @@ def main():
         from dsv4_csa_single_layer import make_layer, restore
         from dsv4_csa_validation import compare_tensor, compare_topk
         from vllm.engine.arg_utils import EngineArgs
+        from vllm.forward_context import get_forward_context
         from vllm.platforms import current_platform
 
         from vllm_ascend.ascend_forward_context import set_ascend_forward_context
@@ -131,17 +136,19 @@ def main():
         if args.backend == "python":
             import pypto
             import pypto.torch
-            from pypto import CompileOptions, passes
+            from pypto import passes
+            from pypto.runtime import CompileOptions
 
             pypto.configure_cache(pypto.CacheConfig(enabled=False))
             options = CompileOptions(platform="a2a3", memory_planner=passes.MemoryPlanner.PYPTO)
-            pypto.torch.init(
-                device=device_id,
-                platform="a2a3",
-                runtime="tensormap_and_ringbuffer",
-                ring_heap=tuple(m * 1024 * 1024 for m in (16, 256, 16, 16)),
-                ring_task_window=4096,
-            )
+            if not args.service:
+                pypto.torch.init(
+                    device=device_id,
+                    platform="a2a3",
+                    runtime="tensormap_and_ringbuffer",
+                    ring_heap=tuple(m * 1024 * 1024 for m in (16, 256, 16, 16)),
+                    ring_task_window=4096,
+                )
         cases = all_cases()
         if args.names:
             known = {c["name"] for c in cases}
@@ -150,8 +157,21 @@ def main():
             cases = [c for c in cases if c["name"] in args.names]
 
         with native_session(config, device_id), torch.inference_mode():
+            if args.backend == "python" and args.service:
+                # 服务入口需要当前vLLM config；稍后prepare重复初始化的配置须相同。
+                from vllm_ascend.models.pypto_deepseek_v4 import init_pto_runtime
+
+                init_pto_runtime()
             layer, report["formal_weights"] = make_layer(config, checkpoint, device, 4)
             weights = CSAServiceRuntime._prepare_weights(layer.self_attn, layer)
+
+            def digest(value):
+                data = value.detach().cpu().contiguous().view(torch.uint8).numpy().tobytes()
+                return hashlib.sha256(data).hexdigest()
+
+            report["weight_digests"] = {k: digest(v) for k, v in weights.items() if isinstance(v, torch.Tensor)}
+            if reference_report and report["weight_digests"] != reference_report["weight_digests"]:
+                raise AssertionError("独立进程的权重实际内容不同")
 
             def run_case(case):
                 row = dict(case=case, passed=False, stages={})
@@ -178,6 +198,19 @@ def main():
                     )
 
                 fixture = fixture_for(case["queries"], case["histories"])
+                # 跨进程回归以实际保存的输入为准；不只假定相同seed就是相同输入。
+                initial_inputs = dict(
+                    hidden=fixture["hidden"].cpu(), allocations={k: g["initial"] for k, g in fixture["groups"].items()}
+                )
+                if args.reference:
+                    initial_inputs = torch.load(args.reference / "inputs" / f"{name}.pt", weights_only=True)
+                    fixture["hidden"].copy_(initial_inputs["hidden"])
+                    for key, group in fixture["groups"].items():
+                        if group["initial"].shape != initial_inputs["allocations"][key].shape:
+                            raise ValueError("参考cache分配容量不同")
+                        group["initial"] = initial_inputs["allocations"][key].clone()
+                        group["allocation"].copy_(group["initial"])
+                torch.save(initial_inputs, inputs_directory / f"{name}.pt")
                 output, out_guard = guarded_tensor(tuple(fixture["hidden"].shape), torch.bfloat16, device)
                 topk, topk_guard = guarded_tensor((fixture["tokens"], 512), torch.int32, device)
                 scores, score_guard = guarded_tensor((fixture["tokens"], 512), torch.float32, device)
@@ -204,6 +237,8 @@ def main():
                     )
 
                 native = bind(fixture)
+                row["input_digests"] = {k: digest(v) for k, v in readonly_snapshot(native).items()}
+                row["input_digests"].update({"cache/" + k: digest(v) for k, v in initial_inputs["allocations"].items()})
                 resource_policy = select_policy(
                     tokens=fixture["tokens"],
                     requests=case["requests"],
@@ -225,6 +260,8 @@ def main():
                     reference_row = next(r for r in reference_report["cases"] if r["case"]["name"] == name)
                     if reference_row["case"] != case or reference_row["policy"] != row["policy"]:
                         raise ValueError("输入矩阵/资源策略与冻结基线不一致")
+                    if row["input_digests"] != reference_row["input_digests"]:
+                        raise ValueError("实际输入Tensor内容与基线不同")
                 original_metadata = {
                     k: v.clone() for k, v in native.items() if k in __import__("checks").METADATA_NAMES
                 }
@@ -279,6 +316,7 @@ def main():
 
                     restore(fixture)
                     poison(native)
+                    native_readonly = readonly_snapshot(native)
                     save(name + "/native")
                     with (
                         patch.object(torch.ops._C_ascend, "npu_vllm_quant_lightning_indexer", qli),
@@ -289,6 +327,10 @@ def main():
                             num_actual_tokens=fixture["actual_tokens"],
                         ),
                     ):
+                        if fixture["tokens"] != fixture["actual_tokens"]:
+                            # 真实服务的图拒绝重放路径会设置此标志；Native按相同
+                            # padded Q终点消费容量视图，不能用有效T截短设备输入。
+                            get_forward_context().additional_kwargs["pto_csa_tnd_padded_redispatch"] = True
                         _native_attention_half(
                             layer.self_attn.dsa_attn, fixture["hidden"], fixture["positions"], output
                         )
@@ -297,7 +339,7 @@ def main():
                     topk.fill_(-1)
                     native_topk = captured["topk"].reshape(-1, 512)
                     topk[: native_topk.shape[0]].copy_(native_topk)
-                    native_reference, native_guards, _ = snapshot(fixture, native, protected)
+                    native_reference, native_guards, _ = snapshot(fixture, native, protected, readonly=native_readonly)
                     row["native_guards"] = native_guards
                     if not all(native_guards.values()):
                         raise AssertionError("Native fixture越界，不能作为有效测试")
@@ -413,8 +455,33 @@ def main():
                             _, previous = inspect(f"continuous_{step}", current, before=previous, expected=eager)
                             histories = [h + q for h, q in zip(histories, case["queries"])]
                 torch.npu.current_stream().wait_stream(stream)
+                if args.performance:
+                    from performance import compare
+
+                    stage_metadata(native, original_metadata)
+                    native["x_hc"].copy_(hidden_a)
+                    restore(fixture)
+                    for key, group in fixture["groups"].items():
+                        group["owner"].kv_cache = [group["views"]] if key == "indexer" else group["views"]
+                    save(name + "/performance")
+                    row["performance"] = compare(
+                        fixture,
+                        native,
+                        prepared,
+                        config,
+                        layer,
+                        graph,
+                        base,
+                        protected,
+                        args.output / "performance" / name,
+                        args.backend,
+                    )
                 if args.service:
                     from service_smoke import validate
+
+                    from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import (
+                        graph_compact_request,
+                    )
 
                     stage_metadata(native, original_metadata)
                     native["x_hc"].copy_(hidden_a)
@@ -427,7 +494,16 @@ def main():
                         row["service"] = result
                         save(name + "/" + stage)
 
-                    row["service"] = validate(layer, config, fixture, output, protected, base, save_service)
+                    # 服务按图T/B容量产生compact输出，fixture默认按有效T分配。
+                    # 用独立的Native producer生成完整图容量参考，检查全部填充行。
+                    service_fixture = dict(fixture, compact={})
+                    for group_name in ("compressed", "indexer"):
+                        request = fixture["metadata"][fixture["groups"][group_name]["prefix"]].decode
+                        adapted = graph_compact_request(request, fixture["tokens"])
+                        service_fixture["compact"][group_name] = (
+                            layer.self_attn.dsa_attn.dsa_attn.impl._compute_compressor_metadata(adapted)
+                        )
+                    row["service"] = validate(layer, config, service_fixture, output, protected, base, save_service)
                 row["passed"] = True
                 save(name + "/complete")
 

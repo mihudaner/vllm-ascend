@@ -1,0 +1,511 @@
+{
+  "available": true,
+  "replays": 28,
+  "requested_replays": 30,
+  "span_us": 752.0,
+  "span_us_all": [
+    758.75,
+    746.5,
+    762.25,
+    746.25,
+    759.25,
+    763.5,
+    752.0,
+    749.75,
+    757.0,
+    758.5,
+    755.75,
+    746.5,
+    748.0,
+    739.5,
+    753.25,
+    747.5,
+    743.5,
+    752.0,
+    749.75,
+    749.75,
+    750.0,
+    746.25,
+    755.25,
+    754.0,
+    760.25,
+    752.75,
+    752.5,
+    745.75
+  ],
+  "windows": [
+    {
+      "window": 2,
+      "span_us": 758.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 3,
+      "span_us": 746.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 4,
+      "span_us": 762.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 5,
+      "span_us": 746.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 6,
+      "span_us": 759.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 7,
+      "span_us": 763.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 8,
+      "span_us": 752.0,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 9,
+      "span_us": 749.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 10,
+      "span_us": 757.0,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 11,
+      "span_us": 758.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 12,
+      "span_us": 755.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 13,
+      "span_us": 746.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 14,
+      "span_us": 748.0,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 15,
+      "span_us": 739.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 16,
+      "span_us": 753.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 17,
+      "span_us": 747.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 18,
+      "span_us": 743.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 19,
+      "span_us": 752.0,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 20,
+      "span_us": 749.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 21,
+      "span_us": 749.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 22,
+      "span_us": 750.0,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 23,
+      "span_us": 746.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 24,
+      "span_us": 755.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 25,
+      "span_us": 754.0,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 26,
+      "span_us": 760.25,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 27,
+      "span_us": 752.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 28,
+      "span_us": 752.5,
+      "streams": [
+        "10",
+        "9"
+      ]
+    },
+    {
+      "window": 29,
+      "span_us": 745.75,
+      "streams": [
+        "10",
+        "9"
+      ]
+    }
+  ],
+  "invalid_windows": [
+    {
+      "window": 0,
+      "lower_us": 1793258849444500.2,
+      "upper_us": 1793258849445552.8,
+      "records": [
+        {
+          "Step Id": "0",
+          "Device_id": "10",
+          "Model ID": "4294967295",
+          "Task ID": "4",
+          "Stream ID": "10",
+          "Name": "simpler_aicpu_kernel_exec_a63db4eff1a8d852",
+          "Type": "simpler_aicpu_kernel_exec_a63db4eff1a8d852",
+          "OP State": "N/A",
+          "Accelerator Core": "AI_CPU",
+          "Start Time(us)": "1793258849444614.049\t",
+          "Duration(us)": "794.136",
+          "Wait Time(us)": "113.690000",
+          "Block Num": "0",
+          "Mix Block Num": "0",
+          "HF32 Eligible": "N/A",
+          "Input Shapes": "N/A",
+          "Input Data Types": "N/A",
+          "Input Formats": "N/A",
+          "Output Shapes": "N/A",
+          "Output Data Types": "N/A",
+          "Output Formats": "N/A",
+          "Context ID": "N/A",
+          "aicore_time(us)": "N/A",
+          "aic_total_cycles": "N/A",
+          "aic_mac_time(us)": "N/A",
+          "aic_mac_ratio": "N/A",
+          "aic_scalar_time(us)": "N/A",
+          "aic_scalar_ratio": "N/A",
+          "aic_mte1_time(us)": "N/A",
+          "aic_mte1_ratio": "N/A",
+          "aic_mte2_time(us)": "N/A",
+          "aic_mte2_ratio": "N/A",
+          "aic_fixpipe_time(us)": "N/A",
+          "aic_fixpipe_ratio": "N/A",
+          "aic_icache_miss_rate": "N/A",
+          "aiv_time(us)": "N/A",
+          "aiv_total_cycles": "N/A",
+          "aiv_vec_time(us)": "N/A",
+          "aiv_vec_ratio": "N/A",
+          "aiv_scalar_time(us)": "N/A",
+          "aiv_scalar_ratio": "N/A",
+          "aiv_mte2_time(us)": "N/A",
+          "aiv_mte2_ratio": "N/A",
+          "aiv_mte3_time(us)": "N/A",
+          "aiv_mte3_ratio": "N/A",
+          "aiv_icache_miss_rate": "N/A",
+          "cube_utilization(%)": "N/A"
+        },
+        {
+          "Step Id": "0",
+          "Device_id": "10",
+          "Model ID": "4294967295",
+          "Task ID": "1",
+          "Stream ID": "9",
+          "Name": "aicore_kernel_mode_0",
+          "Type": "aicore_kernel_mode_0",
+          "OP State": "N/A",
+          "Accelerator Core": "MIX_AIC",
+          "Start Time(us)": "1793258849445720.911\t",
+          "Duration(us)": "738.975",
+          "Wait Time(us)": "0.000000",
+          "Block Num": "24",
+          "Mix Block Num": "48",
+          "HF32 Eligible": "N/A",
+          "Input Shapes": "N/A",
+          "Input Data Types": "N/A",
+          "Input Formats": "N/A",
+          "Output Shapes": "N/A",
+          "Output Data Types": "N/A",
+          "Output Formats": "N/A",
+          "Context ID": "0",
+          "aicore_time(us)": "775.741",
+          "aic_total_cycles": "34442908",
+          "aic_mac_time(us)": "87.572",
+          "aic_mac_ratio": "0.113",
+          "aic_scalar_time(us)": "349.696",
+          "aic_scalar_ratio": "0.451",
+          "aic_mte1_time(us)": "106.083",
+          "aic_mte1_ratio": "0.137",
+          "aic_mte2_time(us)": "243.924",
+          "aic_mte2_ratio": "0.314",
+          "aic_fixpipe_time(us)": "55.285",
+          "aic_fixpipe_ratio": "0.071",
+          "aic_icache_miss_rate": "0.003",
+          "aiv_time(us)": "775.687",
+          "aiv_total_cycles": "68880981",
+          "aiv_vec_time(us)": "90.013",
+          "aiv_vec_ratio": "0.116",
+          "aiv_scalar_time(us)": "445.687",
+          "aiv_scalar_ratio": "0.575",
+          "aiv_mte2_time(us)": "86.211",
+          "aiv_mte2_ratio": "0.111",
+          "aiv_mte3_time(us)": "50.574",
+          "aiv_mte3_ratio": "0.065",
+          "aiv_icache_miss_rate": "0.005",
+          "cube_utilization(%)": "100.776"
+        }
+      ],
+      "reason": "记录越过device synchronize约束的重放窗口；时间戳损坏/错配，不按速度剔除"
+    },
+    {
+      "window": 1,
+      "lower_us": 1793258849445672.2,
+      "upper_us": 1793258849446565.5,
+      "records": [
+        {
+          "Step Id": "0",
+          "Device_id": "10",
+          "Model ID": "4294967295",
+          "Task ID": "4",
+          "Stream ID": "10",
+          "Name": "simpler_aicpu_kernel_exec_a63db4eff1a8d852",
+          "Type": "simpler_aicpu_kernel_exec_a63db4eff1a8d852",
+          "OP State": "N/A",
+          "Accelerator Core": "AI_CPU",
+          "Start Time(us)": "1793258849445719.251\t",
+          "Duration(us)": "751.855",
+          "Wait Time(us)": "47.020000",
+          "Block Num": "0",
+          "Mix Block Num": "0",
+          "HF32 Eligible": "N/A",
+          "Input Shapes": "N/A",
+          "Input Data Types": "N/A",
+          "Input Formats": "N/A",
+          "Output Shapes": "N/A",
+          "Output Data Types": "N/A",
+          "Output Formats": "N/A",
+          "Context ID": "N/A",
+          "aicore_time(us)": "N/A",
+          "aic_total_cycles": "N/A",
+          "aic_mac_time(us)": "N/A",
+          "aic_mac_ratio": "N/A",
+          "aic_scalar_time(us)": "N/A",
+          "aic_scalar_ratio": "N/A",
+          "aic_mte1_time(us)": "N/A",
+          "aic_mte1_ratio": "N/A",
+          "aic_mte2_time(us)": "N/A",
+          "aic_mte2_ratio": "N/A",
+          "aic_fixpipe_time(us)": "N/A",
+          "aic_fixpipe_ratio": "N/A",
+          "aic_icache_miss_rate": "N/A",
+          "aiv_time(us)": "N/A",
+          "aiv_total_cycles": "N/A",
+          "aiv_vec_time(us)": "N/A",
+          "aiv_vec_ratio": "N/A",
+          "aiv_scalar_time(us)": "N/A",
+          "aiv_scalar_ratio": "N/A",
+          "aiv_mte2_time(us)": "N/A",
+          "aiv_mte2_ratio": "N/A",
+          "aiv_mte3_time(us)": "N/A",
+          "aiv_mte3_ratio": "N/A",
+          "aiv_icache_miss_rate": "N/A",
+          "cube_utilization(%)": "N/A"
+        },
+        {
+          "Step Id": "0",
+          "Device_id": "10",
+          "Model ID": "4294967295",
+          "Task ID": "1",
+          "Stream ID": "9",
+          "Name": "aicore_kernel_mode_0",
+          "Type": "aicore_kernel_mode_0",
+          "OP State": "N/A",
+          "Accelerator Core": "MIX_AIC",
+          "Start Time(us)": "1793258849445720.911\t",
+          "Duration(us)": "18446744073709225.790",
+          "Wait Time(us)": "0.000000",
+          "Block Num": "24",
+          "Mix Block Num": "48",
+          "HF32 Eligible": "N/A",
+          "Input Shapes": "N/A",
+          "Input Data Types": "N/A",
+          "Input Formats": "N/A",
+          "Output Shapes": "N/A",
+          "Output Data Types": "N/A",
+          "Output Formats": "N/A",
+          "Context ID": "0",
+          "aicore_time(us)": "735.123",
+          "aic_total_cycles": "32639474",
+          "aic_mac_time(us)": "87.578",
+          "aic_mac_ratio": "0.119",
+          "aic_scalar_time(us)": "320.647",
+          "aic_scalar_ratio": "0.436",
+          "aic_mte1_time(us)": "106.338",
+          "aic_mte1_ratio": "0.145",
+          "aic_mte2_time(us)": "240.03",
+          "aic_mte2_ratio": "0.327",
+          "aic_fixpipe_time(us)": "55.74",
+          "aic_fixpipe_ratio": "0.076",
+          "aic_icache_miss_rate": "0.004",
+          "aiv_time(us)": "735.043",
+          "aiv_total_cycles": "65271817",
+          "aiv_vec_time(us)": "90.004",
+          "aiv_vec_ratio": "0.122",
+          "aiv_scalar_time(us)": "418.333",
+          "aiv_scalar_ratio": "0.569",
+          "aiv_mte2_time(us)": "85.391",
+          "aiv_mte2_ratio": "0.116",
+          "aiv_mte3_time(us)": "51.471",
+          "aiv_mte3_ratio": "0.07",
+          "aiv_icache_miss_rate": "0.005",
+          "cube_utilization(%)": "0.000"
+        }
+      ],
+      "reason": "记录越过device synchronize约束的重放窗口；时间戳损坏/错配，不按速度剔除"
+    }
+  ],
+  "raw_csv": "tests/pypto_test/csa_spmd_short_history_20261029/runs/performance_python_01/performance/b16_q6_l2048/python/profile_device/liteserver-hps-365a-00001_918580_20261029152729325_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+  "span_includes_all_streams": true,
+  "kernels_per_replay": [
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2
+  ],
+  "scope": "每窗完整AICPU与单MIX首尾跨度；保留全部30窗原始记录与无效原因",
+  "adopted": false,
+  "reason": "该计时采集的首两窗时间戳损坏；解析中断，未完成采样后的状态检查，整项计时未采用。已定向补测。"
+}

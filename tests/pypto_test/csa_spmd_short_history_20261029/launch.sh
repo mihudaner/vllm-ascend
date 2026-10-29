@@ -35,6 +35,10 @@ export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True DYNAMIC_EPLB=false EXPERT
 export PYPTO_PROG_BUILD_DIR="${out}_build" PYPTO_CACHE_DIR="${out}_cache"
 export ASCEND_PROCESS_LOG_PATH="${out}_device_logs" ASCEND_CACHE_PATH="${out}_ascend_cache"
 export VLLM_CACHE_ROOT="${out}_vllm_cache"
+# 共享CANN的msprof归其他用户所有；只使用同版本、当前用户拥有的分析工具副本。
+# 不改变CANN运行库、编译器或公共PyPTO/PTOAS/Simpler绑定。
+profiler_tools="$workspace/.cache/csa-short-history-20261029/profiler-tools/tools/profiler/bin"
+if [[ -x "$profiler_tools/msprof" ]]; then export PATH="$profiler_tools:$PATH"; fi
 mkdir -p "${out}_source" "$ASCEND_PROCESS_LOG_PATH" "$ASCEND_CACHE_PATH" "$VLLM_CACHE_ROOT"
 cp "$here/"*.py "${out}_source/"
 cp "$CSA_SHARED_TOOLCHAIN_MANIFEST" "${out}_source/shared_toolchain.json"
