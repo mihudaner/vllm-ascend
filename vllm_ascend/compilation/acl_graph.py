@@ -59,6 +59,8 @@ class ACLGraphEntry:
     csa_hbg_host_metadata: dict[str, Any] | None = None
     # TND routes/policy/root addresses must still match before Python is bypassed.
     csa_tnd_contracts: dict[str, Any] | None = None
+    # CSA图若捕获了Native回退，重放前仍须更新它实际消费的QLI/C4 SAS。
+    csa_native_metadata_prefixes: tuple[str, ...] = ()
 
 
 class ACLGraphWrapper:
@@ -155,6 +157,18 @@ class ACLGraphWrapper:
         entry = self.concrete_aclgraph_entries[batch_descriptor]
 
         if entry.aclgraph is None:
+            # 也覆盖运行中首次遇到新图档位的情况：若随后回退Native，AICPU计划
+            # 必须在进入capture前准备。纯PTO图的后续replay不会再走此处。
+            metadata = getattr(forward_context, "attn_metadata", None)
+            if isinstance(metadata, dict):
+                pending = tuple(
+                    prefix for prefix, item in metadata.items()
+                    if getattr(getattr(item, "decode", None), "native_metadata_factory", None) is not None
+                )
+                if pending:
+                    from vllm_ascend.ops.dsv4_csa import prepare_native_csa_metadata
+
+                    prepare_native_csa_metadata(forward_context, pending)
             if self.aclgraph_options.debug_log_enable:
                 # Since we capture aclgraph for many different shapes and
                 # capturing is fast, we don't need to log it for every
@@ -242,6 +256,9 @@ class ACLGraphWrapper:
             tnd_contracts = forward_context.additional_kwargs.get("pto_csa_tnd_graph_contracts")
             if tnd_contracts:
                 entry.csa_tnd_contracts = dict(tnd_contracts)
+            entry.csa_native_metadata_prefixes = tuple(
+                sorted(forward_context.additional_kwargs.get("pto_csa_native_metadata_prefixes", ()))
+            )
 
             compilation_counter.num_cudagraph_captured += 1
 
@@ -285,6 +302,10 @@ class ACLGraphWrapper:
             )
 
         logger.info_once("Replaying aclgraph")
+        if entry.csa_native_metadata_prefixes:
+            from vllm_ascend.ops.dsv4_csa import prepare_native_csa_metadata
+
+            prepare_native_csa_metadata(forward_context, entry.csa_native_metadata_prefixes)
         # In async scheduling or multi-threaded (MT) scenarios, it is possible that
         # the CPU's record event (from update_attn_params) for the iteration i completes
         # before the grph replay of iteration i-1.

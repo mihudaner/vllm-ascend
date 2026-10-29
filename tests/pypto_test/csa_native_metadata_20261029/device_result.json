@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "cann": "/data/pyptouser/yejia/vllm-cann92-main/env/Ascend/cann-9.2.0-beta.2",
+  "device": "0",
+  "shared_toolchain": "csa-shared-20261024-group-dims",
+  "scenario": "128K; S1/S6 + padding; 下一步KV长度+6",
+  "calls": {
+    "sas": 4,
+    "qli": 4
+  },
+  "pto_generation_and_copy_skipped": true,
+  "native_defined_fields_bit_equal": true,
+  "replay_fixed_addresses_and_current_values": true,
+  "scope": "仅真实metadata生产者及图消费者；未运行PTO数学或整模型"
+}

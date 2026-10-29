@@ -1,0 +1,22 @@
+{
+  "baseline_commit": "b8dab16c7",
+  "native_compatibility": "passed",
+  "cases": [
+    {
+      "compress_ratio": 0,
+      "operator_kwargs_equal": true,
+      "all_metadata_fields_equal": true
+    },
+    {
+      "compress_ratio": 4,
+      "operator_kwargs_equal": true,
+      "all_metadata_fields_equal": true
+    },
+    {
+      "compress_ratio": 128,
+      "operator_kwargs_equal": true,
+      "all_metadata_fields_equal": true
+    }
+  ],
+  "scope": "CPU真实builder"
+}

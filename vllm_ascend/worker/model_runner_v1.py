@@ -2986,6 +2986,8 @@ class NPUModelRunner(GPUModelRunner):
                     decode_ratio_to_sas_metadata=decode_ratio_to_sas_metadata,
                     common_ratio_to_sas_metadata=common_ratio_to_sas_metadata,
                     block_size=attn_group.kv_cache_spec.block_size,
+                    # 捕获前保留Native计划；普通PTO decode按实际回退需求生成。
+                    defer_native_csa_metadata=is_csa_model(self.vllm_config) and not for_cudagraph_capture,
                 )
 
             if (for_cudagraph_capture

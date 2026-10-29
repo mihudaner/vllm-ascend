@@ -6,6 +6,14 @@ from vllm.forward_context import get_forward_context
 from vllm.utils.torch_utils import direct_register_custom_op
 
 
+def prepare_native_csa_metadata(context, prefixes) -> None:
+    """Native回退及其图重放消费本步计划；PTO路径不调用此函数。"""
+    for prefix in prefixes:
+        decoded = context.attn_metadata[prefix].decode
+        if decoded is not None:
+            decoded.ensure_native_metadata()
+
+
 def _native_attention_half(wrapper, hidden_states, positions, output) -> None:
     """按 release 原样走一遍 attention 半边：mHC pre + input_layernorm + attention + mHC post。
 
@@ -13,6 +21,12 @@ def _native_attention_half(wrapper, hidden_states, positions, output) -> None:
     否则 mHC 的门控就没人算了。这里照抄 `DeepseekV4DecoderLayer.forward` 的前半段，
     不改变任何 Native 的调用顺序与参数。
     """
+    context = get_forward_context()
+    if context.attn_metadata:
+        prefixes = (wrapper.dsa_attn.layer_name, wrapper.indexer.k_cache.prefix)
+        prepare_native_csa_metadata(context, prefixes)
+        if getattr(context, "capturing", False):
+            context.additional_kwargs.setdefault("pto_csa_native_metadata_prefixes", set()).update(prefixes)
     layer = wrapper._pto_csa_layer[0]  # tuple 包装，见 install_csa_forward 的说明
     residual = hidden_states.clone()
     mixed, post, comb = layer.hc_pre(

@@ -24197,3 +24197,33 @@ SPEC.md、manifest、cases、jobs、VALIDATION、原始补采报告、collect.py
 保留Native既有非bit差异，不新增整模型token/DSpark验收结论。本轮不优化算法、不改SDK、
 不做BSH或16卡测试。Ruff、shell、JSON/窗口数量/公式和diff检查通过；format.sh ci因
 未安装pre-commit未能执行。按要求详细中文Signed-off-by本地提交，未经新授权不push。
+
+### 735.134 PTO CSA按需省略QLI/C4 SAS，保留Native回退及图重放（2026-10-29）
+
+用户要求删除PTO CSA不消费的QLI和C4 SAS计划计算，并强调兼容Native使用方式。
+仅对PTO CSA模型的纯decode延迟生成这两项；不消费时不启动AICPU生产者、
+不clone QLI长度输入、不复制计划到各builder固定缓冲。Native模型仍即时生成，
+prefill、混合prefill/decode、draft、SWA/C128 SAS、CompressorMetadata及基础Q/L、
+页表、RoPE保留。BSH、TND-MPMD、TND-SPMD共用此服务机制，不改算术或SDK。
+
+真正回退到Native时，在attention半层前补齐compressed/indexer两组计划，
+同一步共享生产结果，但各builder自己的目标缓冲仍分别更新。生产闭包固定本步
+输入Tensor、共享字典和目标地址，不在延迟执行时读取builder已变化的字段。
+首次捕获前保守准备Native计划，避免AICPU生产者进入capture；捕获Native回退图时
+记录实际metadata prefix，replay前更新本步固定缓冲。纯PTO图重放不补算，
+TND图合同拒绝重放后仍由原服务路由决定是否补算。不新增环境变量或用户参数。
+
+15项CPU检查通过，包含Native/PTO三种压缩模式、跨builder共享、真实回退入口、
+Native/PTO replay、TND两种实现的服务路由，以及原Native图捕获/重放。
+补做与修改前b8dab16c7真实builder的CPU对照：压缩比0/4/128的生产者kwargs、
+全部返回字段和调用次数完全相同；图入口对不含attn_metadata的上下文仍兼容。
+
+单卡任务task_20261029_141320_376188426226在设备0退出0；CANN9.2，公共工具链
+csa-shared-20261024-group-dims。128K、S1/S6混长和padding，下一步有效KV长度+6：
+真实SAS/QLI有效计划字段在即时生成与延迟补算之间逐bit一致，固定地址图消费者
+replay与本步源Tensor逐bit一致。不比较Native结构未初始化字段；本轮未运行
+整模型/PTO数学，不新增token、DSpark或性能收益结论。
+
+说明、入口和结果见tests/pypto_test/csa_native_metadata_20261029/。
+Ruff、shell语法、diff检查通过；format.sh ci仍因缺少pre-commit未能执行。
+用户本轮已明确允许push，按详细中文Signed-off-by独立提交后推送现有分支。
