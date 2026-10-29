@@ -24227,3 +24227,25 @@ replay与本步源Tensor逐bit一致。不比较Native结构未初始化字段�
 说明、入口和结果见tests/pypto_test/csa_native_metadata_20261029/。
 Ruff、shell语法、diff检查通过；format.sh ci仍因缺少pre-commit未能执行。
 用户本轮已明确允许push，按详细中文Signed-off-by独立提交后推送现有分支。
+
+### 735.135 94个SPMD policy设备内选择的约束确认与编译可行性（2026-10-29）
+
+新任务参考mihudaner/vllm-ascend@0aadd3877b04536760ce335a2e6b19b862275118。
+用户确认仅改TND-SPMD，覆盖PyTorch与ACLNN；用policy规则按实际入参整批选档，
+允许Vector将结果同步给Cube；全部94个策略的tile/流水原样保留，具体限制再讨论。
+MPMD不改。本轮尚处于可行性分析，不把编译探针当正式实现或性能验收。
+
+核对94组合共32个constexpr，25项会变化；工作区布局也随G2/G6、Score tile、
+输出行块等变化。ACLNN Host当前选择Layout0..93和tiling key，PyTorch绑定/图合同
+也包含policy。设备选档需保留分支内静态特化，同时统一内部workspace容量与视图、
+每次启动的选档发布/同步，并消除服务图合同中的policy依赖；容量/地址检查仍保留。
+
+公共SDK无修改。小MIX设备分支N64/N128完成二进制编译，2.01秒且只有一次任务提交；
+真实CSA两分支（policy6/7，仅页表证明宽2048/2080变化）完成资源规划和PTOAS代码
+生成，53.57秒、约5MB/12.9万行C++，也只有一次提交。后者未编译二进制；两者均
+未上卡，尚未实现设备selector/broadcast，也未编译94档全集，不声称额外开销只有几us。
+两项成功任务分别为task_20261029_154314_165202917763与
+task_20261029_155023_180782112655。探针包装/导入/属性位置错误已修正，不列为SDK缺陷。
+
+分析、可重跑探针和精简结果位于tests/pypto_test/csa_device_policy_20261029/。
+正式CSA和SDK未改；该新任务未获push授权，不沿用上一项metadata优化的单次授权。

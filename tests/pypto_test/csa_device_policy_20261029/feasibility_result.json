@@ -1,0 +1,44 @@
+{
+  "baseline_commit": "41ba392f4",
+  "shared_sdk": "csa-shared-20261024-group-dims",
+  "small_mix_compile": {
+    "device_execution": false,
+    "scope": "两分支MIX编译能力；不代表94档CSA验收",
+    "artifact": "build_output/_jit_mixed_device_dispatch_tl3rr5hc",
+    "generate_s": 0.36026076413691044,
+    "status": "PASS",
+    "compile_s": 2.010601898189634,
+    "submit_call_sites": 1,
+    "cpp": [
+      {
+        "path": "build_output/_jit_mixed_device_dispatch_tl3rr5hc/ptoas/device_policy_probe.cpp",
+        "bytes": 22264,
+        "lines": 530
+      }
+    ],
+    "task_id": "task_20261029_154314_165202917763"
+  },
+  "two_csa_policy_codegen": {
+    "device_execution": false,
+    "source": "current original CSA schedules",
+    "policies": [
+      6,
+      7
+    ],
+    "status": "PASS",
+    "artifact": "build_output/_jit_decode_csa_spmd_f_yas48i",
+    "generate_s": 53.57470703404397,
+    "submit_call_sites": 1,
+    "cpp": [
+      {
+        "path": "build_output/_jit_decode_csa_spmd_f_yas48i/ptoas/dynamic_csa_full.cpp",
+        "bytes": 4978381,
+        "lines": 129050
+      }
+    ],
+    "task_id": "task_20261029_155023_180782112655",
+    "binary_compilation": false
+  },
+  "full_94_compilation": false,
+  "npu_execution": false
+}
