@@ -116,3 +116,32 @@ def tensor_descriptor(value):
         value.device,
         value.data_ptr(),
     )
+
+
+class DeviceCSAGraphMetadata(dict):
+    """Runner-owned fixed-buffer metadata, stamped once per batch build.
+
+    Only the managed, non-microbatched runner may issue this route. Tensor
+    layout/storage validation belongs to binding/capture; KV reinitialization
+    changes the epoch. Custom metadata keeps the legacy replay contract.
+    """
+
+    def __init__(self, metadata, *, epoch, tokens, requests, actual_tokens, max_query_tokens,
+                 max_seq_len, batch_capacity):
+        from .service_config import supported_descriptor
+
+        super().__init__(metadata)
+        valid = supported_descriptor(
+            tokens=tokens, requests=requests, actual_tokens=actual_tokens,
+            max_query_tokens=max_query_tokens, max_seq_len=max_seq_len, batch_capacity=batch_capacity,
+        )
+        # Metadata builders share objects across layers. Validate routing once
+        # per group here, before choosing a graph, never inside each CSA layer.
+        groups = {id(item): item for item in metadata.values()}
+        for item in groups.values():
+            req = getattr(item, "decode", None)
+            if (req is None or item.num_prefills or item.num_decodes != requests
+                    or item.num_actual_tokens != actual_tokens or req.seq_lens.numel() != requests):
+                valid = False
+                break
+        self.csa_device_route = (epoch, tokens, requests) if valid and groups else None

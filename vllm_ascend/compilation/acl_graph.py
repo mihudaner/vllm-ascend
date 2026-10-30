@@ -74,6 +74,7 @@ class ACLGraphEntry:
     csa_hbg_host_metadata: dict[str, Any] | None = None
     # TND routes/policy/root addresses must still match before Python is bypassed.
     csa_tnd_contracts: dict[str, Any] | None = None
+    csa_device_route: tuple[int, int, int] | None = None
 
 
 class ACLGraphWrapper:
@@ -187,6 +188,9 @@ class ACLGraphWrapper:
             aclgraph = torch.npu.NPUGraph()
 
             with ExitStack() as stack:
+                metadata_executor = getattr(forward_context, "device_metadata_executor", None)
+                if metadata_executor is not None and self.runtime_mode == CUDAGraphMode.FULL:
+                    stack.enter_context(metadata_executor.capture_consumers())
                 if self.aclgraph_options.gc_disable:
                     # during every model forward for piecewise aclgraph
                     # mode, we will capture many pieces of aclgraphs
@@ -265,6 +269,12 @@ class ACLGraphWrapper:
             tnd_contracts = forward_context.additional_kwargs.get("pto_csa_tnd_graph_contracts")
             if tnd_contracts:
                 entry.csa_tnd_contracts = dict(tnd_contracts)
+                if all(
+                    contract.signature is not None
+                    and getattr(contract.runtime, "execution_backend", None) == "aclnn"
+                    for contract in tnd_contracts.values()
+                ):
+                    entry.csa_device_route = getattr(forward_context.attn_metadata, "csa_device_route", None)
 
             compilation_counter.num_cudagraph_captured += 1
 
@@ -273,7 +283,14 @@ class ACLGraphWrapper:
             # manage the memory during acl graph capture
             return output
 
-        if entry.csa_tnd_contracts:
+        if entry.csa_device_route is not None and not self.is_debugging_mode and not csa_trace_enabled():
+            # Device dispatch has one fixed entry. The runner owns batch routing
+            # and fixed-buffer lifetime; no per-layer signature work on replay.
+            can_replay = (
+                not getattr(forward_context, "is_draft_model", False)
+                and getattr(forward_context.attn_metadata, "csa_device_route", None) == entry.csa_device_route
+            )
+        elif entry.csa_tnd_contracts:
             if csa_trace_enabled():
                 # 调试模式下逐层评估合同（含被 all() 短路掉的层），便于定位
                 # 究竟是哪一层的容量/策略/地址变化导致整图不能重放。

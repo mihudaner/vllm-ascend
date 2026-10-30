@@ -820,6 +820,7 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         query_start_loc = common_attn_metadata.query_start_loc
         num_reqs_actual = kwargs.get("num_reqs_actual")
         full_graph_mode = kwargs.get("full_graph_mode", False)
+        self.defer_native_csa_metadata = kwargs.get("defer_native_csa_metadata", False)
         self.prefill_ratio_to_sas_metadata = kwargs.get("prefill_ratio_to_sas_metadata")
         self.decode_ratio_to_sas_metadata = kwargs.get("decode_ratio_to_sas_metadata")
         assert self.prefill_ratio_to_sas_metadata is not None
@@ -1299,38 +1300,57 @@ class AscendDSAMetadataBuilder(AttentionMetadataBuilder[AscendDSAMetadata]):
         decode_qli_metadata = self.decode_qli_metadata
         assert decode_qli_metadata is not None
 
+        # Freeze this step's inputs/config: deferred consumers must not read
+        # fields from a builder that may already be preparing another substep.
+        if self.compressor_ratio == 4:
+            qli_seq_lens = self.seq_lens[: self.num_decodes]
+            qli_kwargs = dict(
+                num_heads_q=self.model_config.hf_config.index_n_heads,
+                num_heads_k=1,
+                head_dim=self.model_config.hf_config.index_head_dim,
+                query_quant_mode=0,
+                key_quant_mode=0,
+                batch_size=len(qli_seq_lens),
+                max_seqlen_q=max_seqlen_q,
+                max_seqlen_k=max_seqlen_kv,
+                layout_query="TND",
+                layout_key="PA_BSND",
+                sparse_count=self.model_config.hf_config.index_topk,
+                sparse_mode=3,
+                pre_tokens=(1 << 63) - 1,
+                next_tokens=(1 << 63) - 1,
+                cmp_ratio=4,
+                device=str(self.seqused_q.device),
+            )
+
         def build_qli_metadata() -> None:
             assert qli_cu_seqlens_q is not None
             if decode_metadata_cache.get("qli") is None:
                 decode_metadata_cache["qli"] = bytenn_ops.npu_quant_lightning_indexer_metadata_bnn(
                     actual_seq_lengths_query=qli_cu_seqlens_q[1:].clone(),
-                    actual_seq_lengths_key=self.seq_lens[: self.num_decodes].clone(),
-                    num_heads_q=self.model_config.hf_config.index_n_heads,  # 64
-                    num_heads_k=1,
-                    head_dim=self.model_config.hf_config.index_head_dim,  # 128
-                    query_quant_mode=0,
-                    key_quant_mode=0,
-                    batch_size=len(self.seq_lens[: self.num_decodes]),
-                    max_seqlen_q=max_seqlen_q,
-                    max_seqlen_k=max_seqlen_kv,
-                    layout_query="TND",
-                    layout_key="PA_BSND",
-                    sparse_count=self.model_config.hf_config.index_topk,
-                    sparse_mode=3,
-                    pre_tokens=(1 << 63) - 1,
-                    next_tokens=(1 << 63) - 1,
-                    cmp_ratio=4,
-                    device=str(self.seqused_q.device),
+                    actual_seq_lengths_key=qli_seq_lens.clone(),
+                    **qli_kwargs,
                 )
             decode_qli_metadata[:1024] = decode_metadata_cache["qli"]
 
+        defer_native = (
+            getattr(self, "defer_native_csa_metadata", False)
+            and not self.num_prefills
+            and self.compressor_ratio == 4
+        )
         if self._device_metadata_enabled:
             if self.compressor_ratio == 4:
                 self._device_metadata_tasks += (
-                    DeviceMetadataTask(DeviceMetadataStage.INDEXER, build_qli_metadata, id(decode_qli_metadata)),
+                    DeviceMetadataTask(
+                        DeviceMetadataStage.INDEXER, build_qli_metadata, id(decode_qli_metadata),
+                        defer_until_consumed=defer_native,
+                    ),
                 )
             self._device_metadata_tasks += (
-                DeviceMetadataTask(DeviceMetadataStage.ATTENTION, build_sas_metadata, id(decode_sas_metadata)),
+                DeviceMetadataTask(
+                    DeviceMetadataStage.ATTENTION, build_sas_metadata, id(decode_sas_metadata),
+                    defer_until_consumed=defer_native,
+                ),
             )
         else:
             if self.compressor_ratio == 4:

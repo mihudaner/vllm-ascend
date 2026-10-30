@@ -3066,6 +3066,11 @@ class NPUModelRunner(GPUModelRunner):
         device_metadata_tasks: list[DeviceMetadataTask] | None = (
             [] if self.device_metadata_executor is not None else None
         )
+        defer_native_csa_metadata = (
+            self.device_metadata_executor is not None
+            and ubatch_slices is None
+            and getattr(self.get_model(), "_pto_csa_tnd_capture_sequence_length", None) is not None
+        )
         if ubatch_slices is not None:
             attn_metadata = [dict() for _ in range(len(ubatch_slices))]
 
@@ -3266,6 +3271,10 @@ class NPUModelRunner(GPUModelRunner):
                     common_ratio_to_sas_metadata=common_ratio_to_sas_metadata,
                     block_size=attn_group.kv_cache_spec.block_size,
                     full_graph_mode=cudagraph_runtime_mode == CUDAGraphMode.FULL,
+                    # CP/draft and non-CSA paths retain eager plan production.
+                    defer_native_csa_metadata=(
+                        defer_native_csa_metadata and type(builder) is AscendDSAMetadataBuilder
+                    ),
                 )
 
             if (for_cudagraph_capture
@@ -3393,6 +3402,15 @@ class NPUModelRunner(GPUModelRunner):
             self.device_metadata_executor.submit(
                 device_metadata_tasks,
                 batch_descriptor if cudagraph_runtime_mode == CUDAGraphMode.FULL else None,
+            )
+        if defer_native_csa_metadata:
+            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.graph_contract import DeviceCSAGraphMetadata
+
+            attn_metadata = DeviceCSAGraphMetadata(
+                attn_metadata, epoch=self._csa_buffer_epoch,
+                tokens=num_tokens_padded, requests=num_reqs_padded, actual_tokens=num_tokens,
+                max_query_tokens=max_query_len, max_seq_len=max_seq_len,
+                batch_capacity=self.scheduler_config.max_num_seqs,
             )
         return attn_metadata, spec_decode_common_attn_metadata
 
@@ -4052,6 +4070,8 @@ class NPUModelRunner(GPUModelRunner):
             kv_cache_config: Configuration for the KV cache, including the KV
             cache size of each layer
         """
+        # Any rebuilt KV/builder buffers invalidate previously stamped CSA graphs.
+        self._csa_buffer_epoch = getattr(self, "_csa_buffer_epoch", 0) + 1
         kv_cache_config = deepcopy(kv_cache_config)
         self.kv_cache_config = kv_cache_config
         self._mamba_bufs = None

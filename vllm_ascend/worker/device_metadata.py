@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from collections.abc import Callable, Iterable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Protocol, runtime_checkable
@@ -33,6 +34,7 @@ class DeviceMetadataTask:
     stage: DeviceMetadataStage
     run: Callable[[], None]
     group_id: int
+    defer_until_consumed: bool = False
 
 
 @runtime_checkable
@@ -61,6 +63,9 @@ class DeviceMetadataExecutor:
         # Reuse each SAS group's first-consumption order across batch shapes.
         self._attention_order: dict[int, int] = {}
         self._graph_namespace = "target"
+        self._pending_tasks: dict[tuple[DeviceMetadataStage, int], DeviceMetadataTask] = {}
+        self._graph_consumers: dict[tuple[str, BatchDescriptor], set[tuple[DeviceMetadataStage, int]]] = {}
+        self._capturing_consumers: set[tuple[DeviceMetadataStage, int]] | None = None
 
     @property
     def submission_in_flight(self) -> bool:
@@ -112,6 +117,8 @@ class DeviceMetadataExecutor:
         self._batch_descriptor = batch_descriptor
         self._graph_namespace = graph_namespace
         self._waited_stages.clear()
+        self._pending_tasks.clear()
+        consumers = self._graph_consumers.get(graph_key) if batch_descriptor is not None else None
         self._inputs_ready.record(torch.npu.current_stream())
         with torch.npu.stream(self.stream):
             self.stream.wait_event(self._inputs_ready)
@@ -122,25 +129,71 @@ class DeviceMetadataExecutor:
             for stage in DeviceMetadataStage:
                 while task_index < len(ordered_tasks) and ordered_tasks[task_index].stage == stage:
                     task = ordered_tasks[task_index]
-                    task.run()
                     frontier = (stage, task.group_id)
-                    if batch_descriptor is None:
-                        self._stage_ready[frontier].record(self.stream)
+                    # Unknown graphs prepare everything conservatively. Known
+                    # graphs omit only optional plans with no captured consumer.
+                    if task.defer_until_consumed and (
+                        batch_descriptor is None or (consumers is not None and frontier not in consumers)
+                    ):
+                        self._pending_tasks[frontier] = task
                     else:
-                        self._external_stage_ready[(graph_namespace, batch_descriptor, *frontier)].record(self.stream)
+                        self._run_task(task)
                     task_index += 1
+
+    def _run_task(self, task: DeviceMetadataTask) -> None:
+        """Run on the metadata stream and publish the existing readiness event."""
+        task.run()
+        frontier = (task.stage, task.group_id)
+        if self._batch_descriptor is None:
+            self._stage_ready[frontier].record(self.stream)
+        else:
+            key = (self._graph_namespace, self._batch_descriptor, *frontier)
+            self._external_stage_ready[key].record(self.stream)
+
+    @contextmanager
+    def capture_consumers(self):
+        """Prepare optional plans before capture; commit consumers only on success."""
+        if not self._submission_in_flight or self._batch_descriptor is None or self._capturing_consumers is not None:
+            yield
+            return
+        # A graph may be recaptured after a previous pure-CSA graph. AICPU
+        # producers must still run outside the model capture, as in SE's path.
+        with torch.npu.stream(self.stream):
+            for task in self._pending_tasks.values():
+                self._run_task(task)
+        self._pending_tasks.clear()
+        self._capturing_consumers = set()
+        try:
+            yield
+            self._graph_consumers[(self._graph_namespace, self._batch_descriptor)] = self._capturing_consumers
+        finally:
+            self._capturing_consumers = None
 
     def wait(self, stage: DeviceMetadataStage, group_id: int) -> None:
         if not self._submission_in_flight:
             raise RuntimeError("No device metadata submission is in flight")
         frontier = (stage, group_id)
+        if self._capturing_consumers is not None:
+            self._capturing_consumers.add(frontier)
+        task = self._pending_tasks.pop(frontier, None)
+        if task is not None:
+            # Eager execution or a graph-guard Native fallback may need a plan
+            # omitted at submit. It uses the same stream/fences/event as usual.
+            with torch.npu.stream(self.stream):
+                self._run_task(task)
         if frontier not in self._waited_stages:
             stream = torch.npu.current_stream()
             if self._batch_descriptor is None:
                 stream.wait_event(self._stage_ready[frontier])
             else:
                 event = self._external_stage_ready[(self._graph_namespace, self._batch_descriptor, *frontier)]
-                event.wait(stream)
+                if task is not None:
+                    # An optional frontier may still carry an unconsumed old
+                    # ExternalEvent signal. Wait for THIS late producer using
+                    # a normal stream fence, then clear its external signal.
+                    stream.wait_stream(self.stream)
+                else:
+                    event.wait(stream)
                 event.reset(stream)
             self._waited_stages.add(frontier)
             if stage == DeviceMetadataStage.ATTENTION:
@@ -153,6 +206,7 @@ class DeviceMetadataExecutor:
         self._has_reuse_fence = True
         self._submission_in_flight = False
         self._batch_descriptor = None
+        self._pending_tasks.clear()
 
 
 def wait_for_device_metadata(stage: DeviceMetadataStage, group_id: int) -> None:
