@@ -5,9 +5,9 @@
 与旧多task入口分开，绝不从token数反算请求数。已有Host字段只用于支持范围
 和策略选择，逐请求计算仍读device Q/L。首版短历史范围见service_config。
 
-准备对象按根Tensor描述符和策略缓存，不持有外部工作区；capture可替换同描述符
+准备对象按根Tensor描述符缓存；Host选档后端另外包含策略，不持有外部工作区；capture可替换同描述符
 的输入/输出地址。临时工作区由选定后端管理，信号初始化保留在核内。图重放不会经过Python判定，因此
-服务路由集成还必须验证捕获的请求容量、策略和metadata地址合同。
+服务路由集成仍验证捕获的请求容量和metadata地址；只有Host选档后端比较策略。
 """
 
 import torch
@@ -73,6 +73,13 @@ class CSAServiceRuntime(AttentionServiceBase):
     @staticmethod
     def _select_policy(**descriptors):
         return select_policy(**descriptors)
+
+    def _binding_policy(self, **descriptors):
+        # Host eligibility checks still run, but Q/L no longer select a kernel
+        # or become part of the graph/binding identity for device dispatch.
+        if self.execution_backend == "aclnn":
+            return None
+        return self._select_policy(**descriptors)
 
     def _prepare_binding(self, native, **options):
         return PreparedDynamicCSA(native, execution_backend=self.execution_backend, **options)
@@ -216,7 +223,7 @@ class CSAServiceRuntime(AttentionServiceBase):
         compressed_table = metadata[self.prefixes["compressed"]].decode.block_table
         if compressed_table is None or compressed_table.ndim != 2:
             return None
-        policy = self._select_policy(
+        policy = self._binding_policy(
             tokens=tokens,
             requests=indexer.decode.seq_lens.numel(),
             max_query_tokens=MAX_QUERY_TOKENS,
@@ -428,7 +435,7 @@ class CSAServiceRuntime(AttentionServiceBase):
         maximum = metadata["indexer"].decode.max_seq_lens
         # 固定的是本服务允许的query上界，真实Q/L仍可在1..6之间逐请求变化。
         # 不因当前max_q较小而把图容量误判为T > B*max_q。
-        policy = self._select_policy(
+        policy = self._binding_policy(
             tokens=tokens,
             requests=requests,
             max_query_tokens=MAX_QUERY_TOKENS,
@@ -440,14 +447,14 @@ class CSAServiceRuntime(AttentionServiceBase):
             if capturing:
                 raise RuntimeError(
                     validation_error(
-                        "TND CSA须在捕获前warmup当前描述符与策略",
+                        "TND CSA须在捕获前warmup当前描述符与执行合同",
                         layer_name=self.layer_name,
                         native=native,
                         tokens=tokens,
                         requests=requests,
                         max_query_tokens=MAX_QUERY_TOKENS,
                         max_seq_len=maximum,
-                        policy=policy.constexprs(),
+                        policy=None if policy is None else policy.constexprs(),
                         prepared_bindings=len(self._bindings),
                     )
                 )

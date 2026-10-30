@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""94 档 bytenn CSA ACLNN wheel 与共享 TND binding 之间的执行适配。
+"""94 档 CSA ACLNN wheel 与共享 TND binding 之间的执行适配。
 
-外部 dsv4_csa_forward/Fake、Native 输入准备和策略选择仍只有一份。
+外部 dsv4_csa_forward/Fake和Native输入准备仍只有一份；
+ACLNN由设备选档，Host只提交固定family 0。
 本模块不调用旧 wheel 的 PreparedAclnnCSA，不复制其旧版 binding；
-通过固定包清单、当前根 ABI 和完整 constexpr 策略验证接入合同。
+通过固定包清单、当前根ABI和完整94档覆盖验证接入合同。
 结构参考 nalinaly/vllm-ascend@f589dc84854d48ad067905cdb5fae00e34e32cce。
 PyPTO Python 类型可用于读取 ABI，但不编译或初始化 Simpler。
 """
@@ -133,14 +134,23 @@ def _read_package(root: Path) -> KernelPackage:
         policies = {_policy_key(value["policy"]): value["tiling_key"] for value in variants}
         if len(policies) != POLICY_COUNT or set(policies.values()) != set(range(POLICY_COUNT)):
             raise RuntimeError("CSA ACLNN 策略清单不完整或 key 重复")
-        if metadata.get("kernel_keys") != list(range(POLICY_COUNT)):
-            raise RuntimeError("CSA ACLNN wheel 必须包含全部 94 个已编译 key")
+        expected = {
+            "dispatch_mode": "device",
+            "dispatch_schema": 1,
+            "kernel_keys": [0],
+            "policy_count": POLICY_COUNT,
+            "supported_policy_ids": list(range(POLICY_COUNT)),
+            "interface_sha256": _INTERFACE_SHA256,
+        }
+        if any(metadata.get(key) != value for key, value in expected.items()):
+            raise RuntimeError("CSA device wheel 必须声明完整94档、ABI v1和固定family 0")
         if metadata.get("policy_manifest_sha256") != _POLICIES_SHA256:
             raise RuntimeError("CSA ACLNN wheel 的策略载荷校验失败")
         library = root / "lib/bytenn_pto_ops_npu.so"
         if _sha256(library) != metadata["torch_library_sha256"]:
             raise RuntimeError("CSA ACLNN Torch 扩展与 wheel 清单不一致，请重新安装该包")
-        if _sha256(root / "dsf_csa_pto_bnn.run") != metadata["run_sha256"]:
+        run_name = "dsf_csa_pto_bnn.run"
+        if _sha256(root / run_name) != metadata["run_sha256"]:
             raise RuntimeError("CSA ACLNN 算子包与 wheel 清单不一致，请重新安装该包")
     except (KeyError, OSError, ValueError) as error:
         raise RuntimeError(f"CSA ACLNN wheel 内容不完整或清单无效：{root}") from error
@@ -154,39 +164,32 @@ def _load_kernel_package() -> KernelPackage:
     spec = importlib.util.find_spec("bytenn_pto_ops")
     if spec is None or spec.origin is None:
         raise RuntimeError(
-            "VLLM_ASCEND_PTO_CSA_BACKEND=aclnn 需要安装匹配的 bytenn_pto_ops wheel；"
-            "不会自动退回 Python PTO"
+            "VLLM_ASCEND_PTO_CSA_BACKEND=aclnn 需要安装完整94档后移版 bytenn_pto_ops wheel；"
+            "不会自动退回其它执行后端"
         )
     package = _read_package(Path(spec.origin).resolve().parent)
-    # 包内启动钩子/ensure_vendor 负责独立 OPP 路径和绝对路径加载；无运行时安装。
     importlib.import_module("bytenn_pto_ops").ensure_vendor()
     torch.ops.load_library(str(package.library))
     logger.info(
-        "PTO_CSA_ACLNN_READY reference=%s policies=%d library=%s",
+        "PTO_CSA_ACLNN_READY reference=%s policies=%d dispatch=device family=0 library=%s",
         REFERENCE_COMMIT, len(package.policies), package.library,
     )
     return package
 
 
 def validate_backend_installation() -> None:
-    """在模型准备阶段验证并加载原始 wheel；不初始化 NPU/Simpler或编译算子。"""
+    """校验后移包并加载；不初始化NPU/Simpler或编译算子。"""
     _load_kernel_package()
 
 
 class AclnnExecutor:
-    """消费同一个 PreparedDynamicCSA 的 buffers/policy，仅替换最终执行。"""
+    """消费同一个绑定；ACLNN只提交固定family，真实Q/L在设备选档。"""
 
     def __init__(self, prepared):
         self.package = _load_kernel_package()
-        constants = prepared.policy.constexprs()
-        key = _policy_key(constants)
-        if key not in self.package.policies:
-            raise NotImplementedError(
-                "当前 CSA ACLNN 94 档 wheel 没有匹配的完整编译策略；"
-                "请使用匹配的算子包，不允许选择相近 key 或静默切换后端。"
-                f" policy={constants}"
-            )
-        self.variant = self.package.policies[key]
+        if prepared.policy is not None:
+            raise RuntimeError("CSA ACLNN device dispatch must not bind a host policy")
+        self.variant = 0  # Stable family attribute; device Q/L selects the policy.
         self.auxiliary = {}
         # 原 ACLNN 包固定 57 Tensor 诊断 ABI；业务接口无 TopK 输出时在准备期
         # 分配两份稳定 buffer。它们不改变外部 Meta 或正常 Python 根入口。

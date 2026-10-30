@@ -14,6 +14,7 @@ from vllm_ascend import envs
 
 from ..deepseek_v4_flash_csa.validation import validation_error
 from .policy import CSASPMDPolicy, select_policy
+from .service_config import MAX_QUERY_TOKENS, MAX_SEQUENCE_LENGTH, MIN_SEQUENCE_LENGTH
 
 REQUIRED_CUBE_CORES = 24
 REQUIRED_VECTOR_CORES = 2 * REQUIRED_CUBE_CORES
@@ -30,6 +31,21 @@ def validate_core_geometry(cube_core_num: int, vector_core_num: int) -> None:
                 vector_core_num=vector_core_num,
             )
         )
+
+
+def _validate_device_descriptor(*, tokens, requests, max_query_tokens, max_seq_len, compressed_table_columns):
+    """Keep input bounds without selecting a host policy or reading device Q/L."""
+    values = (tokens, requests, max_query_tokens, max_seq_len, compressed_table_columns)
+    if (
+        any(type(value) is not int or value <= 0 for value in values)
+        or max_query_tokens > MAX_QUERY_TOKENS
+        or not MIN_SEQUENCE_LENGTH <= max_seq_len <= MAX_SEQUENCE_LENGTH
+    ):
+        raise ValueError(validation_error(
+            "CSA device dispatch描述符超出已支持范围",
+            tokens=tokens, requests=requests, max_query_tokens=max_query_tokens,
+            max_seq_len=max_seq_len, compressed_table_columns=compressed_table_columns,
+        ))
 
 
 class PreparedDynamicCSA:
@@ -66,13 +82,24 @@ class PreparedDynamicCSA:
             raise ValueError(
                 validation_error("cmp_block_table must be two-dimensional", cmp_block_table=native["cmp_block_table"])
             )
-        self.policy = policy or select_policy(
-            tokens=t,
-            requests=b,
-            max_query_tokens=max_query_tokens,
-            max_seq_len=max_seq_len,
-            compressed_table_columns=native["cmp_block_table"].shape[1],
-        )
+        # Device dispatch has no host-selected policy or policy-sized workspace.
+        # The package validates descriptors; every replay reads current device Q/L.
+        if self.execution_backend == "aclnn":
+            if policy is not None:
+                raise ValueError("aclnn must not bind a host policy")
+            _validate_device_descriptor(
+                tokens=t, requests=b, max_query_tokens=max_query_tokens, max_seq_len=max_seq_len,
+                compressed_table_columns=native["cmp_block_table"].shape[1],
+            )
+            self.policy = None
+        else:
+            self.policy = policy or select_policy(
+                tokens=t,
+                requests=b,
+                max_query_tokens=max_query_tokens,
+                max_seq_len=max_seq_len,
+                compressed_table_columns=native["cmp_block_table"].shape[1],
+            )
         device = hidden.device
         if device.type == "npu":
             import torch_npu

@@ -3562,8 +3562,13 @@ class NPUModelRunner(GPUModelRunner):
                     tnd_capture_length = getattr(self.get_model(), "_pto_csa_tnd_capture_sequence_length", None)
                     if tnd_capture_length is None:
                         tnd_capture_length = getattr(self.get_model(), "_pto_hca_tnd_capture_sequence_length", None)
-                if tnd_capture_length is not None and profile_seq_lens is None:
-                    seq_lens = tnd_capture_length
+                if tnd_capture_length is not None:
+                    # Target length already includes its query block. Reserve
+                    # space for the DSpark queries appended by draft dummy_run.
+                    seq_lens = min(
+                        tnd_capture_length if profile_seq_lens is None else profile_seq_lens,
+                        self._get_tnd_capture_sequence_limit(),
+                    )
 
                 self.optimistic_seq_lens_cpu[:num_reqs] = seq_lens
                 self.optimistic_seq_lens_cpu[num_reqs:].fill_(0)
@@ -5336,6 +5341,11 @@ class NPUModelRunner(GPUModelRunner):
             fn = getattr(module, "prebuild_force_eplb_topk", None)
             if fn is not None:
                 fn(capture_sizes, self.device)
+
+    def _get_tnd_capture_sequence_limit(self) -> int:
+        """Bound target dummy length before DSpark appends its query block."""
+        draft_query_tokens = self.drafter.num_query_per_req if isinstance(self.drafter, AscendDSparkProposer) else 0
+        return self.max_model_len - draft_query_tokens
 
     def capture_model(self) -> int:
         """Capture NPU graphs and return actual graph pool memory bytes consumed."""

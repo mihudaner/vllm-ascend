@@ -86,6 +86,13 @@ def _configure_backend(
     process_kwargs_options: Callable | None = None,
 ) -> None:
     if ascend_compilation_config.enable_static_kernel:
+        from vllm_ascend import envs
+
+        csa_backend = envs.VLLM_ASCEND_PTO_CSA_BACKEND.strip().lower()
+        if csa_backend == "aclnn":
+            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.static_compile import prepare_static_compile
+
+            logger.info("CSA static compilation PTO include: %s", prepare_static_compile())
         # npugraph_ex's static_kernel requires LOCAL_WORLD_SIZE to determine the
         # physical node topology for creating per-node Gloo groups, which
         # coordinate static kernel compilation and .run package installation.
@@ -149,6 +156,9 @@ def _configure_backend(
             config.experimental_config.aclgraph._aclnn_static_shape_kernel_sym_value_range = (
                 _compute_decode_cudagraph_batch_sizes(vllm_config)
             )
+            if ascend_compilation_config.enable_super_kernel:
+                config.experimental_config.aclgraph._super_kernel_optimize = True
+                config.experimental_config.aclgraph._super_kernel_optimize_options = {"dcci_after_kernel_end": [".*"]}
 
 
 def npugraph_ex_compile(
@@ -251,6 +261,14 @@ class AscendCompiler(CompilerInterface):
             "enable_static_kernel": ascend_compilation_config.enable_static_kernel,
             "enable_super_kernel": ascend_compilation_config.enable_super_kernel,
         }
+        from vllm_ascend import envs
+
+        if envs.VLLM_ASCEND_PTO_CSA_BACKEND.strip().lower() == "aclnn":
+            from vllm_ascend.ops.pypto.deepseek_v4_flash_csa_spmd_tnd.static_compile import (
+                package_compile_identity,
+            )
+
+            factors["csa_package"] = package_compile_identity()
         logger.info("AscendCompiler hash factors: %s", factors)
         return sha256(str(factors).encode(), usedforsecurity=False).hexdigest()[:10]
 
