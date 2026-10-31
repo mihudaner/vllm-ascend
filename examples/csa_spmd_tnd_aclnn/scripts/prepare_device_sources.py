@@ -7,6 +7,7 @@ import re
 import shutil
 
 from device_selector import selector
+from split_policy_sources import split_sources
 
 def shared_startup_math(source):
     body = source.read_text()
@@ -45,7 +46,8 @@ def main():
     for row in rows:
         target = output / 'generated' / ('policy_%03d.cpp' % row['tiling_key'])
         target.write_text(shared_startup_math(source / 'generated' / row['cpp']))
-    shutil.copy2(source / 'op_kernel/dsf_csa_pto_bnn.cpp', output / 'op_kernel/dsf_csa_pto_bnn.cpp')
+    tasks = split_sources(source / 'op_kernel/dsf_csa_pto_bnn.cpp', output)
+    (output / 'policy_objects.json').write_text(json.dumps({'tasks': tasks}, indent=2))
 
 
 if __name__ == '__main__':

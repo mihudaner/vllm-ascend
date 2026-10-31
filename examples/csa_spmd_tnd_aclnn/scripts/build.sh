@@ -10,9 +10,15 @@ case "$build" in "$root"|"$root"/*) echo "Build outside the operator source tree
 if [[ -e "$build" ]]; then echo "Use a fresh build directory" >&2; exit 1; fi
 mkdir -p "$build"
 cmake -S "$root" -B "$build/cann" -DPTO_ISA_ROOT="$pto_isa"
-cmake --build "$build/cann" --target binary --parallel "$jobs"
-cmake --build "$build/cann" --parallel "$jobs"
-cmake --build "$build/cann" --target package --parallel "$jobs"
+# Independent policy functions are cached across fresh build directories.
+python "$root/scripts/build_policy_objects.py" --sources "$build/cann/device_sources" \
+  --isa "$pto_isa" --jobs "$jobs" --cache "$(dirname "$build")/.csa-policy-object-cache"
+python "$root/scripts/run_policy_build.py" --objects "$build/cann/device_sources/objects" -- \
+  cmake --build "$build/cann" --target binary --parallel "$jobs"
+python "$root/scripts/run_policy_build.py" --objects "$build/cann/device_sources/objects" -- \
+  cmake --build "$build/cann" --parallel "$jobs"
+python "$root/scripts/run_policy_build.py" --objects "$build/cann/device_sources/objects" -- \
+  cmake --build "$build/cann" --target package --parallel "$jobs"
 MAX_JOBS="$jobs" python "$root/scripts/build_torch.py" --build-dir "$build/torch"
 mapfile -t packages < <(find "$build/cann" -maxdepth 2 -type f -name '*.run')
 if [[ ${#packages[@]} != 1 ]]; then echo "Expected one complete .run package" >&2; exit 1; fi

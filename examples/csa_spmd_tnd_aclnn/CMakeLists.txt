@@ -30,3 +30,16 @@ add_subdirectory(op_kernel)
 # the same relative include layout as the source tree in the OPP package.
 install(DIRECTORY "${CMAKE_BINARY_DIR}/device_sources/include" "${CMAKE_BINARY_DIR}/device_sources/generated"
   DESTINATION "packages/vendors/${vendor_name}/op_impl/ai_core/tbe/${vendor_name}_impl")
+
+# The .run and wheel both carry a self-contained compiler extension and objects.
+# Runtime services need no PYTHONPATH/sitecustomize changes.
+install(CODE "
+  execute_process(COMMAND \"${Python3_EXECUTABLE}\"
+    \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/package_policy_objects.py\"
+    --vendor \"\${CMAKE_INSTALL_PREFIX}/packages/vendors/${vendor_name}\"
+    --objects \"${CMAKE_BINARY_DIR}/device_sources/objects\"
+    RESULT_VARIABLE policy_package_result)
+  if(NOT policy_package_result EQUAL 0)
+    message(FATAL_ERROR \"Failed to package policy objects\")
+  endif()
+")

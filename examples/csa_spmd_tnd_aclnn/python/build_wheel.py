@@ -48,6 +48,10 @@ def bundle_static_compiler(package, vendor):
     node, original_include = candidates[0]
     include = implementation / 'pto_isa/include'
     shutil.copytree(original_include, include, symlinks=False)
+    # Some PTO headers resolve definitions through the sibling pkg_inc tree.
+    pkg_inc = original_include.parent / 'pkg_inc'
+    if pkg_inc.is_dir():
+        shutil.copytree(pkg_inc, include.parent / 'pkg_inc', symlinks=False)
     if any(p.is_symlink() for p in include.rglob('*')):
         raise ValueError('Bundled ISA headers must not contain symlinks')
     # AST offsets are UTF-8 byte offsets. Change only that compiler option.
@@ -102,6 +106,17 @@ def check_vendor(vendor):
     expected = {f'policy_{i:03d}.cpp' for i in range(94)}
     if {path.name for path in cpp} != expected:
         raise ValueError('Installed source must contain exactly policy_000.cpp through policy_093.cpp')
+    objects = dynamic.parent / 'objects'
+    manifest = json.loads((objects / 'manifest.json').read_text())
+    expected_objects = {f'{role}_{i:03d}.o' for role in ('aic', 'aiv') for i in range(94)}
+    records = {f"{row['role']}_{row['index']:03d}.o": row for row in manifest['objects']}
+    if len(manifest['objects']) != 188 or set(records) != expected_objects:
+        raise ValueError('Incomplete policy-object manifest')
+    for name, row in records.items():
+        if sha(objects / name) != row['sha256']:
+            raise ValueError('Policy object hash mismatch: ' + name)
+    if not (dynamic / 'aclnn_policy_compile.py').is_file():
+        raise ValueError('Missing private policy compiler')
     return sorted(keys)
 
 
@@ -153,6 +168,7 @@ def main():
     manifest = dict(provenance)
     manifest.update({
         'kernel_keys': check_vendor(vendor),
+        'static_policy_link': 'package_compiler',
         'upstream_commit': 'd544a09a4c920d038d00e04310b798abfcc8c2d5',
         'policy_manifest_sha256': sha(pkg / 'generated/manifest.json'),
         'interface_sha256': sha(pkg / 'generated/interface.json'),
