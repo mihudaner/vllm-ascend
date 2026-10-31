@@ -169,6 +169,7 @@ def main():
     manifest.update({
         'kernel_keys': check_vendor(vendor),
         'static_policy_link': 'package_compiler',
+        'nd_storage_descriptor': 'current_data_ptr_zero_offset',
         'upstream_commit': 'd544a09a4c920d038d00e04310b798abfcc8c2d5',
         'policy_manifest_sha256': sha(pkg / 'generated/manifest.json'),
         'interface_sha256': sha(pkg / 'generated/interface.json'),
