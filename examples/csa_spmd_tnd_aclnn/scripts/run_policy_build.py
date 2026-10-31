@@ -17,7 +17,9 @@ def main():
         parser.error('A build command is required')
     with tempfile.TemporaryDirectory(prefix='bytenn-policy-compiler-') as temporary:
         hook = Path(temporary) / 'sitecustomize.py'
-        hook.write_text('import os, sys, traceback\ntry:\n'
+        hook.write_text('import os, sys, traceback\n'
+                        '# Build against this project, not an installed older CSA ABI.\n'
+                        'os.environ.pop("ASCEND_CUSTOM_OPP_PATH", None)\ntry:\n'
                         f'    sys.path.insert(0, {str(Path(__file__).resolve().parent)!r})\n'
                         '    from aclnn_policy_compile import install_policy_linker\n'
                         f'    install_policy_linker({str(args.objects.resolve())!r})\n'
