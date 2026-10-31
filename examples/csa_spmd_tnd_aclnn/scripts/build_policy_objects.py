@@ -49,7 +49,7 @@ def main():
     identity = {'compiler': sha(compiler), 'objcopy': sha(objcopy),
                 'isa': tree_hash(include),
                 'pkg_inc': tree_hash(isa / 'pkg_inc') if (isa / 'pkg_inc').is_dir() else None,
-                'flags': common, 'schema': 1, 'object_postprocess': 'strip-debug-meta-v1'}
+                'flags': common, 'schema': 1, 'object_postprocess': 'strip-debug-meta-local-symbols-v2'}
     tasks = json.loads((sources / 'policy_objects.json').read_text())['tasks']
     args.cache.mkdir(parents=True, exist_ok=True)
 
@@ -74,8 +74,11 @@ def main():
                                    stdout=output, stderr=subprocess.STDOUT, check=True)
                 # These are functions, not global kernel entries. Keep code and
                 # relocations; do not duplicate their debug/kernel metadata in SK.
+                # AIC/AIV units include the same generated helper names. Export
+                # only the role-specific wrapper to avoid duplicate definitions.
                 subprocess.run([str(objcopy), '--strip-debug', '--discard-all',
-                                '--remove-section=.ascend.meta', str(obj)], check=True)
+                                '--remove-section=.ascend.meta',
+                                '--keep-global-symbol=csa_' + name, str(obj)], check=True)
                 metadata = Path(temporary) / 'metadata.json'
                 metadata.write_text(json.dumps({'sha256': sha(obj)}))
                 obj.replace(cached)
