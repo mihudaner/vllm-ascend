@@ -1,6 +1,6 @@
 {
   "dispatch_mode": "device",
-  "dispatch_schema": 1,
+  "dispatch_schema": 2,
   "kernel_keys": [
     0
   ],
@@ -106,5 +106,7 @@
   "source_manifest_sha256": "b1dfd344df236613b149792d45f821ec8593cb38380a06cec5c00e6d31b8c829",
   "math_regenerated": false,
   "policy_call_boundary": "noinline",
-  "build_mode": "cann_single_translation_unit"
+  "build_mode": "cann_single_translation_unit",
+  "external_tensor_count": 55,
+  "topk_storage": "internal_workspace"
 }

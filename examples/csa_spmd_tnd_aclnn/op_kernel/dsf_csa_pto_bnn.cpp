@@ -31880,7 +31880,7 @@ get_subblockid()
 #endif
 }
 }
-extern "C" __global__ __aicore__ void dsf_csa_pto_bnn(GM_ADDR in_x, GM_ADDR in_hc_fn, GM_ADDR in_hc_scale, GM_ADDR in_hc_base, GM_ADDR in_hc_base_2d, GM_ADDR in_norm_w, GM_ADDR in_wq_a, GM_ADDR in_gamma_cq, GM_ADDR in_wq_b, GM_ADDR in_wq_b_scale, GM_ADDR in_rope_cos, GM_ADDR in_rope_sin, GM_ADDR in_wkv, GM_ADDR in_gamma_ckv, GM_ADDR in_native_slots, GM_ADDR in_cache_rows, GM_ADDR in_main_wkv, GM_ADDR in_main_wgate, GM_ADDR in_main_state, GM_ADDR in_main_state_table, GM_ADDR in_main_ape, GM_ADDR in_positions, GM_ADDR in_main_bounds, GM_ADDR in_main_lengths, GM_ADDR in_main_state_slots, GM_ADDR in_main_gamma, GM_ADDR in_main_cos, GM_ADDR in_main_sin, GM_ADDR in_main_slots, GM_ADDR in_main_cache, GM_ADDR in_idx_wkv, GM_ADDR in_idx_wgate, GM_ADDR in_idx_state, GM_ADDR in_idx_state_table, GM_ADDR in_idx_ape, GM_ADDR in_idx_bounds, GM_ADDR in_idx_lengths, GM_ADDR in_idx_state_slots, GM_ADDR in_idx_gamma, GM_ADDR in_idx_cos, GM_ADDR in_idx_sin, GM_ADDR in_idx_slots, GM_ADDR in_hadamard, GM_ADDR in_idx_cache, GM_ADDR in_original_table, GM_ADDR in_compressed_table, GM_ADDR in_indexer_table, GM_ADDR in_idx_wq_b, GM_ADDR in_idx_wq_b_scale, GM_ADDR in_weights_proj, GM_ADDR in_attn_sink, GM_ADDR in_wo_a, GM_ADDR in_wo_b, GM_ADDR in_wo_b_scale, GM_ADDR out_cache_rows, GM_ADDR out_main_state, GM_ADDR out_main_cache, GM_ADDR out_idx_state, GM_ADDR out_idx_cache, GM_ADDR out_topk_scores, GM_ADDR out_topk_indices, GM_ADDR out_output, GM_ADDR workspace, GM_ADDR tiling) {
+extern "C" __global__ __aicore__ void dsf_csa_pto_bnn(GM_ADDR in_x, GM_ADDR in_hc_fn, GM_ADDR in_hc_scale, GM_ADDR in_hc_base, GM_ADDR in_hc_base_2d, GM_ADDR in_norm_w, GM_ADDR in_wq_a, GM_ADDR in_gamma_cq, GM_ADDR in_wq_b, GM_ADDR in_wq_b_scale, GM_ADDR in_rope_cos, GM_ADDR in_rope_sin, GM_ADDR in_wkv, GM_ADDR in_gamma_ckv, GM_ADDR in_native_slots, GM_ADDR in_cache_rows, GM_ADDR in_main_wkv, GM_ADDR in_main_wgate, GM_ADDR in_main_state, GM_ADDR in_main_state_table, GM_ADDR in_main_ape, GM_ADDR in_positions, GM_ADDR in_main_bounds, GM_ADDR in_main_lengths, GM_ADDR in_main_state_slots, GM_ADDR in_main_gamma, GM_ADDR in_main_cos, GM_ADDR in_main_sin, GM_ADDR in_main_slots, GM_ADDR in_main_cache, GM_ADDR in_idx_wkv, GM_ADDR in_idx_wgate, GM_ADDR in_idx_state, GM_ADDR in_idx_state_table, GM_ADDR in_idx_ape, GM_ADDR in_idx_bounds, GM_ADDR in_idx_lengths, GM_ADDR in_idx_state_slots, GM_ADDR in_idx_gamma, GM_ADDR in_idx_cos, GM_ADDR in_idx_sin, GM_ADDR in_idx_slots, GM_ADDR in_hadamard, GM_ADDR in_idx_cache, GM_ADDR in_original_table, GM_ADDR in_compressed_table, GM_ADDR in_indexer_table, GM_ADDR in_idx_wq_b, GM_ADDR in_idx_wq_b_scale, GM_ADDR in_weights_proj, GM_ADDR in_attn_sink, GM_ADDR in_wo_a, GM_ADDR in_wo_b, GM_ADDR in_wo_b_scale, GM_ADDR out_cache_rows, GM_ADDR out_main_state, GM_ADDR out_main_cache, GM_ADDR out_idx_state, GM_ADDR out_idx_cache, GM_ADDR out_output, GM_ADDR workspace, GM_ADDR tiling) {
 KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
 GET_TILING_DATA(data, tiling);
 GM_ADDR ext[] = {
@@ -31934,8 +31934,6 @@ in_indexer_table,
 in_idx_wq_b,
 in_idx_wq_b_scale,
 in_weights_proj,
-out_topk_scores,
-out_topk_indices,
 in_attn_sink,
 in_wo_a,
 in_wo_b,

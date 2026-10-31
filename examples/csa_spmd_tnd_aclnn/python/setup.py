@@ -24,7 +24,7 @@ manifest = json.loads(Path("bytenn_pto_ops/package_manifest.json").read_text())
 
 setup(
     name="bytenn_pto_ops",
-    version="0.1.0",
+    version="0.2.0",
     description="CSA TND SPMD ACLNN operator and packaged OPP vendor",
     packages=["bytenn_pto_ops"],
     package_data={"bytenn_pto_ops": ["**/*"]},

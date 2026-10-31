@@ -10,7 +10,7 @@ bool ValidDynamicShape(int64_t variant, Size size) {
   if (variant < 0 || variant >= kVariantCount) return false;
   const auto t = size(0, 0), b = size(36, 0);
   if (t <= 0 || b <= 0) return false;
-  for (int i : {10, 11, 14, 21, 24, 37, 50, 51, 56})
+  for (int i : {10, 11, 14, 21, 24, 37, 54})
     if (size(i, 0) != t) return false;
   for (int i : {19, 23, 33, 44, 45, 46})
     if (size(i, 0) != b) return false;

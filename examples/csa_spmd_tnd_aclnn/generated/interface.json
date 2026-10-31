@@ -487,26 +487,6 @@
       "layout": "NZ"
     },
     {
-      "name": "topk_scores",
-      "direction": "InOut",
-      "shape": [
-        -1,
-        512
-      ],
-      "dtype": "fp32",
-      "layout": "ND"
-    },
-    {
-      "name": "topk_indices",
-      "direction": "InOut",
-      "shape": [
-        -1,
-        512
-      ],
-      "dtype": "int32",
-      "layout": "ND"
-    },
-    {
       "name": "attn_sink",
       "direction": "In",
       "shape": [
@@ -608,10 +588,10 @@
     47,
     48,
     49,
+    50,
+    51,
     52,
-    53,
-    54,
-    55
+    53
   ],
   "outputs": [
     15,
@@ -619,8 +599,6 @@
     29,
     32,
     43,
-    50,
-    51,
-    56
+    54
   ]
 }

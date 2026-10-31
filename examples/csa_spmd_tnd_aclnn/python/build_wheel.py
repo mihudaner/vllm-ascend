@@ -129,7 +129,8 @@ def main():
         'import sys, torch, torch_npu; '
         'torch.ops.load_library(sys.argv[1]); '
         'schema = str(torch.ops.bytenn_pto_ops.dsf_csa_pto_bnn.default._schema); '
-        'assert schema == "bytenn_pto_ops::dsf_csa_pto_bnn(Tensor(a!)[] buffers, int variant) -> ()", schema',
+        'assert schema == "bytenn_pto_ops::dsf_csa_pto_bnn(Tensor(a!)[] buffers, int variant) -> ()", schema; '
+        'assert torch.ops.bytenn_pto_ops._tensor_count() == 55',
         str(library)], check=True)
     build.mkdir(parents=True)
     pkg = build / 'bytenn_pto_ops'

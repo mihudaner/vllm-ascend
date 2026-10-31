@@ -26,7 +26,7 @@ ge::graphStatus Tiling(gert::TilingContext* c) {
  const auto* v=c->GetAttrs()->GetInt(0);if(!v || *v!=0)return ge::GRAPH_FAILED;
  platform_ascendc::PlatformAscendC platform(c->GetPlatformInfo());
  if(platform.GetCoreNumAic()!=24 || platform.GetCoreNumAiv()!=48)return ge::GRAPH_FAILED;
- csa::Tensor ext[57]{};
+ csa::Tensor ext[55]{};
 if (!Read(c->GetInputShape(0), ext[0], 0, 2)) return ge::GRAPH_FAILED;
 if (ext[0].rank != 2) return ge::GRAPH_FAILED;
 if (ext[0].shapes[1] != 16384) return ge::GRAPH_FAILED;
@@ -178,31 +178,25 @@ if (!Read(c->GetInputShape(49), ext[49], 49, 2)) return ge::GRAPH_FAILED;
 if (ext[49].rank != 2) return ge::GRAPH_FAILED;
 if (ext[49].shapes[0] != 64) return ge::GRAPH_FAILED;
 if (ext[49].shapes[1] != 4096) return ge::GRAPH_FAILED;
-if (!Read(c->GetOutputShape(5), ext[50], 50, 4)) return ge::GRAPH_FAILED;
+if (!Read(c->GetInputShape(50), ext[50], 50, 4)) return ge::GRAPH_FAILED;
 if (ext[50].rank != 2) return ge::GRAPH_FAILED;
-if (ext[50].shapes[1] != 512) return ge::GRAPH_FAILED;
-if (!Read(c->GetOutputShape(6), ext[51], 51, 4)) return ge::GRAPH_FAILED;
-if (ext[51].rank != 2) return ge::GRAPH_FAILED;
-if (ext[51].shapes[1] != 512) return ge::GRAPH_FAILED;
-if (!Read(c->GetInputShape(50), ext[52], 52, 4)) return ge::GRAPH_FAILED;
+if (ext[50].shapes[0] != 64) return ge::GRAPH_FAILED;
+if (ext[50].shapes[1] != 1) return ge::GRAPH_FAILED;
+if (!Read(c->GetInputShape(51), ext[51], 51, 2)) return ge::GRAPH_FAILED;
+if (ext[51].rank != 3) return ge::GRAPH_FAILED;
+if (ext[51].shapes[0] != 8) return ge::GRAPH_FAILED;
+if (ext[51].shapes[1] != 4096) return ge::GRAPH_FAILED;
+if (ext[51].shapes[2] != 1024) return ge::GRAPH_FAILED;
+if (!Read(c->GetInputShape(52), ext[52], 52, 1)) return ge::GRAPH_FAILED;
 if (ext[52].rank != 2) return ge::GRAPH_FAILED;
-if (ext[52].shapes[0] != 64) return ge::GRAPH_FAILED;
-if (ext[52].shapes[1] != 1) return ge::GRAPH_FAILED;
-if (!Read(c->GetInputShape(51), ext[53], 53, 2)) return ge::GRAPH_FAILED;
-if (ext[53].rank != 3) return ge::GRAPH_FAILED;
-if (ext[53].shapes[0] != 8) return ge::GRAPH_FAILED;
-if (ext[53].shapes[1] != 4096) return ge::GRAPH_FAILED;
-if (ext[53].shapes[2] != 1024) return ge::GRAPH_FAILED;
-if (!Read(c->GetInputShape(52), ext[54], 54, 1)) return ge::GRAPH_FAILED;
+if (ext[52].shapes[0] != 8192) return ge::GRAPH_FAILED;
+if (ext[52].shapes[1] != 4096) return ge::GRAPH_FAILED;
+if (!Read(c->GetInputShape(53), ext[53], 53, 4)) return ge::GRAPH_FAILED;
+if (ext[53].rank != 1) return ge::GRAPH_FAILED;
+if (ext[53].shapes[0] != 4096) return ge::GRAPH_FAILED;
+if (!Read(c->GetOutputShape(5), ext[54], 54, 2)) return ge::GRAPH_FAILED;
 if (ext[54].rank != 2) return ge::GRAPH_FAILED;
-if (ext[54].shapes[0] != 8192) return ge::GRAPH_FAILED;
-if (ext[54].shapes[1] != 4096) return ge::GRAPH_FAILED;
-if (!Read(c->GetInputShape(53), ext[55], 55, 4)) return ge::GRAPH_FAILED;
-if (ext[55].rank != 1) return ge::GRAPH_FAILED;
-if (ext[55].shapes[0] != 4096) return ge::GRAPH_FAILED;
-if (!Read(c->GetOutputShape(7), ext[56], 56, 2)) return ge::GRAPH_FAILED;
-if (ext[56].rank != 2) return ge::GRAPH_FAILED;
-if (ext[56].shapes[1] != 16384) return ge::GRAPH_FAILED;
+if (ext[54].shapes[1] != 16384) return ge::GRAPH_FAILED;
  if(!csa::ValidDynamicShape(*v, [&](int i,int axis){return int64_t(ext[i].shapes[axis]);})) return ge::GRAPH_FAILED;
  csa::Layout layout{};
  try {layout=csa::Layout4(ext);} catch(const std::exception&) {return ge::GRAPH_FAILED;}
@@ -219,9 +213,7 @@ ge::graphStatus InferShape(gert::InferShapeContext* c){
 *c->GetOutputShape(2) = *c->GetInputShape(29);
 *c->GetOutputShape(3) = *c->GetInputShape(32);
 *c->GetOutputShape(4) = *c->GetInputShape(43);
-*c->GetOutputShape(5) = gert::Shape({c->GetInputShape(0)->GetDim(0),512});
-*c->GetOutputShape(6) = gert::Shape({c->GetInputShape(0)->GetDim(0),512});
-*c->GetOutputShape(7) = *c->GetInputShape(0);
+*c->GetOutputShape(5) = *c->GetInputShape(0);
 return ge::GRAPH_SUCCESS;}
 ge::graphStatus InferType(gert::InferDataTypeContext* c){
 c->SetOutputDataType(0,ge::DT_BF16);
@@ -229,9 +221,7 @@ c->SetOutputDataType(1,ge::DT_FLOAT);
 c->SetOutputDataType(2,ge::DT_BF16);
 c->SetOutputDataType(3,ge::DT_FLOAT);
 c->SetOutputDataType(4,ge::DT_INT8);
-c->SetOutputDataType(5,ge::DT_FLOAT);
-c->SetOutputDataType(6,ge::DT_INT32);
-c->SetOutputDataType(7,ge::DT_BF16);
+c->SetOutputDataType(5,ge::DT_BF16);
 return ge::GRAPH_SUCCESS;}
 }
 namespace ops {
@@ -295,8 +285,6 @@ Output("main_state_out").ParamType(REQUIRED).DataType({ge::DT_FLOAT}).Format({ge
 Output("main_cache_out").ParamType(REQUIRED).DataType({ge::DT_BF16}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
 Output("idx_state_out").ParamType(REQUIRED).DataType({ge::DT_FLOAT}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
 Output("idx_cache_out").ParamType(REQUIRED).DataType({ge::DT_INT8}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
-Output("topk_scores_out").ParamType(REQUIRED).DataType({ge::DT_FLOAT}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
-Output("topk_indices_out").ParamType(REQUIRED).DataType({ge::DT_INT32}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
 Output("output_out").ParamType(REQUIRED).DataType({ge::DT_BF16}).Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
  Attr("variant").AttrType(REQUIRED).Int();
  SetInferShape(InferShape).SetInferDataType(InferType);
